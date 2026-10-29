@@ -1,4 +1,10 @@
 export * from "./types.js";
+export * from "./hierarchy-selection.js";
+import {
+  createHierarchySelectionPlan,
+  HIERARCHY_SELECTION_LIMITS,
+  HierarchySelectionError,
+} from "./hierarchy-selection.js";
 export * from "./analytics.js";
 export * from "./datasource.js";
 export * from "./formulas.js";
@@ -449,14 +455,57 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     return [typeof value, String(value)];
   }
-  function group(groupRows: T[], depth: number, path: unknown[]): RowNode<T>[] {
-    if (depth >= state.groupBy.length)
-      return groupRows.map((row) => ({
-        id: idOf(row),
-        kind: "row",
-        data: row,
-        depth,
-      }));
+  type HierarchyBudget = { nodes: number; work: number; characters: number };
+  function takeHierarchyBudget(
+    budget: HierarchyBudget | undefined,
+    nodes: number,
+    work: number,
+    id?: string,
+  ) {
+    if (!budget) return;
+    budget.nodes += nodes;
+    budget.work += work;
+    budget.characters += id?.length ?? 0;
+    if (
+      budget.nodes > HIERARCHY_SELECTION_LIMITS.maxNodes ||
+      budget.work > HIERARCHY_SELECTION_LIMITS.maxProjectionWork ||
+      budget.characters > HIERARCHY_SELECTION_LIMITS.maxIdCharacters ||
+      (id?.length ?? 0) > HIERARCHY_SELECTION_LIMITS.maxIdLength
+    )
+      throw new HierarchySelectionError(
+        "LIMIT",
+        "hierarchy",
+        "Hierarchy projection resource budget exceeded",
+      );
+  }
+  function checkHierarchyPath(
+    budget: HierarchyBudget | undefined,
+    path: readonly string[],
+  ) {
+    if (!budget) return;
+    if (path.length > HIERARCHY_SELECTION_LIMITS.maxDepth + 1)
+      throw new HierarchySelectionError(
+        "LIMIT",
+        "hierarchy.path",
+        "Hierarchy path depth budget exceeded",
+      );
+    takeHierarchyBudget(budget, 0, path.length);
+  }
+  function group(
+    groupRows: T[],
+    depth: number,
+    path: unknown[],
+    budget?: HierarchyBudget,
+  ): RowNode<T>[] {
+    takeHierarchyBudget(budget, 0, groupRows.length);
+    if (depth >= state.groupBy.length) {
+      takeHierarchyBudget(budget, groupRows.length, 0);
+      return groupRows.map((row) => {
+        const id = idOf(row);
+        takeHierarchyBudget(budget, 0, 0, id);
+        return { id, kind: "row", data: row, depth };
+      });
+    }
     const id = state.groupBy[depth];
     const groups = new Map<unknown, T[]>();
     for (const row of groupRows) {
@@ -467,18 +516,20 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     return [...groups].map(([value, children]) => {
       const next = [...path, groupKey(value)];
+      const id = syntheticId(`group:${JSON.stringify(next)}`);
+      takeHierarchyBudget(budget, 1, 0, id);
       return {
-        id: syntheticId(`group:${JSON.stringify(next)}`),
+        id,
         kind: "group",
         depth,
         label: blank(value) ? "(blank)" : String(value),
-        children: group(children, depth + 1, next),
+        children: group(children, depth + 1, next, budget),
         leafCount: children.length,
-        aggregates: aggregates(children),
+        aggregates: budget ? undefined : aggregates(children),
       };
     });
   }
-  function tree(filtered: T[]): RowNode<T>[] {
+  function tree(filtered: T[], budget?: HierarchyBudget): RowNode<T>[] {
     interface Branch {
       path: string[];
       children: Map<string, Branch>;
@@ -489,6 +540,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     const allByPath = new Map<string, T>();
     for (const row of rows) {
       const path = options.getTreePath!(row);
+      checkHierarchyPath(budget, path);
       if (!path.length) throw new Error("Tree paths must not be empty");
       const key = JSON.stringify(path);
       if (allByPath.has(key)) throw new Error(`Duplicate tree path: ${key}`);
@@ -496,33 +548,43 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     for (const row of filtered) {
       const path = options.getTreePath!(row);
+      checkHierarchyPath(budget, path);
       let branch = root;
       for (let index = 0; index < path.length; index++) {
         const part = path[index];
-        if (!branch.children.has(part))
+        if (!branch.children.has(part)) {
+          takeHierarchyBudget(budget, 1, 0);
           branch.children.set(part, {
             path: path.slice(0, index + 1),
             children: new Map(),
             leaves: [],
           });
+        }
         branch = branch.children.get(part)!;
-        branch.leaves.push(row);
+        if (!budget) branch.leaves.push(row);
         branch.data = allByPath.get(JSON.stringify(branch.path));
       }
     }
     const visit = (branch: Branch): RowNode<T>[] =>
-      [...branch.children.values()].map((child) => ({
-        id: child.data
+      [...branch.children.values()].map((child) => {
+        const id = child.data
           ? idOf(child.data)
-          : syntheticId(`tree:${JSON.stringify(child.path)}`),
-        kind: child.data ? "row" : "group",
-        data: child.data,
-        label: child.path.at(-1),
-        depth: child.path.length - 1,
-        children: child.children.size ? visit(child) : undefined,
-        aggregates: child.children.size ? aggregates(child.leaves) : undefined,
-        leafCount: child.leaves.length,
-      }));
+          : syntheticId(`tree:${JSON.stringify(child.path)}`);
+        takeHierarchyBudget(budget, 0, 0, id);
+        return {
+          id,
+          kind: child.data ? "row" : "group",
+          data: child.data,
+          label: child.path.at(-1),
+          depth: child.path.length - 1,
+          children: child.children.size ? visit(child) : undefined,
+          aggregates:
+            !budget && child.children.size
+              ? aggregates(child.leaves)
+              : undefined,
+          leafCount: child.leaves.length,
+        };
+      });
     return visit(root);
   }
   function rowModel() {
@@ -758,6 +820,28 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       emit();
     },
     getFilteredRows: () => [...sortedFiltered()],
+    getHierarchySelectionPlan({ filtered = true } = {}) {
+      if (typeof filtered !== "boolean")
+        throw new TypeError("Hierarchy filtered option must be boolean");
+      if (
+        rows.length > HIERARCHY_SELECTION_LIMITS.maxRows ||
+        (!options.getTreePath &&
+          state.groupBy.length > HIERARCHY_SELECTION_LIMITS.maxDepth)
+      )
+        throw new HierarchySelectionError(
+          "LIMIT",
+          "hierarchy",
+          "Hierarchy source/depth budget exceeded",
+        );
+      const budget: HierarchyBudget = { nodes: 0, work: 0, characters: 0 };
+      const nodes = options.getTreePath
+        ? tree(rows, budget)
+        : group(rows, 0, [], budget);
+      return createHierarchySelectionPlan(
+        nodes,
+        filtered ? { eligibleRowIds: sortedFiltered().map(idOf) } : undefined,
+      );
+    },
     getRowModel: () => [...rowModel()],
     getPageRows() {
       const start =

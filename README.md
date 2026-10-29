@@ -75,7 +75,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 
 - Stable multi-column sort and typed text, numeric, date, boolean, BigInt and membership filter predicates; quick search and pagination.
 - Editable fields with parsers, validators, atomic batch changes and bounded undo/redo; add/update/remove transactions.
-- Single/multiple row selection, column resize/reorder/hide/pin and configuration chooser.
+- Single/multiple row selection and bounded all/filtered subtree selection with mixed native checkboxes; column resize/reorder/hide/pin and configuration chooser.
 - Variable-height row and fixed-width column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
 - Nested column-group headers, collapsible groups, per-row detail regions and independently editable nested grids.
 - Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
@@ -150,3 +150,5 @@ GitHub Actions runs these checks on push and pull requests. See [verification ev
 [Typed column conditions](docs/COLUMN_FILTERS.md): staged operators and flat AND/OR groups with exact integer/date inputs, source-conflict handling and stable native modal hosting.
 
 Use the [searchable choice editor](docs/RICH_SELECT.md) for virtualized string choices, asynchronous retry and explicit Apply/Cancel in cells or row forms. Try the Rich choice editor lab in the demo.
+
+Use [hierarchy selection](docs/HIERARCHY_SELECTION.md) for collapsed/off-page resident subtrees, native mixed states and filtered source eligibility. Source-backed tree parents participate when eligible; generated group IDs never enter selected data.

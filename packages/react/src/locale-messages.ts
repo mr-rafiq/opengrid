@@ -1,5 +1,9 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "hierarchy.changed": undefined;
+  "hierarchy.unavailable": undefined;
+  "hierarchy.selectSubtree": { label: string };
+  "hierarchy.selectPage": undefined;
   "richSelect.open": { label: string };
   "richSelect.title": { label: string };
   "richSelect.search": { label: string };
@@ -469,6 +473,10 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "hierarchy.changed": {},
+  "hierarchy.unavailable": {},
+  "hierarchy.selectSubtree": { label: "string" },
+  "hierarchy.selectPage": {},
   "richSelect.open": { label: "string" },
   "richSelect.title": { label: "string" },
   "richSelect.search": { label: "string" },

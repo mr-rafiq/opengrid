@@ -1,3 +1,4 @@
+import type { HierarchySelectionPlan } from "./hierarchy-selection.js";
 export type RowId = string;
 export type Pin = "left" | "right" | null;
 export type Aggregate =
@@ -138,6 +139,10 @@ export interface GridModel<T> {
   getValue(row: T, columnId: string): unknown;
   expireValueCache(): void;
   getFilteredRows(): T[];
+  /** Plan source subtrees independently of collapsed/page rows; filtered defaults to true. */
+  getHierarchySelectionPlan(options?: {
+    filtered?: boolean;
+  }): HierarchySelectionPlan;
   getRowModel(): RowNode<T>[];
   getPageRows(): RowNode<T>[];
   getPageCount(): number;

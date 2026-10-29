@@ -1,5 +1,10 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "hierarchy.changed": "The row hierarchy changed. Try selection again.",
+  "hierarchy.unavailable": "Hierarchy selection is unavailable.",
+  "hierarchy.selectSubtree": (params, _format) =>
+    `Select subtree ${params.label}`,
+  "hierarchy.selectPage": "Select page subtrees",
   "richSelect.open": (params, _format) => `Choose ${params.label}`,
   "richSelect.title": (params, _format) => `Choose ${params.label}`,
   "richSelect.search": (params, _format) => `Search ${params.label} choices`,

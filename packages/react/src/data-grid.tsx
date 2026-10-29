@@ -92,6 +92,11 @@ import type { ColumnSpanCell } from "./column-spans.js";
 import { createRowSpanPlan } from "./row-spans.js";
 import { createCombinedRowSpanPlan } from "./combined-spans.js";
 import type { RowSpanPlan, RowSpanRow } from "./row-spans.js";
+import {
+  useHierarchySelection,
+  type HierarchySelectionMode,
+} from "./use-hierarchy-selection.js";
+import { SelectionCheckbox } from "./selection-checkbox.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -124,6 +129,8 @@ export interface DataGridProps<T> {
   virtualizeColumns?: boolean;
   columnGroups?: boolean;
   selectionMode?: "single" | "multiple" | "none";
+  /** Multiple-selection subtrees include source parents; filtered actions retain hidden selections. */
+  hierarchySelection?: HierarchySelectionMode;
   cellSelection?: boolean;
   onCellRangeChange?: (range: CellRange | null) => void;
   editorOptions?: Record<string, EditorConfig>;
@@ -266,6 +273,7 @@ export function DataGrid<T>({
   virtualizeColumns = true,
   columnGroups = true,
   selectionMode = "multiple",
+  hierarchySelection = "self",
   cellSelection = true,
   onCellRangeChange,
   editorOptions = {},
@@ -384,6 +392,13 @@ export function DataGrid<T>({
   const rows = useMemo(
     () => projection.rows.map((entry) => entry.node),
     [projection],
+  );
+  const hierarchy = useHierarchySelection(
+    model,
+    state,
+    hierarchySelection,
+    selectionMode === "multiple",
+    rows,
   );
   const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
   const selectionWidth =
@@ -953,6 +968,12 @@ export function DataGrid<T>({
   }
   renderedRowIndices.sort((a, b) => a - b);
   const selected = new Set(state.selected);
+  function toggleSelectedNode(node: RowNode<T>) {
+    if (selectionMode === "none") return;
+    if (hierarchy.enabled) hierarchy.toggle([node.id]);
+    else if (node.kind === "row")
+      model.toggleSelection(node.id, selectionMode === "multiple");
+  }
   const keyOf = (row: number, id: string) =>
     JSON.stringify([rows[row]?.id ?? "", id]);
   const pageCount = model.getPageCount();
@@ -2109,9 +2130,12 @@ export function DataGrid<T>({
         else startEdit(node, column);
         return;
       case " ":
-        if (selectionMode !== "none" && node.kind === "row") {
+        if (
+          selectionMode !== "none" &&
+          (node.kind === "row" || hierarchy.enabled)
+        ) {
           event.preventDefault();
-          model.toggleSelection(node.id, selectionMode === "multiple");
+          toggleSelectedNode(node);
         }
         return;
       default:
@@ -2430,9 +2454,12 @@ export function DataGrid<T>({
         focusAt(pageTarget(row, -1), column, event.shiftKey);
         return;
       case " ":
-        if (selectionMode !== "none" && node.kind === "row") {
+        if (
+          selectionMode !== "none" &&
+          (node.kind === "row" || hierarchy.enabled)
+        ) {
           event.preventDefault();
-          model.toggleSelection(node.id, selectionMode === "multiple");
+          toggleSelectedNode(node);
         }
         return;
       case "F2":
@@ -2460,9 +2487,16 @@ export function DataGrid<T>({
   const visibleLeafIds = rows
     .filter((row) => row.kind === "row")
     .map((row) => row.id);
-  const allSelected =
-    visibleLeafIds.length > 0 && visibleLeafIds.every((id) => selected.has(id));
+  const pageSelection = hierarchy.pageState;
+  const allSelected = hierarchy.enabled
+    ? (pageSelection?.checked ?? false)
+    : visibleLeafIds.length > 0 &&
+      visibleLeafIds.every((id) => selected.has(id));
   function selectPage() {
+    if (hierarchy.enabled) {
+      hierarchy.toggle(rows.map((node) => node.id));
+      return;
+    }
     const next = new Set(state.selected);
     visibleLeafIds.forEach((id) =>
       allSelected ? next.delete(id) : next.add(id),
@@ -2488,7 +2522,10 @@ export function DataGrid<T>({
       const entry = projection.rows[row];
       const anchorOnly = rowSpanAnchorCells.get(row);
       const presentationDepth = entry.region === "body" ? node.depth : 0;
-      const isSelected = selected.has(node.id);
+      const subtreeSelection = hierarchy.resolved?.getState(node.id);
+      const isSelected = hierarchy.enabled
+        ? (subtreeSelection?.checked ?? false)
+        : selected.has(node.id);
       return (
         <Fragment key={node.id}>
           <div
@@ -2668,20 +2705,27 @@ export function DataGrid<T>({
                         {"\u2195"}
                       </button>
                     )}
-                    {node.kind === "row" && selectionMode !== "none" && (
-                      <input
-                        type="checkbox"
-                        tabIndex={-1}
-                        aria-label={t("grid.selectRow", { rowId: node.id })}
-                        checked={isSelected}
-                        onChange={() =>
-                          model.toggleSelection(
-                            node.id,
-                            selectionMode === "multiple",
-                          )
-                        }
-                      />
-                    )}
+                    {(node.kind === "row" || hierarchy.enabled) &&
+                      selectionMode !== "none" && (
+                        <SelectionCheckbox
+                          tabIndex={-1}
+                          label={
+                            hierarchy.enabled &&
+                            (node.kind === "group" || node.children?.length)
+                              ? t("hierarchy.selectSubtree", {
+                                  label: node.label ?? node.id,
+                                })
+                              : t("grid.selectRow", { rowId: node.id })
+                          }
+                          checked={isSelected}
+                          mixed={hierarchy.enabled && subtreeSelection?.mixed}
+                          disabled={
+                            hierarchy.enabled &&
+                            (!subtreeSelection || subtreeSelection.total === 0)
+                          }
+                          onChange={() => toggleSelectedNode(node)}
+                        />
+                      )}
                   </div>
                 )}
                 {spanWindowFor(row).map((entry) => {
@@ -3522,10 +3566,23 @@ export function DataGrid<T>({
                   style={{ width: selectionWidth, minWidth: selectionWidth }}
                 >
                   {selectionMode === "multiple" && (
-                    <input
-                      type="checkbox"
-                      aria-label={t("grid.selectPage")}
+                    <SelectionCheckbox
+                      label={
+                        hierarchy.enabled
+                          ? t("hierarchy.selectPage")
+                          : t("grid.selectPage")
+                      }
                       checked={allSelected}
+                      mixed={
+                        hierarchy.enabled
+                          ? pageSelection?.mixed
+                          : visibleLeafIds.some((id) => selected.has(id)) &&
+                            !allSelected
+                      }
+                      disabled={
+                        hierarchy.enabled &&
+                        (!pageSelection || pageSelection.total === 0)
+                      }
                       onChange={selectPage}
                     />
                   )}
@@ -3768,6 +3825,12 @@ export function DataGrid<T>({
       {error && (
         <div id={errorId} className="og-error" role="alert">
           {error}
+        </div>
+      )}
+      {hierarchy.error && (
+        <div className="og-error" role="alert" dir="auto">
+          {resolveMessage(hierarchy.error.notice)}
+          {hierarchy.error.detail && <> {hierarchy.error.detail}</>}
         </div>
       )}
       {rowEditing && rowEditing.model === model && editMode === "row" && (

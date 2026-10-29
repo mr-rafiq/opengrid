@@ -58,6 +58,7 @@ const labels = {
   "row-dragging-ui": "Managed row dragging",
   "row-editor-ui": "Row editor UI",
   "rich-select": "Searchable choice editors",
+  "hierarchy-selection": "Hierarchy selection",
   "remote-grids": "Remote React grids",
   "remote-models": "Remote data models",
   "show-values-as": "Analytical transforms",
@@ -77,6 +78,7 @@ const order = [
   "api",
   "editors",
   "rich-select",
+  "hierarchy-selection",
   "row-editor-ui",
   "row-edit",
   "row-reorder",
@@ -124,6 +126,7 @@ const section = (slug) =>
     : [
           "editors",
           "rich-select",
+          "hierarchy-selection",
           "row-editor-ui",
           "row-edit",
           "row-reorder",

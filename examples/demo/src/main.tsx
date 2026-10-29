@@ -29,6 +29,7 @@ import { SpanLab } from "./span-lab";
 import { RowSpanLab } from "./row-span-lab";
 import { CombinedSpanLab } from "./combined-span-lab";
 import { RichEditorLab } from "./rich-editor-lab";
+import { HierarchyLab } from "./hierarchy-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
@@ -198,6 +199,7 @@ function App() {
   const [rowSpansOpen, setRowSpansOpen] = useState(false);
   const [combinedSpansOpen, setCombinedSpansOpen] = useState(false);
   const [richEditorOpen, setRichEditorOpen] = useState(false);
+  const [hierarchyOpen, setHierarchyOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
@@ -758,6 +760,15 @@ function App() {
             Rich choice editor lab
           </button>
           {richEditorOpen && <RichEditorLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setHierarchyOpen(!hierarchyOpen)}
+            aria-expanded={hierarchyOpen}
+          >
+            Hierarchy selection lab
+          </button>
+          {hierarchyOpen && <HierarchyLab />}
         </section>
         <section className="pivot-panel">
           <button

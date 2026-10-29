@@ -1,4 +1,5 @@
 export * from "./data-grid.js";
+export type { HierarchySelectionMode } from "./use-hierarchy-selection.js";
 export * from "./editors.js";
 export { RichSelectEditor } from "./rich-select-editor.js";
 export type {
