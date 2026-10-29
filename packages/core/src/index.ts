@@ -107,6 +107,16 @@ export function csvCell(value: unknown): string {
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const columns = options.columns.map((column) => {
     if (
+      column.colSpan !== undefined &&
+      typeof column.colSpan !== "function" &&
+      (typeof column.colSpan !== "number" ||
+        !Number.isSafeInteger(column.colSpan) ||
+        column.colSpan < 1)
+    )
+      throw new TypeError(
+        "Column colSpan must be a positive safe integer or function",
+      );
+    if (
       column.valueCache !== undefined &&
       typeof column.valueCache !== "boolean"
     )

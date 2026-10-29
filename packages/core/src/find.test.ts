@@ -252,3 +252,112 @@ describe("formatted-cell Find", () => {
     expect(find.getSnapshot()).toBe(snapshot);
   });
 });
+
+describe("Find presentation eligibility", () => {
+  it("skips covered cell getters before evaluation while retaining formatted owner matches", () => {
+    const hidden = vi.fn(() => {
+      throw new Error("covered getter must not run");
+    });
+    const grid = createGrid({
+      rows: [{ id: "a", name: "visible alpha" }],
+      columns: [
+        {
+          id: "name",
+          field: "name",
+          valueFormatter: (value) => `Owner ${value}`,
+        },
+        { id: "covered", valueGetter: hidden },
+      ],
+      getRowId: (row) => row.id,
+    });
+    const find = createFindModel(grid, {
+      isCellSearchable: (position) => position.columnId !== "covered",
+    });
+    const state = grid.getState();
+    find.setQuery("Owner visible alpha");
+    expect(find.getSnapshot().matches).toEqual([p("a", "name")]);
+    expect(hidden).not.toHaveBeenCalled();
+    expect(grid.getState()).toBe(state);
+  });
+  it("refreshes dynamic eligibility, wraps only searchable matches and preserves stable snapshots when unchanged", () => {
+    const { grid } = fixture();
+    let excluded = "";
+    const eligible = vi.fn(
+      (position: { rowId: string }) => position.rowId !== excluded,
+    );
+    const find = createFindModel(grid, { isCellSearchable: eligible });
+    find.setQuery("alpha");
+    find.select(1);
+    excluded = "c";
+    find.refresh();
+    expect(find.getSnapshot()).toMatchObject({
+      matches: [p("a", "name")],
+      activeIndex: 0,
+    });
+    expect(find.next()).toEqual(p("a", "name"));
+    expect(find.previous()).toEqual(p("a", "name"));
+    excluded = "a";
+    find.refresh();
+    expect(find.getSnapshot().matches).toEqual([p("c", "name")]);
+    const state = find.getSnapshot(),
+      listener = vi.fn(),
+      unsubscribe = find.subscribe(listener);
+    find.refresh();
+    expect(find.getSnapshot()).toBe(state);
+    expect(listener).not.toHaveBeenCalled();
+    expect(
+      eligible.mock.calls.every(([position]) => Object.isFrozen(position)),
+    ).toBe(true);
+    unsubscribe();
+  });
+  it("composes eligibility with page order and hidden-column policy", () => {
+    const { grid } = fixture();
+    const find = createFindModel(grid, {
+      getRowIds: () => ["c", "a"],
+      includeHidden: true,
+      isCellSearchable: (position) => position.columnId !== "secret",
+    });
+    find.setQuery("alpha");
+    expect(find.getSnapshot().matches).toEqual([
+      p("c", "name"),
+      p("a", "name"),
+    ]);
+    grid.setFilter("name", { op: "contains", value: "Beta" });
+    expect(find.getSnapshot().matches).toEqual([]);
+  });
+  it("propagates eligibility errors without publishing a partial result and permits recovery", () => {
+    const { grid } = fixture();
+    const failure = new Error("predicate failed");
+    let fail = false;
+    const find = createFindModel(grid, {
+      isCellSearchable: () => {
+        if (fail) throw failure;
+        return true;
+      },
+    });
+    find.setQuery("alpha");
+    const state = find.getSnapshot(),
+      listener = vi.fn();
+    find.subscribe(listener);
+    fail = true;
+    expect(() => find.setQuery("Beta")).toThrow(failure);
+    expect(find.getSnapshot()).toBe(state);
+    expect(listener).not.toHaveBeenCalled();
+    fail = false;
+    find.setQuery("Beta");
+    expect(find.getSnapshot().matches).toEqual([p("b", "name")]);
+    expect(listener).toHaveBeenCalledTimes(1);
+    find.dispose();
+  });
+  it("validates the optional callback and performs no eligibility work for empty queries", () => {
+    const { grid } = fixture();
+    expect(() =>
+      createFindModel(grid, { isCellSearchable: true } as never),
+    ).toThrow("isCellSearchable");
+    const callback = vi.fn(() => true),
+      find = createFindModel(grid, { isCellSearchable: callback });
+    find.refresh();
+    find.setQuery("");
+    expect(callback).not.toHaveBeenCalled();
+  });
+});

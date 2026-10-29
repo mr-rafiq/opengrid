@@ -1,5 +1,15 @@
 # Verification record
 
+## Column spanning
+
+After recovering the Windows execution connection, strict typecheck passed and `npm test -- --maxWorkers=1` passed **811 tests in 41 files** (71.66 seconds). All package/declaration and production demo builds passed. New coverage includes 13 React integration scenarios, bounded immutable span planning, static metadata validation, covered-value Find exclusion and Strict Mode predicate lifecycle. Built React ESM smoke verified public geometry/window exports and merged right-pin offsets.
+
+The complete Chromium suite passed **43 scenarios with one worker in 1.5 minutes**. Span scenarios verify actual merged pixel widths, original logical ARIA indices, clipped pin regions, owner retention when its origin is outside the viewport, pinned overlay hit-testing, keyboard/editor Tab and undo, vertical focus remapping, Find counts after dynamic ownership edits, normal row selection and disabled rectangle controls. The span view passed an automated serious/critical axe scan. Existing 100,000-row and million-row browser regressions also passed.
+
+An eager row-plan allocation found in review was replaced with lazy geometry and a 256-entry LRU; a 10,000-row component regression checks bounded initial planning, scrolling and eviction/revisit. A cancelled covered editor now restores owner focus. No unrelated processes or system memory/security settings were changed. Row spans, remote span layout and merged export formats remain unsupported; no manual screen-reader or touch-device conformance is claimed.
+
+The production Pages build passed with 35 documentation routes, and all **9 site scenarios passed with one worker in 10.1 seconds**. The parity ledger records 4 Implemented, 51 Partial and 3 Missing broad categories, not a completion percentage.
+
 ## Managed row moving
 
 `npm run check` passed strict TypeScript, **751 tests in 38 files** (72.33 seconds), all three package builds and the production demo. New coverage includes 18 core reorder/history cases, an explicit server-facade guard and 23 React drag/control cases. A built-ESM smoke verified move/undo/redo, original row identity and transformed-view rejection. Move entries retain only moved IDs and original positions rather than two full-dataset snapshots.
@@ -78,4 +88,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, vertical row spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

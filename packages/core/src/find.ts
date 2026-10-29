@@ -5,6 +5,8 @@ export interface FindOptions {
   getRowIds?: () => string[];
   includeHidden?: boolean;
   caseSensitive?: boolean;
+  /** Skip covered/presentation-only cells before evaluating their value getters. */
+  isCellSearchable?: (position: CellPosition) => boolean;
 }
 export interface FindSnapshot {
   readonly query: string;
@@ -43,6 +45,11 @@ export function createFindModel<T>(
   grid: GridModel<T>,
   options: FindOptions = {},
 ): FindModel {
+  if (
+    options.isCellSearchable !== undefined &&
+    typeof options.isCellSearchable !== "function"
+  )
+    throw new TypeError("Find isCellSearchable must be a function");
   let snapshot = freezeSnapshot("", [], -1),
     observedState = grid.getState(),
     disposed = false;
@@ -90,6 +97,12 @@ export function createFindModel<T>(
     const matches: CellPosition[] = [];
     for (const rowId of ids)
       for (const column of columns) {
+        const position = { rowId, columnId: column.id };
+        if (
+          options.isCellSearchable &&
+          !options.isCellSearchable(Object.freeze(position))
+        )
+          continue;
         const row = data.get(rowId)!;
         const value = grid.getValue(row, column.id);
         const formatted = column.valueFormatter
@@ -100,8 +113,7 @@ export function createFindModel<T>(
         const haystack = options.caseSensitive
           ? String(formatted)
           : String(formatted).toLocaleLowerCase();
-        if (haystack.includes(needle))
-          matches.push({ rowId, columnId: column.id });
+        if (haystack.includes(needle)) matches.push(position);
       }
     const active = resetActive
       ? undefined

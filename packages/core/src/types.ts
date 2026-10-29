@@ -18,6 +18,7 @@ export interface Column<T> {
   type?: "text" | "number" | "boolean" | "date" | "bigint";
   valueGetter?: (row: T) => unknown;
   valueCache?: boolean;
+  colSpan?: number | ((row: T) => number);
   valueFormatter?: (value: unknown, row: T) => string;
   valueParser?: (value: unknown, row: T) => unknown;
   validate?: (value: unknown, row: T) => string | undefined;

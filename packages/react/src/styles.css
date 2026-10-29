@@ -619,3 +619,11 @@
   border-bottom: 1px solid var(--og-border);
   font-size: 12px;
 }
+.og-root .og-span-help {
+  margin: 0;
+  padding: 7px 16px;
+  color: var(--og-muted);
+  background: var(--og-surface);
+  border-bottom: 1px solid var(--og-border);
+  font-size: 12px;
+}

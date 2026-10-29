@@ -343,3 +343,9 @@ Schemas remain fixed per instance. Applying edited definitions recreates a model
 `model.moveRows(ids, targetId, "before" | "after")` moves resident rows in canonical order as one undo step. It returns an error string for invalid requests or disabled views, and `undefined` for success or a validated no-op. `getRowReorderStatus()` exposes an immutable allowed result or a precise reason without running user predicates. Selection and original row objects are preserved; `setRows` and transactions retain their existing history-reset semantics. See [history and validation](ROW_REORDER.md).
 
 Enable `DataGrid.rowDragging` for single-row native handles, before/after indicators, body-edge scrolling, Alt+Up/Down and accessible toolbar controls. Moves stay in the current page; sorting/filtering/grouping/tree/read-only models and incompatible active layouts disable movement visibly. `onRowMove` receives accepted non-noop operations. Foreign/stale/cancelled drags never write. See [React interaction and limits](ROW_DRAGGING_UI.md).
+
+## Column spans
+
+`Column.colSpan` accepts a positive safe integer or pure `(row) => number` callback. Client `DataGrid` clips spans to their pin region and renders only the owner, while preserving logical header/filter positions and ARIA column indices. Navigation, editing, notes and Find resolve owners; hidden/covered drafts cancel. Rectangular range, grid clipboard and fill operations are disabled visibly whenever span metadata is configured. Row selection, native editor text clipboard and separate full-row form fields remain available.
+
+The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getColumnSpanWindow` for bounded immutable geometry. Row spans, remote adapter layout and merged exports are unsupported. See [column spans](COLUMN_SPANS.md) for callback behavior, budgets, cache and focus semantics.

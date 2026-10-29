@@ -25,6 +25,7 @@ import { ImportLab } from "./import-lab";
 import { AlignedLab } from "./aligned-lab";
 import { HoldingSummary } from "./holding-summary";
 import { CalculatedLab } from "./calculated-lab";
+import { SpanLab } from "./span-lab";
 interface Holding {
   id: string;
   company: string;
@@ -184,6 +185,7 @@ function App() {
   const [customFilters, setCustomFilters] = useState(false);
   const [rowDragging, setRowDragging] = useState(false);
   const [calculatedOpen, setCalculatedOpen] = useState(false);
+  const [spansOpen, setSpansOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -702,6 +704,15 @@ function App() {
             Calculated columns lab
           </button>
           {calculatedOpen && <CalculatedLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setSpansOpen(!spansOpen)}
+            aria-expanded={spansOpen}
+          >
+            Column spans lab
+          </button>
+          {spansOpen && <SpanLab />}
         </section>
         <section className="pivot-panel">
           <button

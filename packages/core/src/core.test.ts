@@ -1293,3 +1293,52 @@ describe("per-column getter-cache opt-out", () => {
     ).toThrow(TypeError);
   });
 });
+
+describe("column span presentation metadata", () => {
+  it("preserves static/callback spans on defensive column copies without evaluating application code", () => {
+    const colSpan = vi.fn(() => 3),
+      input: Column<RecordRow>[] = [
+        { id: "name", field: "name", colSpan },
+        { id: "amount", field: "amount", colSpan: 2 },
+      ];
+    const model = grid({ columns: input });
+    expect(model.getColumns()[0].colSpan).toBe(colSpan);
+    expect(model.getColumns()[1].colSpan).toBe(2);
+    model.getValue(rows[0], "name");
+    model.setSort("name", "asc");
+    model.exportCsv();
+    expect(colSpan).not.toHaveBeenCalled();
+    input[0].colSpan = 99;
+    model.getColumns()[0].colSpan = 42;
+    expect(model.getColumns()[0].colSpan).toBe(colSpan);
+    expect(model.getRows()).toEqual(rows);
+  });
+  it.each([
+    0,
+    -1,
+    1.5,
+    NaN,
+    Infinity,
+    Number.MAX_SAFE_INTEGER + 1,
+    "2",
+    null,
+    true,
+    {},
+  ])("rejects invalid static colSpan %s at model creation", (colSpan) => {
+    expect(() =>
+      grid({
+        columns: [{ id: "name", colSpan } as unknown as Column<RecordRow>],
+      }),
+    ).toThrow("colSpan");
+  });
+  it("allows large safe spans for presentation-region clipping and undefined defaults", () => {
+    const model = grid({
+      columns: [
+        { id: "name", colSpan: Number.MAX_SAFE_INTEGER },
+        { id: "amount", colSpan: undefined },
+      ],
+    });
+    expect(model.getColumns()[0].colSpan).toBe(Number.MAX_SAFE_INTEGER);
+    expect(model.getColumns()[1].colSpan).toBeUndefined();
+  });
+});
