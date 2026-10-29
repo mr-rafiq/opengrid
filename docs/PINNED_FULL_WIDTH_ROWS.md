@@ -2,9 +2,9 @@
 
 This milestone uses existing model row identities and a current-view move
 projection. It does not create duplicate body copies or synthetic editable rows.
-The pure `createRowProjection` helper is implemented first; the DataGrid adapter
-integration is a separate step and must be verified before it is advertised as
-available in the grid component.
+`DataGrid` accepts `pinnedTopRowIds`, `pinnedBottomRowIds`, `isFullWidthRow` and
+`renderFullWidthRow`. The pure `createRowProjection` helper supplies the same
+projection to rendering, focus and range interactions.
 
 ## Current-view pin scope
 
@@ -25,6 +25,15 @@ The combined pin lists may contain at most 1,000 entries, including duplicates
 and unresolved IDs. Oversized or malformed requests are rejected before resolving
 rows or invoking full-width predicates. Pinned rows are intended for small sets;
 their bands will remain mounted rather than being vertically virtualized.
+Pinned leaf rows are presented at tree depth zero without modifying their source
+node or data. Pinning is current-view presentation state supplied by the host;
+it is not added to the core model's persisted grid state.
+
+Pinned bands share horizontal column scrolling, including pinned columns. Their
+declared variable heights and expanded detail heights reduce the scrolling body
+viewport. The requested `height` remains a minimum: if both bands and the header
+would consume the viewport, it expands to leave at least 64 pixels for the body.
+Body rows continue to use variable-height virtualization.
 
 ## Shared identity and range domain
 
@@ -34,27 +43,44 @@ cannot mutate the lookup index. The normal data rows in `rangeRowIds` are ordere
 as top, body and bottom. Groups and full-width rows are excluded because their
 ordinary column cells are not present.
 
-The adapter must use the same projection for rendering, focus, keyboard movement,
-range and Find callbacks, and ARIA row indices. Internal focus and DOM references
-must use logical row IDs rather than treating an old visual index as identity.
-Pinning or unpinning then moves the focused row without assigning its focus to
-another record. Core `CellPosition` remains an existing row ID and column ID.
+The adapter uses this projection for rendering, focus, keyboard movement, range
+and Find callbacks, and ARIA row indices. Internal focus and DOM references use
+logical row IDs. Pinning or unpinning moves the focused row without assigning its
+focus to another record, including when a whole-row edit dialog is open. Core
+`CellPosition` remains an existing row ID and column ID. Copy, paste and fill
+include ordinary cells across top, body and bottom in visual order. Pointer range
+auto-scroll uses the body edges after subtracting both pinned bands; hovering a
+pinned band retains its fixed target rather than scrolling the body underneath.
 
 ## Full-width rendering contract
 
-`isFullWidthRow(node)` classifies each source row once. Full-width classification
-is metadata at this stage; the projection helper does not render React content.
-The planned `renderFullWidthRow` context contains `node`, `rowId`, `rowPinned`
+`isFullWidthRow(node)` classifies each source row once. When supplying that
+predicate, also supply `renderFullWidthRow`. Its context contains `node`, `rowId`, `rowPinned`
 (`"top"`, `"bottom"` or `null`) and `viewportWidth`.
 
-A full-width adapter row must render one gridcell spanning the logical columns,
-using its existing declared row height. It remains a row-navigation target but
-does not invent a column identity for range selection. Its interactive renderer
-content owns its internal controls. Sorting and filtering remain model actions.
-This slice will not automatically measure renderer content or duplicate it into
+A full-width row renders one gridcell spanning the logical columns and the
+viewport width, using its existing declared row height. It remains a navigation
+target without inventing column cells for range selection or Find. Arrow keys
+visit its wrapper; Shift range extension skips its absent column cells. Enter on
+the wrapper focuses its first interactive descendant, and events from renderer
+controls or nested grids remain owned by that content. F2 can open the whole-row
+dialog when `editMode="row"`. Sorting and filtering remain model actions.
+The grid does not automatically measure renderer content or duplicate it into
 left, middle and right column sections.
 
-The forthcoming adapter integration must also verify sticky-band geometry,
-native keyboard and modal focus restoration, nested-grid ownership isolation,
-variable-height body virtualization, ARIA ordinals and real-browser positioning.
-The projection unit tests alone do not establish those behaviors.
+Full-width and master/detail rendering can coexist on the same source row. The
+full-width base keeps its own declared height; an expanded detail is a separate
+row immediately below it. Alt+Enter on the full-width wrapper toggles that detail.
+Both heights contribute to the band or body layout, and both rows are counted
+once in ARIA ordinals. Renderer controls retain responsibility for their own
+focus and keyboard behavior.
+
+The rowgroup wrappers expose `data-row-region="top|body|bottom"`. Row wrappers
+also expose `data-row-key`, and full-width rows have `data-full-width="true"`.
+Their focusable cells have `data-full-width-row-id` for precise testing.
+
+Automated component tests cover projection, focus, current-view scope, variable
+geometry, editing, cross-band range operations, detail ARIA and nested grids.
+Chromium checks verify stationary top/bottom bands through vertical scrolling,
+full-width viewport alignment through horizontal scrolling, and actual pointer
+auto-scroll boundaries. These checks do not claim screen-reader verification.

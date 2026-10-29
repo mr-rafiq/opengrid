@@ -8,6 +8,7 @@ import {
   type ValueTransform,
   type Column,
   type CellRange,
+  type RowNode,
 } from "@opengrid/core";
 import { DataGrid, GridChart, GridPrintView } from "@opengrid/react";
 import "@opengrid/react/styles.css";
@@ -17,6 +18,7 @@ import { RemoteLab } from "./remote-lab";
 import { HoldingDetail } from "./holding-detail";
 import { ImportLab } from "./import-lab";
 import { AlignedLab } from "./aligned-lab";
+import { HoldingSummary } from "./holding-summary";
 interface Holding {
   id: string;
   company: string;
@@ -137,6 +139,12 @@ const columns: Column<Holding>[] = [
     valueGetter: (r) => r.price,
   },
 ];
+const topHoldingPins = ["1", "2"] as const;
+const bottomHoldingPins = ["100"] as const;
+const isSummaryRow = (node: RowNode<Holding>) =>
+  node.kind === "row" && node.id === "3";
+const summaryRowHeight = (node: RowNode<Holding>) =>
+  isSummaryRow(node) ? 92 : 38;
 function App() {
   const [size, setSize] = useState(1000);
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
@@ -161,6 +169,8 @@ function App() {
   const [wide, setWide] = useState(false);
   const [groupHeaders, setGroupHeaders] = useState(false);
   const [rowEditing, setRowEditing] = useState(false);
+  const [pinnedRows, setPinnedRows] = useState(false);
+  const [fullWidthRows, setFullWidthRows] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -393,7 +403,15 @@ function App() {
               <h2>Portfolio explorer</h2>
               <span className="tag">v0.1 preview</span>
             </div>
-            <div className="view-controls">
+            <div
+              className="view-controls"
+              style={{
+                flex: "1 1 440px",
+                minWidth: 0,
+                flexWrap: "wrap",
+                justifyContent: "flex-end",
+              }}
+            >
               <button aria-pressed={wide} onClick={() => setWide(!wide)}>
                 Wide schema
               </button>
@@ -414,6 +432,18 @@ function App() {
                 onClick={() => setDetailsOpen(!detailsOpen)}
               >
                 Detail rows
+              </button>
+              <button
+                aria-pressed={pinnedRows}
+                onClick={() => setPinnedRows(!pinnedRows)}
+              >
+                Pinned rows
+              </button>
+              <button
+                aria-pressed={fullWidthRows}
+                onClick={() => setFullWidthRows(!fullWidthRows)}
+              >
+                Full-width rows
               </button>
               <label>
                 Rows{" "}
@@ -458,6 +488,16 @@ function App() {
           </div>
           <DataGrid
             model={model}
+            pinnedTopRowIds={pinnedRows ? topHoldingPins : undefined}
+            pinnedBottomRowIds={pinnedRows ? bottomHoldingPins : undefined}
+            isFullWidthRow={fullWidthRows ? isSummaryRow : undefined}
+            renderFullWidthRow={
+              fullWidthRows
+                ? ({ node }) =>
+                    node.data ? <HoldingSummary holding={node.data} /> : null
+                : undefined
+            }
+            getRowHeight={fullWidthRows ? summaryRowHeight : undefined}
             editMode={rowEditing ? "row" : "cell"}
             onCellRangeChange={setChartRange}
             editorOptions={{

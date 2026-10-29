@@ -37,6 +37,8 @@ export function useCellRanges<T>({
   getFocusedCell,
   onMessage,
   headerHeight = 76,
+  pinnedTopHeight = 0,
+  pinnedBottomHeight = 0,
 }: {
   model: GridModel<T>;
   rowIds: string[];
@@ -45,6 +47,8 @@ export function useCellRanges<T>({
   getFocusedCell: () => CellPosition | undefined;
   onMessage: (message: string, error?: boolean) => void;
   headerHeight?: number;
+  pinnedTopHeight?: number;
+  pinnedBottomHeight?: number;
 }) {
   const ids = useRef(rowIds);
   ids.current = rowIds;
@@ -86,7 +90,7 @@ export function useCellRanges<T>({
           .map((c, index) => [c.id, index]),
       ),
     }),
-    [model, gridState, rowIds.length],
+    [model, gridState, rowIds],
   );
   const range = snapshot.range;
   const bounds = range
@@ -148,18 +152,33 @@ export function useCellRanges<T>({
         container = viewport.current;
       if (!current || !container) return;
       const rect = container.getBoundingClientRect();
-      const top = rect.top + headerHeight,
-        bottom = rect.bottom,
+      const top = rect.top + headerHeight + pinnedTopHeight,
+        bottom = rect.bottom - pinnedBottomHeight,
         left = rect.left,
         right = rect.right;
-      const dy = current.y > bottom - 25 ? 20 : current.y < top + 25 ? -20 : 0;
+      const overPin =
+        (pinnedTopHeight > 0 &&
+          current.y >= rect.top + headerHeight &&
+          current.y < top) ||
+        (pinnedBottomHeight > 0 &&
+          current.y > bottom &&
+          current.y <= rect.bottom);
+      const dy = overPin
+        ? 0
+        : current.y > bottom - 25
+          ? 20
+          : current.y < top + 25
+            ? -20
+            : 0;
       const dx = current.x > right - 25 ? 24 : current.x < left + 25 ? -24 : 0;
       if (dy || dx) {
         container.scrollTop += dy;
         container.scrollLeft += dx;
         extendAt(
           Math.max(left + 2, Math.min(right - 2, current.x)),
-          Math.max(top + 2, Math.min(bottom - 2, current.y)),
+          overPin
+            ? current.y
+            : Math.max(top + 2, Math.min(bottom - 2, current.y)),
         );
       }
       frame = requestAnimationFrame(tick);
@@ -209,7 +228,7 @@ export function useCellRanges<T>({
       cancelAnimationFrame(frame);
       drag.current = null;
     };
-  }, [controller, viewport, headerHeight]);
+  }, [controller, viewport, headerHeight, pinnedTopHeight, pinnedBottomHeight]);
 
   function select(position: CellPosition, extend = false) {
     if (!controller || !ids.current.includes(position.rowId)) return;

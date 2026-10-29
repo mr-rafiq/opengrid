@@ -39,6 +39,8 @@ export interface EditorConfig {
 }
 import { getColumnWindow } from "./column-window.js";
 import type { ColumnWindowEntry } from "./column-window.js";
+import { createRowProjection } from "./row-projection.js";
+import type { FullWidthRowContext, RowRegion } from "./row-projection.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -50,6 +52,10 @@ export interface DataGridProps<T> {
   height?: number;
   rowHeight?: number;
   getRowHeight?: (node: RowNode<T>) => number;
+  pinnedTopRowIds?: readonly string[];
+  pinnedBottomRowIds?: readonly string[];
+  isFullWidthRow?: (node: RowNode<T>) => boolean;
+  renderFullWidthRow?: (context: FullWidthRowContext<T>) => ReactNode;
   renderDetail?: (context: { row: T; rowId: string }) => ReactNode;
   detailHeight?: number | ((row: T) => number);
   defaultExpandedDetailRows?: string[];
@@ -83,7 +89,7 @@ export interface DataGridProps<T> {
 }
 
 interface FocusCell {
-  row: number;
+  rowId: string;
   columnId: string;
 }
 interface Editing {
@@ -94,6 +100,7 @@ interface Editing {
 const text = (value: unknown) => (value == null ? "" : String(value));
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
+const EMPTY_ROW_IDS: readonly string[] = Object.freeze([]);
 const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
   <div
     key={entry.key}
@@ -110,6 +117,10 @@ export function DataGrid<T>({
   height = 480,
   rowHeight = 38,
   getRowHeight,
+  pinnedTopRowIds = EMPTY_ROW_IDS,
+  pinnedBottomRowIds = EMPTY_ROW_IDS,
+  isFullWidthRow,
+  renderFullWidthRow,
   renderDetail,
   detailHeight = 180,
   defaultExpandedDetailRows = [],
@@ -174,11 +185,29 @@ export function DataGrid<T>({
         node.depth > 0 ||
         Boolean(node.children?.length),
     );
-  const rows = pagination ? model.getPageRows() : rowModel;
-  const dataRowIds = useMemo(
-    () => rows.filter((node) => node.kind === "row").map((node) => node.id),
-    [model, state, pagination],
+  if (isFullWidthRow && !renderFullWidthRow)
+    throw new TypeError("Full-width rows require renderFullWidthRow");
+  const projection = useMemo(
+    () =>
+      createRowProjection(pagination ? model.getPageRows() : rowModel, {
+        pinnedTopRowIds,
+        pinnedBottomRowIds,
+        isFullWidthRow,
+      }),
+    [
+      model,
+      state,
+      pagination,
+      pinnedTopRowIds,
+      pinnedBottomRowIds,
+      isFullWidthRow,
+    ],
   );
+  const rows = useMemo(
+    () => projection.rows.map((entry) => entry.node),
+    [projection],
+  );
+  const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
   const selectionWidth = selectionMode === "none" ? 0 : 44;
   const widthOf = (column: Column<T>) =>
     Object.hasOwn(state.columnWidths, column.id)
@@ -201,14 +230,20 @@ export function DataGrid<T>({
   const viewport = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef(false);
   const cells = useRef(new Map<string, HTMLDivElement>());
+  const fullWidthCells = useRef(new Map<string, HTMLDivElement>());
+  const ownsCellFocus = useRef(false);
   const dragCleanup = useRef<(() => void) | undefined>(undefined);
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(1024);
   const [focus, setFocus] = useState<FocusCell>({
-    row: 0,
+    rowId: rows[0]?.id ?? "",
     columnId: columns[0]?.id ?? "",
   });
+  const focusRow = Math.max(
+    0,
+    rows.findIndex((node) => node.id === focus.rowId),
+  );
   const [editing, setEditing] = useState<Editing | null>(null);
   const editingRef = useRef<Editing | null>(null);
   const [rowEditing, setRowEditing] = useState<{
@@ -239,7 +274,7 @@ export function DataGrid<T>({
   const detailIds = expandedDetailRows ?? localDetails;
   const helpId = useId();
   const errorId = useId();
-  const safeHeight = Number.isFinite(height)
+  const requestedHeight = Number.isFinite(height)
     ? Math.max(140, headerHeight + 64, height)
     : Math.max(480, headerHeight + 64);
   const safeRowHeight = Number.isFinite(rowHeight)
@@ -299,10 +334,25 @@ export function DataGrid<T>({
       before.push(detailsBefore);
       if (detail) detailsBefore++;
     }
+    const makeLayout = (region: RowRegion) =>
+      createRowLayout(
+        projection[region].map(
+          (entry) =>
+            baseHeights[entry.visualIndex] + detailHeights[entry.visualIndex],
+        ),
+      );
+    const layouts = {
+      top: makeLayout("top"),
+      body: makeLayout("body"),
+      bottom: makeLayout("bottom"),
+    };
     return {
-      layout: createRowLayout(
-        baseHeights.map((height, index) => height + detailHeights[index]),
-      ),
+      layout: layouts.body,
+      layouts,
+      offset: (row: number) => {
+        const entry = projection.rows[row];
+        return layouts[entry.region].offset(entry.regionIndex);
+      },
       baseHeights,
       detailHeights,
       before,
@@ -312,35 +362,45 @@ export function DataGrid<T>({
     model,
     state,
     pagination,
+    projection,
     safeRowHeight,
     getRowHeight,
     renderDetail,
     detailHeight,
     JSON.stringify(detailIds),
   ]);
+  const pinnedTopHeight = rowGeometry.layouts.top.totalHeight;
+  const pinnedBottomHeight = rowGeometry.layouts.bottom.totalHeight;
+  const safeHeight = Math.max(
+    requestedHeight,
+    headerHeight + pinnedTopHeight + pinnedBottomHeight + 64,
+  );
+  const bodyViewportHeight =
+    safeHeight - headerHeight - pinnedTopHeight - pinnedBottomHeight;
   const { start: first, end: last } = rowGeometry.layout.window(
     scrollTop,
-    Math.max(0, safeHeight - headerHeight),
+    bodyViewportHeight,
     safeOverscan,
   );
-  const renderedRowIndices = Array.from(
-    { length: Math.max(0, last - first) },
-    (_, index) => first + index,
-  );
+  const renderedRowIndices = projection.body
+    .slice(first, last)
+    .map((entry) => entry.visualIndex);
   for (const retained of [
-    focus.row,
+    focusRow,
     editing ? rows.findIndex((node) => node.id === editing.rowId) : -1,
   ]) {
     if (
       retained >= 0 &&
       retained < rows.length &&
+      projection.rows[retained].region === "body" &&
       !renderedRowIndices.includes(retained)
     )
       renderedRowIndices.push(retained);
   }
   renderedRowIndices.sort((a, b) => a - b);
   const selected = new Set(state.selected);
-  const keyOf = (row: number, id: string) => JSON.stringify([row, id]);
+  const keyOf = (row: number, id: string) =>
+    JSON.stringify([rows[row]?.id ?? "", id]);
   const pageCount = model.getPageCount();
   const ranges = useCellRanges({
     model,
@@ -348,9 +408,11 @@ export function DataGrid<T>({
     enabled: cellSelection,
     viewport,
     headerHeight,
+    pinnedTopHeight,
+    pinnedBottomHeight,
     getFocusedCell: () =>
-      rows[focus.row]?.kind === "row"
-        ? { rowId: rows[focus.row].id, columnId: focus.columnId }
+      rows[focusRow]?.kind === "row" && !projection.rows[focusRow]?.fullWidth
+        ? { rowId: rows[focusRow].id, columnId: focus.columnId }
         : undefined,
     onMessage: (message, failed) => {
       setError(failed ? message : "");
@@ -431,7 +493,9 @@ export function DataGrid<T>({
     const maximum = Math.max(
       0,
       rowGeometry.layout.totalHeight +
-        headerHeight -
+        headerHeight +
+        pinnedTopHeight +
+        pinnedBottomHeight -
         (container.clientHeight || safeHeight),
     );
     if (container.scrollTop > maximum) {
@@ -446,18 +510,40 @@ export function DataGrid<T>({
     state.page,
     state.groupBy.join("\u0000"),
     headerHeight,
+    pinnedTopHeight,
+    pinnedBottomHeight,
   ]);
   useEffect(() => {
     setFocus((current) => ({
-      row: clamp(current.row, 0, Math.max(0, rows.length - 1)),
+      rowId: rows.some((node) => node.id === current.rowId)
+        ? current.rowId
+        : (rows[0]?.id ?? ""),
       columnId: columns.some((c) => c.id === current.columnId)
         ? current.columnId
         : (columns[0]?.id ?? ""),
     }));
-  }, [rows.length, columns.map((c) => c.id).join("\u0000")]);
+  }, [projection, columns.map((c) => c.id).join("\u0000")]);
+  useLayoutEffect(() => {
+    if (!ownsCellFocus.current || editing || rowEditing || noteEditing) return;
+    const row = projection.indexOf(focus.rowId);
+    if (row < 0) return;
+    const element = projection.rows[row].fullWidth
+      ? fullWidthCells.current.get(focus.rowId)
+      : cells.current.get(keyOf(row, focus.columnId));
+    if (
+      element &&
+      document.activeElement !== element &&
+      (!document.activeElement ||
+        document.activeElement === document.body ||
+        !document.activeElement.isConnected)
+    )
+      element.focus({ preventScroll: true });
+  }, [projection]);
   useLayoutEffect(() => {
     if (pendingFocus.current) {
-      const cell = cells.current.get(keyOf(focus.row, focus.columnId));
+      const cell = projection.rows[focusRow]?.fullWidth
+        ? fullWidthCells.current.get(rows[focusRow].id)
+        : cells.current.get(keyOf(focusRow, focus.columnId));
       if (cell) {
         cell.focus({ preventScroll: true });
         pendingFocus.current = false;
@@ -472,37 +558,53 @@ export function DataGrid<T>({
     anchor?: CellPosition,
     takeFocus = true,
   ) {
-    if (!rows.length || !columns.length) return;
+    if (!rows.length) return;
     row = clamp(row, 0, rows.length - 1);
+    if (extend && projection.rows[row].fullWidth) {
+      const step = row >= focusRow ? 1 : -1;
+      while (row >= 0 && row < rows.length && projection.rows[row].fullWidth)
+        row += step;
+      if (row < 0 || row >= rows.length) return;
+    }
+    if (!columns.length && !projection.rows[row].fullWidth) return;
     column = clamp(column, 0, columns.length - 1);
     if (extend && !ranges.controller?.getSnapshot().range) {
       if (anchor) ranges.select(anchor);
-      else if (rows[focus.row]?.kind === "row")
-        ranges.select({ rowId: rows[focus.row].id, columnId: focus.columnId });
+      else if (rows[focusRow]?.kind === "row")
+        ranges.select({ rowId: rows[focusRow].id, columnId: focus.columnId });
     }
-    if (rows[row].kind === "row")
+    if (
+      rows[row].kind === "row" &&
+      !projection.rows[row].fullWidth &&
+      columns[column]
+    )
       ranges.select(
         { rowId: rows[row].id, columnId: columns[column].id },
         extend,
       );
+    if (projection.rows[row].fullWidth && !extend) ranges.clear();
     const container = viewport.current;
     if (container) {
-      const top = rowGeometry.layout.offset(row);
+      const top = rowGeometry.offset(row);
       const visibleHeight = Math.max(
         safeRowHeight,
-        container.clientHeight - headerHeight,
+        (container.clientHeight || safeHeight) -
+          headerHeight -
+          pinnedTopHeight -
+          pinnedBottomHeight,
       );
-      if (top < container.scrollTop) container.scrollTop = top;
+      if (projection.rows[row].region === "body" && top < container.scrollTop)
+        container.scrollTop = top;
       else if (
-        top + rowGeometry.baseHeights[row] >
-        container.scrollTop + visibleHeight
+        projection.rows[row].region === "body" &&
+        top + rowGeometry.baseHeights[row] > container.scrollTop + visibleHeight
       )
         container.scrollTop =
           top + rowGeometry.baseHeights[row] - visibleHeight;
       setScrollTop(container.scrollTop);
       // Scroll unpinned columns into view without disturbing pinned columns.
       const target = columns[column];
-      if (!pinOf(target)) {
+      if (target && !projection.rows[row].fullWidth && !pinOf(target)) {
         const left = columns
           .slice(0, column)
           .reduce((x, c) => x + widthOf(c), selectionWidth);
@@ -524,7 +626,7 @@ export function DataGrid<T>({
       setScrollLeft(container.scrollLeft);
     }
     pendingFocus.current = takeFocus;
-    setFocus({ row, columnId: columns[column].id });
+    setFocus({ rowId: rows[row].id, columnId: columns[column]?.id ?? "" });
   }
 
   function cellStyle(column: Column<T>): CSSProperties {
@@ -640,8 +742,8 @@ export function DataGrid<T>({
   function openNote(position?: CellPosition) {
     const target =
       position ??
-      (rows[focus.row]?.kind === "row"
-        ? { rowId: rows[focus.row].id, columnId: focus.columnId }
+      (rows[focusRow]?.kind === "row"
+        ? { rowId: rows[focusRow].id, columnId: focus.columnId }
         : undefined);
     if (target && notes !== false) setNoteEditing(target);
   }
@@ -887,20 +989,10 @@ export function DataGrid<T>({
         if (event.ctrlKey || event.metaKey) targetRow = rows.length - 1;
         break;
       case "PageDown":
-        targetRow = Math.max(
-          row + 1,
-          rowGeometry.layout.indexAt(
-            rowGeometry.layout.offset(row) + safeHeight - headerHeight,
-          ),
-        );
+        targetRow = pageTarget(row, 1);
         break;
       case "PageUp":
-        targetRow = Math.min(
-          row - 1,
-          rowGeometry.layout.indexAt(
-            rowGeometry.layout.offset(row) - safeHeight + headerHeight,
-          ),
-        );
+        targetRow = pageTarget(row, -1);
         break;
       case "Enter":
       case "F2":
@@ -939,6 +1031,98 @@ export function DataGrid<T>({
     });
   }
 
+  function pageTarget(row: number, direction: 1 | -1) {
+    const entry = projection.rows[row];
+    if (!projection.body.length)
+      return clamp(row + direction, 0, rows.length - 1);
+    if (entry.region !== "body")
+      return direction > 0
+        ? projection.body[0].visualIndex
+        : projection.body.at(-1)!.visualIndex;
+    const index = rowGeometry.layout.indexAt(
+      rowGeometry.offset(row) + direction * bodyViewportHeight,
+    );
+    return projection.body[index]?.visualIndex ?? row;
+  }
+
+  function onFullWidthKey(event: KeyboardEvent<HTMLDivElement>, row: number) {
+    if (event.target !== event.currentTarget) return;
+    const node = rows[row];
+    const column = Math.max(
+      0,
+      columns.findIndex((item) => item.id === focus.columnId),
+    );
+    if (
+      event.altKey &&
+      event.key === "Enter" &&
+      renderDetail &&
+      node.kind === "row"
+    ) {
+      event.preventDefault();
+      toggleDetails(node.id);
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        focusAt(row + 1, column, event.shiftKey);
+        return;
+      case "ArrowUp":
+        event.preventDefault();
+        focusAt(row - 1, column, event.shiftKey);
+        return;
+      case "ArrowLeft":
+      case "ArrowRight":
+        event.preventDefault();
+        return;
+      case "Home":
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          focusAt(0, 0);
+        }
+        return;
+      case "End":
+        if (event.ctrlKey || event.metaKey) {
+          event.preventDefault();
+          focusAt(rows.length - 1, columns.length - 1);
+        }
+        return;
+      case "PageDown":
+        event.preventDefault();
+        focusAt(pageTarget(row, 1), column, event.shiftKey);
+        return;
+      case "PageUp":
+        event.preventDefault();
+        focusAt(pageTarget(row, -1), column, event.shiftKey);
+        return;
+      case " ":
+        if (selectionMode !== "none" && node.kind === "row") {
+          event.preventDefault();
+          model.toggleSelection(node.id, selectionMode === "multiple");
+        }
+        return;
+      case "F2":
+        if (editMode === "row" && columns[column]) {
+          event.preventDefault();
+          startEdit(node, columns[column]);
+        }
+        return;
+      case "Enter":
+        event.preventDefault();
+        if (node.kind === "group" && node.children?.length)
+          model.toggleExpanded(node.id);
+        else
+          event.currentTarget
+            .querySelector<HTMLElement>(
+              'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]',
+            )
+            ?.focus();
+        return;
+      default:
+        return;
+    }
+  }
+
   const visibleLeafIds = rows
     .filter((row) => row.kind === "row")
     .map((row) => row.id);
@@ -962,6 +1146,359 @@ export function DataGrid<T>({
     link.download = "opengrid.csv";
     link.click();
     URL.revokeObjectURL(url);
+  }
+
+  function renderRows(indices: readonly number[]) {
+    return indices.map((row) => {
+      const node = rows[row];
+      const entry = projection.rows[row];
+      const presentationDepth = entry.region === "body" ? node.depth : 0;
+      const isSelected = selected.has(node.id);
+      return (
+        <Fragment key={node.id}>
+          <div
+            role="row"
+            key={node.id}
+            data-row-region={entry.region}
+            data-row-key={node.id}
+            data-full-width={entry.fullWidth || undefined}
+            aria-rowindex={row + rowGeometry.before[row] + headerRows + 1}
+            aria-selected={selectionMode === "none" ? undefined : isSelected}
+            aria-level={hierarchical ? presentationDepth + 1 : undefined}
+            aria-expanded={
+              node.children?.length
+                ? state.expanded.includes(node.id)
+                : renderDetail && node.kind === "row"
+                  ? Boolean(rowGeometry.detailHeights[row])
+                  : undefined
+            }
+            className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : ""}`}
+            style={{
+              top: rowGeometry.offset(row),
+              height: rowGeometry.baseHeights[row],
+              width: "100%",
+            }}
+          >
+            {entry.fullWidth ? (
+              <div
+                role="gridcell"
+                aria-colindex={1}
+                aria-colspan={Math.max(
+                  1,
+                  columns.length + (selectionWidth ? 1 : 0),
+                )}
+                aria-readonly="true"
+                className="og-cell og-full-width-cell"
+                data-full-width-row-id={node.id}
+                data-row-region={entry.region}
+                tabIndex={focusRow === row ? 0 : -1}
+                ref={(element) => {
+                  if (element) fullWidthCells.current.set(node.id, element);
+                  else fullWidthCells.current.delete(node.id);
+                }}
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  width: viewportWidth,
+                  minWidth: viewportWidth,
+                  height: "100%",
+                  overflow: "auto",
+                  padding: 12,
+                }}
+                onFocus={(event) => {
+                  if (event.target === event.currentTarget) {
+                    ownsCellFocus.current = true;
+                    setFocus({
+                      rowId: node.id,
+                      columnId: focus.columnId || columns[0]?.id || "",
+                    });
+                    ranges.clear();
+                  }
+                }}
+                onBlur={(event) => {
+                  if (
+                    event.relatedTarget instanceof Element &&
+                    event.relatedTarget.closest(
+                      '[role="grid"],[role="treegrid"]',
+                    ) !== viewport.current
+                  )
+                    ownsCellFocus.current = false;
+                }}
+                onKeyDown={(event) => onFullWidthKey(event, row)}
+              >
+                {renderFullWidthRow?.({
+                  node,
+                  rowId: node.id,
+                  rowPinned: entry.region === "body" ? null : entry.region,
+                  viewportWidth,
+                })}
+              </div>
+            ) : (
+              <>
+                {selectionWidth > 0 && (
+                  <div
+                    role="gridcell"
+                    aria-colindex={1}
+                    className="og-selection og-cell"
+                    style={{
+                      width: selectionWidth,
+                      minWidth: selectionWidth,
+                    }}
+                  >
+                    {node.kind === "row" && (
+                      <input
+                        type="checkbox"
+                        tabIndex={-1}
+                        aria-label={`Select row ${node.id}`}
+                        checked={isSelected}
+                        onChange={() =>
+                          model.toggleSelection(
+                            node.id,
+                            selectionMode === "multiple",
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                )}
+                {columnEntries.map((entry) => {
+                  if (entry.kind === "spacer") return columnGap(entry);
+                  const index = entry.index,
+                    column = columns[index];
+                  const value = node.data
+                    ? model.getValue(node.data, column.id)
+                    : node.aggregates &&
+                        Object.hasOwn(node.aggregates, column.id)
+                      ? node.aggregates[column.id]
+                      : undefined;
+                  const isEditing =
+                    editMode === "cell" &&
+                    editing?.rowId === node.id &&
+                    editing.columnId === column.id;
+                  const display =
+                    node.data && column.valueFormatter
+                      ? column.valueFormatter(value, node.data)
+                      : text(value);
+                  return (
+                    <div
+                      key={column.id}
+                      role="gridcell"
+                      aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
+                      aria-readonly={!column.editable || node.kind !== "row"}
+                      aria-selected={
+                        cellSelection
+                          ? ranges.contains(node.id, column.id)
+                          : undefined
+                      }
+                      tabIndex={
+                        focusRow === row && focus.columnId === column.id
+                          ? 0
+                          : -1
+                      }
+                      ref={(element) => {
+                        const key = keyOf(row, column.id);
+                        if (element) cells.current.set(key, element);
+                        else cells.current.delete(key);
+                      }}
+                      data-row-id={node.id}
+                      data-column-id={column.id}
+                      className={`og-cell ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
+                      style={cellStyle(column)}
+                      title={display}
+                      onFocus={(event) => {
+                        if (event.target === event.currentTarget) {
+                          ownsCellFocus.current = true;
+                          setFocus({ rowId: node.id, columnId: column.id });
+                        }
+                      }}
+                      onBlur={(event) => {
+                        if (
+                          event.relatedTarget instanceof Element &&
+                          event.relatedTarget.closest(
+                            '[role="grid"],[role="treegrid"]',
+                          ) !== viewport.current
+                        )
+                          ownsCellFocus.current = false;
+                      }}
+                      onPointerDown={(event) =>
+                        ranges.begin(event, {
+                          rowId: node.id,
+                          columnId: column.id,
+                        })
+                      }
+                      onClick={(event) => {
+                        setFocus({ rowId: node.id, columnId: column.id });
+                        if (event.detail === 0)
+                          ranges.select(
+                            { rowId: node.id, columnId: column.id },
+                            event.shiftKey,
+                          );
+                      }}
+                      onDoubleClick={(event) => {
+                        if (
+                          event.target instanceof Element &&
+                          event.target.closest(
+                            'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
+                          )
+                        )
+                          return;
+                        startEdit(node, column);
+                      }}
+                      onKeyDown={(event) => onCellKey(event, node, column, row)}
+                    >
+                      {isEditing ? (
+                        renderEditorControl(node, column, row, index)
+                      ) : (
+                        <>
+                          {notes !== false &&
+                            node.kind === "row" &&
+                            notesStore.get({
+                              rowId: node.id,
+                              columnId: column.id,
+                            }) !== undefined && (
+                              <button
+                                type="button"
+                                tabIndex={-1}
+                                className="og-note-indicator"
+                                aria-label={`Edit note for ${column.header ?? column.id} row ${node.id}`}
+                                title={notesStore.get({
+                                  rowId: node.id,
+                                  columnId: column.id,
+                                })}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  openNote({
+                                    rowId: node.id,
+                                    columnId: column.id,
+                                  });
+                                }}
+                              >
+                                {"\u270e"}
+                              </button>
+                            )}
+                          {index === 0 && (
+                            <span
+                              className="og-tree-prefix"
+                              style={{
+                                paddingInlineStart: presentationDepth * 16,
+                              }}
+                            >
+                              {renderDetail && node.kind === "row" && (
+                                <button
+                                  type="button"
+                                  tabIndex={-1}
+                                  className="og-expand"
+                                  aria-label={`${rowGeometry.detailHeights[row] ? "Collapse" : "Expand"} details row ${node.id}`}
+                                  aria-expanded={Boolean(
+                                    rowGeometry.detailHeights[row],
+                                  )}
+                                  aria-controls={`${helpId}-detail-${encodeURIComponent(node.id)}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    toggleDetails(node.id);
+                                  }}
+                                >
+                                  {rowGeometry.detailHeights[row]
+                                    ? "\u229f"
+                                    : "\u229e"}
+                                </button>
+                              )}
+                              {node.children?.length ? (
+                                <button
+                                  type="button"
+                                  className="og-expand"
+                                  tabIndex={-1}
+                                  aria-label={`${state.expanded.includes(node.id) ? "Collapse" : "Expand"} ${node.label ?? node.id}`}
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    model.toggleExpanded(node.id);
+                                  }}
+                                >
+                                  {state.expanded.includes(node.id)
+                                    ? "\u25be"
+                                    : "\u25b8"}
+                                </button>
+                              ) : null}
+                            </span>
+                          )}
+                          <span className="og-cell-content">
+                            {node.kind === "group" && index === 0 ? (
+                              <>
+                                {node.label}{" "}
+                                <span className="og-group-count">
+                                  {node.leafCount}
+                                </span>
+                              </>
+                            ) : node.data && renderCell ? (
+                              renderCell({ value, row: node.data, column })
+                            ) : (
+                              display
+                            )}
+                          </span>
+                          {cellSelection &&
+                            ranges.isEnd({
+                              rowId: node.id,
+                              columnId: column.id,
+                            }) && (
+                              <button
+                                type="button"
+                                className="og-fill-handle"
+                                tabIndex={-1}
+                                aria-label="Drag to fill cells; Alt-drag extends a numeric series"
+                                onPointerDown={ranges.fillHandle}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (event.detail === 0) ranges.fill("down");
+                                }}
+                              />
+                            )}
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </div>
+          {rowGeometry.detailHeights[row] > 0 && node.data && (
+            <div
+              id={`${helpId}-detail-${encodeURIComponent(node.id)}`}
+              role="row"
+              aria-rowindex={row + rowGeometry.before[row] + headerRows + 2}
+              aria-level={hierarchical ? presentationDepth + 2 : undefined}
+              className="og-detail-row"
+              style={{
+                position: "absolute",
+                top: rowGeometry.offset(row) + rowGeometry.baseHeights[row],
+                height: rowGeometry.detailHeights[row],
+                width: "100%",
+              }}
+            >
+              <div
+                role="gridcell"
+                aria-colindex={1}
+                aria-colspan={Math.max(
+                  1,
+                  columns.length + (selectionWidth ? 1 : 0),
+                )}
+                style={{
+                  position: "sticky",
+                  left: 0,
+                  width: viewportWidth,
+                  height: "100%",
+                  overflow: "auto",
+                  padding: 12,
+                }}
+              >
+                <div role="region" aria-label={`Details for row ${node.id}`}>
+                  {renderDetail?.({ row: node.data, rowId: node.id })}
+                </div>
+              </div>
+            </div>
+          )}
+        </Fragment>
+      );
+    });
   }
 
   return (
@@ -1009,14 +1546,14 @@ export function DataGrid<T>({
                 type="button"
                 aria-haspopup="dialog"
                 disabled={
-                  rows[focus.row]?.kind !== "row" ||
+                  rows[focusRow]?.kind !== "row" ||
                   !columns.some(
                     (column) =>
                       column.editable && column.field && !column.valueGetter,
                   )
                 }
                 onClick={() => {
-                  const node = rows[focus.row];
+                  const node = rows[focusRow];
                   const column =
                     columns.find((column) => column.id === focus.columnId) ??
                     columns[0];
@@ -1197,7 +1734,7 @@ export function DataGrid<T>({
               if (event.key === "Escape") {
                 setFindOpen(false);
                 focusAt(
-                  focus.row,
+                  focusRow,
                   columns.findIndex((column) => column.id === focus.columnId),
                 );
               }
@@ -1250,20 +1787,32 @@ export function DataGrid<T>({
         aria-label={ariaLabel}
         aria-describedby={helpId}
         aria-rowcount={rows.length + rowGeometry.detailCount + headerRows}
-        aria-colcount={columns.length + (selectionWidth ? 1 : 0)}
+        aria-colcount={Math.max(1, columns.length + (selectionWidth ? 1 : 0))}
         aria-multiselectable={
           selectionMode === "multiple" || cellSelection || undefined
         }
         onCopy={ranges.onCopy}
         onPaste={ranges.onPaste}
         onScroll={(event) => {
+          if (event.target !== event.currentTarget) return;
           setScrollTop(event.currentTarget.scrollTop);
-          setScrollLeft(event.currentTarget.scrollLeft);
+          const left = Math.min(
+            Math.max(0, totalWidth - viewportWidth),
+            event.currentTarget.scrollLeft,
+          );
+          if (event.currentTarget.scrollLeft !== left)
+            event.currentTarget.scrollLeft = left;
+          setScrollLeft(left);
         }}
       >
         <div
           className="og-header"
-          style={{ width: Math.max(totalWidth, 1), minWidth: "100%" }}
+          style={{
+            width: Math.max(totalWidth, 1),
+            minWidth: "100%",
+            borderBottom: 0,
+            boxShadow: "inset 0 -1px 0 var(--og-border)",
+          }}
         >
           {groupDepth > 0 && (
             <HeaderGroupRows
@@ -1476,301 +2025,54 @@ export function DataGrid<T>({
             </div>
           </div>
         </div>
+        {projection.top.length > 0 && (
+          <div
+            role="rowgroup"
+            aria-label="Pinned top rows"
+            data-row-region="top"
+            className="og-pinned-row-band"
+            style={{
+              position: "sticky",
+              top: headerHeight,
+              zIndex: 5,
+              height: pinnedTopHeight,
+              width: Math.max(totalWidth, 1),
+              minWidth: "100%",
+            }}
+          >
+            {renderRows(projection.top.map((entry) => entry.visualIndex))}
+          </div>
+        )}
         <div
           role="rowgroup"
           className="og-body"
+          data-row-region="body"
           style={{
             height: rowGeometry.layout.totalHeight,
             width: Math.max(totalWidth, 1),
             minWidth: "100%",
           }}
         >
-          {renderedRowIndices.map((row) => {
-            const node = rows[row];
-            const isSelected = selected.has(node.id);
-            return (
-              <Fragment key={node.id}>
-                <div
-                  role="row"
-                  key={node.id}
-                  aria-rowindex={row + rowGeometry.before[row] + headerRows + 1}
-                  aria-selected={
-                    selectionMode === "none" ? undefined : isSelected
-                  }
-                  aria-level={hierarchical ? node.depth + 1 : undefined}
-                  aria-expanded={
-                    node.children?.length
-                      ? state.expanded.includes(node.id)
-                      : renderDetail && node.kind === "row"
-                        ? Boolean(rowGeometry.detailHeights[row])
-                        : undefined
-                  }
-                  className={`og-row ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : ""}`}
-                  style={{
-                    top: rowGeometry.layout.offset(row),
-                    height: rowGeometry.baseHeights[row],
-                    width: "100%",
-                  }}
-                >
-                  {selectionWidth > 0 && (
-                    <div
-                      role="gridcell"
-                      aria-colindex={1}
-                      className="og-selection og-cell"
-                      style={{
-                        width: selectionWidth,
-                        minWidth: selectionWidth,
-                      }}
-                    >
-                      {node.kind === "row" && (
-                        <input
-                          type="checkbox"
-                          tabIndex={-1}
-                          aria-label={`Select row ${node.id}`}
-                          checked={isSelected}
-                          onChange={() =>
-                            model.toggleSelection(
-                              node.id,
-                              selectionMode === "multiple",
-                            )
-                          }
-                        />
-                      )}
-                    </div>
-                  )}
-                  {columnEntries.map((entry) => {
-                    if (entry.kind === "spacer") return columnGap(entry);
-                    const index = entry.index,
-                      column = columns[index];
-                    const value = node.data
-                      ? model.getValue(node.data, column.id)
-                      : node.aggregates &&
-                          Object.hasOwn(node.aggregates, column.id)
-                        ? node.aggregates[column.id]
-                        : undefined;
-                    const isEditing =
-                      editMode === "cell" &&
-                      editing?.rowId === node.id &&
-                      editing.columnId === column.id;
-                    const display =
-                      node.data && column.valueFormatter
-                        ? column.valueFormatter(value, node.data)
-                        : text(value);
-                    return (
-                      <div
-                        key={column.id}
-                        role="gridcell"
-                        aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
-                        aria-readonly={!column.editable || node.kind !== "row"}
-                        aria-selected={
-                          cellSelection
-                            ? ranges.contains(node.id, column.id)
-                            : undefined
-                        }
-                        tabIndex={
-                          focus.row === row && focus.columnId === column.id
-                            ? 0
-                            : -1
-                        }
-                        ref={(element) => {
-                          const key = keyOf(row, column.id);
-                          if (element) cells.current.set(key, element);
-                          else cells.current.delete(key);
-                        }}
-                        data-row-id={node.id}
-                        data-column-id={column.id}
-                        className={`og-cell ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
-                        style={cellStyle(column)}
-                        title={display}
-                        onFocus={(event) => {
-                          if (event.target === event.currentTarget)
-                            setFocus({ row, columnId: column.id });
-                        }}
-                        onPointerDown={(event) =>
-                          ranges.begin(event, {
-                            rowId: node.id,
-                            columnId: column.id,
-                          })
-                        }
-                        onClick={(event) => {
-                          setFocus({ row, columnId: column.id });
-                          if (event.detail === 0)
-                            ranges.select(
-                              { rowId: node.id, columnId: column.id },
-                              event.shiftKey,
-                            );
-                        }}
-                        onDoubleClick={(event) => {
-                          if (
-                            event.target instanceof Element &&
-                            event.target.closest(
-                              'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
-                            )
-                          )
-                            return;
-                          startEdit(node, column);
-                        }}
-                        onKeyDown={(event) =>
-                          onCellKey(event, node, column, row)
-                        }
-                      >
-                        {isEditing ? (
-                          renderEditorControl(node, column, row, index)
-                        ) : (
-                          <>
-                            {notes !== false &&
-                              node.kind === "row" &&
-                              notesStore.get({
-                                rowId: node.id,
-                                columnId: column.id,
-                              }) !== undefined && (
-                                <button
-                                  type="button"
-                                  tabIndex={-1}
-                                  className="og-note-indicator"
-                                  aria-label={`Edit note for ${column.header ?? column.id} row ${node.id}`}
-                                  title={notesStore.get({
-                                    rowId: node.id,
-                                    columnId: column.id,
-                                  })}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    openNote({
-                                      rowId: node.id,
-                                      columnId: column.id,
-                                    });
-                                  }}
-                                >
-                                  {"\u270e"}
-                                </button>
-                              )}
-                            {index === 0 && (
-                              <span
-                                className="og-tree-prefix"
-                                style={{ paddingInlineStart: node.depth * 16 }}
-                              >
-                                {renderDetail && node.kind === "row" && (
-                                  <button
-                                    type="button"
-                                    tabIndex={-1}
-                                    className="og-expand"
-                                    aria-label={`${rowGeometry.detailHeights[row] ? "Collapse" : "Expand"} details row ${node.id}`}
-                                    aria-expanded={Boolean(
-                                      rowGeometry.detailHeights[row],
-                                    )}
-                                    aria-controls={`${helpId}-detail-${encodeURIComponent(node.id)}`}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      toggleDetails(node.id);
-                                    }}
-                                  >
-                                    {rowGeometry.detailHeights[row]
-                                      ? "\u229f"
-                                      : "\u229e"}
-                                  </button>
-                                )}
-                                {node.children?.length ? (
-                                  <button
-                                    type="button"
-                                    className="og-expand"
-                                    tabIndex={-1}
-                                    aria-label={`${state.expanded.includes(node.id) ? "Collapse" : "Expand"} ${node.label ?? node.id}`}
-                                    onClick={(event) => {
-                                      event.stopPropagation();
-                                      model.toggleExpanded(node.id);
-                                    }}
-                                  >
-                                    {state.expanded.includes(node.id)
-                                      ? "\u25be"
-                                      : "\u25b8"}
-                                  </button>
-                                ) : null}
-                              </span>
-                            )}
-                            <span className="og-cell-content">
-                              {node.kind === "group" && index === 0 ? (
-                                <>
-                                  {node.label}{" "}
-                                  <span className="og-group-count">
-                                    {node.leafCount}
-                                  </span>
-                                </>
-                              ) : node.data && renderCell ? (
-                                renderCell({ value, row: node.data, column })
-                              ) : (
-                                display
-                              )}
-                            </span>
-                            {cellSelection &&
-                              ranges.isEnd({
-                                rowId: node.id,
-                                columnId: column.id,
-                              }) && (
-                                <button
-                                  type="button"
-                                  className="og-fill-handle"
-                                  tabIndex={-1}
-                                  aria-label="Drag to fill cells; Alt-drag extends a numeric series"
-                                  onPointerDown={ranges.fillHandle}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    if (event.detail === 0) ranges.fill("down");
-                                  }}
-                                />
-                              )}
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-                {rowGeometry.detailHeights[row] > 0 && node.data && (
-                  <div
-                    id={`${helpId}-detail-${encodeURIComponent(node.id)}`}
-                    role="row"
-                    aria-rowindex={
-                      row + rowGeometry.before[row] + headerRows + 2
-                    }
-                    aria-level={hierarchical ? node.depth + 2 : undefined}
-                    className="og-detail-row"
-                    style={{
-                      position: "absolute",
-                      top:
-                        rowGeometry.layout.offset(row) +
-                        rowGeometry.baseHeights[row],
-                      height: rowGeometry.detailHeights[row],
-                      width: "100%",
-                    }}
-                  >
-                    <div
-                      role="gridcell"
-                      aria-colindex={1}
-                      aria-colspan={Math.max(
-                        1,
-                        columns.length + (selectionWidth ? 1 : 0),
-                      )}
-                      style={{
-                        position: "sticky",
-                        left: 0,
-                        width: viewportWidth,
-                        height: "100%",
-                        overflow: "auto",
-                        padding: 12,
-                      }}
-                    >
-                      <div
-                        role="region"
-                        aria-label={`Details for row ${node.id}`}
-                      >
-                        {renderDetail?.({ row: node.data, rowId: node.id })}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </Fragment>
-            );
-          })}
+          {renderRows(renderedRowIndices)}
         </div>
+        {projection.bottom.length > 0 && (
+          <div
+            role="rowgroup"
+            aria-label="Pinned bottom rows"
+            data-row-region="bottom"
+            className="og-pinned-row-band"
+            style={{
+              position: "sticky",
+              bottom: 0,
+              zIndex: 5,
+              height: pinnedBottomHeight,
+              width: Math.max(totalWidth, 1),
+              minWidth: "100%",
+            }}
+          >
+            {renderRows(projection.bottom.map((entry) => entry.visualIndex))}
+          </div>
+        )}
         {rows.length === 0 && (
           <div className="og-empty" role="status">
             No matching rows

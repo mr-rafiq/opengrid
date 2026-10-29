@@ -89,6 +89,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Display-only aggregation percentages, running totals and prior differences, with exact BigInt fractions and explicit parent denominators.
 - Bounded static print snapshots with explicit refresh, hierarchy/formatting and isolated browser print layout.
 - Shared column-order/width/visibility/pinning synchronization across models, with independent row state and disposal.
+- Unique current-view rows in sticky top/bottom bands, with stable-ID focus/editing/ranges; custom full-width rows with declared heights and detail regions.
 
 The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 

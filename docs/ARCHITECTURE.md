@@ -35,6 +35,8 @@ The client pipeline filters, stably sorts, builds groups or a path tree, flatten
 
 Rows remain resident regardless of DOM window size. Horizontal windowing uses fixed column widths and spacers while preserving total width, logical ARIA indices and pinned/focused columns. Client rows now support explicit variable heights through prefix-sum geometry; detail blocks add known heights to that layout. No DOM measuring/automatic asynchronous size observation, merged spans or RTL is supplied. Offscreen keyboard navigation scrolls and restores focus after the target cell mounts. Nested group headers retain logical spans and split at pin/order boundaries; client collapse keeps one representative leaf and restores prior visibility.
 
+Row projection resolves current-view leaf IDs into unique top/body/bottom bands before rendering and navigation. Focus and cell references use stable row IDs, not mutable visual indices. Only the body virtualizes; both sticky bands remain mounted and subtract their known heights from body/fill-scroll geometry. Full-width rows keep one colspan cell, retain optional detail blocks, and omit absent per-column cells from range/Find domains. Projection never changes core sort/filter/page/export state. See [row bands](PINNED_FULL_WIDTH_ROWS.md).
+
 ## State, edits and ranges
 
 The client model owns data and view state; React owns transient focus, editor drafts and pointer interactions. Retain one model per grid and subscribe through stable snapshots. Snapshot consumers must not mutate returned state or borrowed row payloads. JSON persistence needs explicit BigInt encoding and a future migration/version policy.

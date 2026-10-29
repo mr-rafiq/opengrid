@@ -1,5 +1,11 @@
 # Verification record
 
+## Pinned and full-width row milestone
+
+`npm run check` passed strict TypeScript, **658 tests in 33 files** (23.57 seconds), all three package builds and the production example build. The full Chromium suite passed **33 scenarios in 33.2 seconds**. Fifteen new component cases exercise pin resolution, stable-ID focus through pin changes, modal restoration, range copy/paste/fill/undo, tree presentation without source mutation, full-width exclusion, details and nested-grid event isolation.
+
+Browser evidence verifies stationary top/bottom row boxes across body scrolling, original-ID editing/undo and Ctrl+End focus, full-width controls and keyboard navigation, clipboard transactions crossing pin bands while excluding absent cells, declared 92+360-pixel full-width/detail geometry, logical ARIA counts and no serious/critical axe violations in the combined view. Separate browser diagnostics verified full-width horizontal alignment and body-edge auto-scroll stopping inside pin bands. No manual assistive-technology or touch-device claim is made.
+
 ## Display tools milestone
 
 This milestone adds five percentage projections (with explicit caller-provided parent denominators), running totals and prior differences, exact BigInt ratios, a bounded captured print view, and shared-column model alignment. The demo exposes transform selection, print refresh/layout and two independently sorted grids with synchronized columns. The separate row-projection helper has tests and design documentation; pinned/full-width DataGrid integration is still pending.
@@ -52,4 +58,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, pinned/arbitrary full-width rows, row dragging, multi/custom filter-component lifecycles, localization/touch coverage, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, row dragging, multi/custom filter-component lifecycles, localization/touch coverage, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

@@ -526,3 +526,17 @@
   border: 0;
   z-index: 4;
 }
+.og-root .og-pinned-row-band {
+  background: var(--og-bg);
+}
+.og-root .og-pinned-row {
+  background: var(--og-surface);
+  box-shadow:
+    0 1px 0 var(--og-border),
+    0 -1px 0 var(--og-border);
+}
+.og-root .og-full-width-cell {
+  display: block;
+  white-space: normal;
+  align-content: center;
+}
