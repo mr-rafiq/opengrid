@@ -15,7 +15,10 @@
     "dev": "npm run dev -w opengrid-demo",
     "check": "npm run typecheck && npm test && npm run build",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "build:pages": "node scripts/build-pages.mjs",
+    "test:site": "playwright test --config examples/site/playwright.config.ts",
+    "dev:site": "npm run dev -w opengrid-site"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",

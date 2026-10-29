@@ -1,5 +1,7 @@
 # OpenGrid
 
+[Showcase and documentation](https://mr-rafiq.github.io/opengrid/) · [Interactive playground](https://mr-rafiq.github.io/opengrid/demo/)
+
 An original **MIT-licensed React and TypeScript data grid**, built around a framework-neutral engine. Sorting, filtering, editing, grouping, aggregation, tree data, column controls and virtualized rendering are usable today. This is an early preview with its own API, not a drop-in AG Grid replacement.
 
 The long-term goal covers Community and Enterprise feature families in AG Grid **36.2.0**. Full parity has **not** been achieved. The [feature ledger](docs/FEATURE_PARITY.md) identifies working subsets, limitations and missing capabilities with links to the reference documentation. All OpenGrid functionality in this repository is MIT licensed.
