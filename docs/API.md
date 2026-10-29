@@ -1,6 +1,6 @@
 # API guide
 
-This is OpenGrid's API, not an AG Grid compatibility layer. The source of truth for complete types is [`packages/core/src/types.ts`](../packages/core/src/types.ts) and the exported React props in [`packages/react/src/index.tsx`](../packages/react/src/index.tsx). See the [parity ledger](FEATURE_PARITY.md) for supported subsets and missing systems.
+This is OpenGrid's API, not an AG Grid compatibility layer. The source of truth for complete types is [`packages/core/src/types.ts`](../packages/core/src/types.ts) and the exported client React props in [`data-grid.tsx`](../packages/react/src/data-grid.tsx), with public exports in [`index.tsx`](../packages/react/src/index.tsx). See the [parity ledger](FEATURE_PARITY.md) for supported subsets and missing systems.
 
 ## Creating a model
 
@@ -112,7 +112,7 @@ model.undo();
 model.redo();
 ```
 
-Edit methods return `undefined` on success or a validation/error string. Parsing and validation precede publication. One invalid member cancels the whole batch; a successful batch creates one undo unit. Row-ID edits are rejected. Default history limit is 100. New edits invalidate redo. This is an atomic API batch, not a staged full-row/multi-editor UI.
+Edit methods return `undefined` on success or a validation/error string. Parsing and validation precede publication. One invalid member cancels the whole batch; a successful batch creates one undo unit. Row-ID edits are rejected. Default history limit is 100. New edits invalidate redo. This batch API remains distinct from the staged whole-row session and modal workflow described below.
 
 ## Groups, aggregates and trees
 
@@ -189,7 +189,7 @@ This loader is independent of `DataGrid`; an application must integrate its rows
 
 **`LiveViewportRowModel<T>`** subscribes to a buffered absolute-index window, merges server-pushed rows/counts, validates batches, retains overlap, rejects stale-generation callbacks, retries failures and invokes synchronous/asynchronous cleanup. The application supplies its transport and backend; no WebSocket service or reconnect/backoff framework is bundled.
 
-Both are independent store/provider APIs, not automatic `DataGrid` remote binding. Loading/error placeholders, recursive remote expansion, result-column rendering, server selection and persistence integration remain application work. See [remote model contracts](REMOTE_MODELS.md) for request/response shapes and examples.
+Both stores remain independent of the client `DataGrid`, with separate read-only React bindings. `ServerDataGrid` renders authoritative blocks, server sort/filter, route drilldown/breadcrumbs, paging, loading/retry and loaded-page selection. It has no mixed-route expansion, server-wide selection/write editing or automatic pivot schema. `LiveViewportDataGrid` binds sparse absolute indexes, placeholders, scrolling subscriptions and logical keyboard focus, with bounded physical scroll space. It is fixed-height/read-only; query configuration is external and interactive selection/column editing are absent. Unmount detaches React observers; the model owner calls dispose. See [provider contracts](REMOTE_MODELS.md) and [binding APIs](REMOTE_GRIDS.md).
 
 ## Cell ranges, clipboard and fill
 
@@ -221,7 +221,7 @@ ranges.dispose();
 
 Both default to filtered/sorted data rows and visible columns; group collapse/pagination do not restrict them. `selectedOnly` requires a matching `getRowId` callback. XLSX defaults to raw typed values; PDF defaults to formatters. Exporters do not infer custom React cell DOM content or initiate downloads themselves.
 
-XLSX supports multiple sheets, typed cells, widths/colors/number formats, freeze panes, tables and explicitly opted-in formula descriptors. BigInt is written as exact decimal text. Ordinary formula-like text stays a string. Images/notes/hyperlinks/protection/group layout and native import remain absent. PDF provides A4/Letter pagination, wrapping/repeated headers and page numbers, using WinAnsi Helvetica; unsupported Unicode/CJK/RTL text rejects. No custom fonts, images, links, watermarks or horizontal pagination are supplied.
+XLSX supports multiple sheets, typed cells, widths/colors/number formats, freeze panes, tables and explicitly opted-in formula descriptors. BigInt is written as exact decimal text. Ordinary formula-like text stays a string. Images/notes/hyperlinks/protection/group layout remain absent. A separate bounded `importXlsx` is now exported; see the import section below. PDF provides A4/Letter pagination, wrapping/repeated headers and page numbers, using WinAnsi Helvetica; unsupported Unicode/CJK/RTL text rejects. No custom fonts, images, links, watermarks or horizontal pagination are supplied.
 
 ## React adapter
 
@@ -248,7 +248,7 @@ Arrow keys move cell focus; Home/End move across a row; Control/Command Home/End
 
 With cell selection enabled, Shift+navigation extends the rectangle; Control/Command+A selects current-page data cells; C/V use clipboard events; D fills down and R fills right. Dragging selects a rectangle with edge auto-scroll; dragging its corner repeats values, and Alt-drag requests numeric series extension. Toolbar copy/paste buttons use native clipboard APIs and show permission failures. Editing inputs retain their native selection/clipboard behavior.
 
-Both row and column windows retain logical ARIA coordinates. `getColumnWindow(columns, options)` is exported for fixed-width horizontal projection, returning rendered-column and spacer entries; pinned and explicitly retained indexes always render. These mechanisms do not support variable row heights, spans or RTL layout.
+Both row and column windows retain logical ARIA coordinates. `getColumnWindow(columns, options)` is exported for fixed-width horizontal projection, returning rendered-column and spacer entries; pinned and explicitly retained indexes always render. Horizontal projection requires fixed column widths; merged spans and RTL remain absent. Client row geometry now uses explicit variable heights and prefix sums; see the layout section below.
 
 `CellEditor` provides text, number, date, checkbox, select and textarea controls. BigInt uses text to preserve precision. Async select providers receive an AbortSignal, reject stale responses and expose retry; rich search, virtualized options and multi-select are not implemented. Large text uses the grid's editing host rather than variable row heights. See [editor contracts](EDITORS.md) for custom-host keyboard/error/lifecycle requirements.
 
@@ -261,3 +261,39 @@ Both row and column windows retain logical ARIA coordinates. `getColumnWindow(co
 Without a range, charting uses all filtered rows; a range restricts eligible visible rows/columns and invalid endpoints yield an empty chart. Pass a new range prop when the grid's `onCellRangeChange` fires. The chart does not own selection or silently broaden invalid ranges. Point limiting uses deterministic uniform sampling, which can miss intermediate extrema; the panel reports sampling. No full chart persistence, pivot configuration, cross-filtering, zoom/pan, date axis or PNG/JPEG export is supplied. See [chart behavior and limits](CHARTS.md).
 
 Automated browser checks and ARIA attributes do not establish screen-reader conformance. Manual screen-reader verification remains an explicit gap.
+
+## Advanced filter trees and builder
+
+`setAdvancedFilter(expression)` accepts a typed immutable condition/AND/OR/NOT AST; `setExternalFilter(predicate?)` replaces/removes a synchronous application callback. Per-column conditions, the tree, external predicate and quick terms compose with AND. Invalid trees throw `AdvancedFilterValidationError` before changing state; valid trees are detached/frozen under resource budgets. Advanced BigInt/Date operands normalize for JSON; ordinary filter values retain their separate persistence policy. External predicates stay outside serialized state and do not automatically run remotely.
+
+`AdvancedFilterBuilder` edits a controlled draft with Apply/Clear/Cancel, nested groups and typed operands. DataGrid's `advancedFiltering` defaults true. It is not the reference expression syntax, an async filter service or a multi/custom-component lifecycle. See [AST](ADVANCED_FILTERS.md) and [builder](FILTER_BUILDER.md).
+
+## Find and notes
+
+`createFindModel(grid, options?)` searches literal formatted text without filtering rows. It offers stable snapshots, wrapping next/previous/select navigation, refresh and lazy subscriptions. The client Find bar highlights matching cells, shows counts and focuses matches through virtual scrolling. Its view is current-page visible data rows; no regex/replace, occurrence offsets or server-wide search. Control/Command F opens the bar when toolbar is enabled.
+
+`CellNotesStore` / `createCellNotesStore` keep bounded stable-ID plain-text annotations independently of row fields/history. Versioned JSON import replaces atomically; persistence and pruning are explicit. DataGrid accepts `notes` as a supplied store, false to disable, or an owned default store. Note markers, toolbar/Alt N and `CellNoteDialog` provide add/edit/delete with native modal focus and literal text rendering. No rich text, collaboration or author metadata. See [Find/notes](FIND_NOTES.md) and [notes UI](NOTES_UI.md).
+
+## Variable heights, detail blocks and grouped headers
+
+`getRowHeight(node)` overrides the client row's fallback `rowHeight`. `createRowLayout(heights)` supplies immutable prefix offsets and binary-search windows; callback-provided dimensions are not automatic DOM measurements. `renderDetail({row,rowId})` renders client detail content, including a separately owned nested grid. `detailHeight` defaults to 180 and accepts a number/row callback. Expansion is uncontrolled through `defaultExpandedDetailRows` or controlled through `expandedDetailRows` plus `onExpandedDetailRowsChange`. Alt Enter toggles a focused data row's detail. The application owns nested model lifecycle/data refresh; there is no ResizeObserver sizing or remote master/detail strategy. See [layout](ROW_LAYOUT.md).
+
+`Column.groupPath` supplies nested header labels; `columnGroups` defaults true. `computeHeaderGroups` and `HeaderGroupRows` split contiguous segments by pin region, retain logical spans/positions through horizontal windows and support a collapse callback. Client DataGrid collapse keeps a representative visible leaf and restores prior visibility on expansion. There is no married-child policy, group-resize distribution or group drag. See [groups](COLUMN_GROUPS.md).
+
+## Whole-row sessions and modal editor
+
+DataGrid now accepts `editMode: 'cell' | 'row'` (default `cell`), `rowConflictPolicy: 'reject' | 'overwrite'` (default `reject`), and `onRowEdit({ rowId })`. Row mode opens `RowEditDialog` through editing keys/double-click or the Edit row toolbar button and restores grid focus when closed. The callback reports a successful row commit; `onCellEdit` remains the inline cell-attempt callback. This mode is an explicit-save modal, not automatic inline full-row blur saving.
+
+`createRowEditSession(model,rowId,{conflictPolicy?})` stages eligible raw fields, exposes values/dirty columns through a stable snapshot, and commits one atomic parsed/validated batch or cancels locally. Validators see final staged rows; raw-field aliases are coordinated. Default conflict handling rejects external edits to dirty fields; explicit overwrite is available.
+
+`RowEditDialog` takes model, rowId, onClose and optional editor configuration, renderEditor, initialColumnId, conflictPolicy and onCommit. It supports Save/Cancel/confirmed reload, typed/async/custom editors and one-step undo. This is a modal explicit-save workflow rather than inline blur-to-save or backend persistence. See [sessions](ROW_EDIT.md) and [dialog](ROW_EDITOR_UI.md).
+
+## Bounded XLSX import
+
+`importXlsx(bytes,{columns,mapRow,...limits})` returns a validated typed preview plus warnings; it never mutates a grid. Header/schema mapping, parsers and final-row validators run before returning rows. Callers review the preview and explicitly choose model replacement/transactions.
+
+Every ZIP/XML part is preflighted using actual expanded-byte/count/depth budgets before workbook parsing. Formula policy defaults reject; cached/text modes are explicit and never execute formulas. Ordinary XLSX only: merges/named ranges, macros, encrypted/ZIP64/legacy workbooks and general workbook fidelity are unsupported/rejected. See [import](IMPORT.md) for precision, limits and warning semantics.
+
+## Optional getter cache
+
+`GridOptions.valueCache` defaults false; true enables bounded LRU memoization of valueGetter results for current resident rows. `valueCacheMaxEntries` defaults 100,000, capped at 1,000,000 entries. Data changes/undo/redo invalidate generations; `expireValueCache()` refreshes getters/derived models for changed closure dependencies. Raw fields/formatters are not memoized; getters must remain pure and their returned objects immutable by convention. No granular dependency/never-expire policy or throughput guarantee. See [cache](VALUE_CACHE.md).

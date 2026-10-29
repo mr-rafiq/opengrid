@@ -3,7 +3,11 @@ import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   plugins: [react()],
-  test: { include: ["packages/**/*.test.{ts,tsx}"], environment: "node" },
+  test: {
+    include: ["packages/**/*.test.{ts,tsx}"],
+    environment: "node",
+    maxWorkers: 4,
+  },
   resolve: {
     alias: {
       "@opengrid/core": fileURLToPath(

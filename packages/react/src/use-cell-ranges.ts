@@ -36,6 +36,7 @@ export function useCellRanges<T>({
   viewport,
   getFocusedCell,
   onMessage,
+  headerHeight = 76,
 }: {
   model: GridModel<T>;
   rowIds: string[];
@@ -43,6 +44,7 @@ export function useCellRanges<T>({
   viewport: RefObject<HTMLDivElement | null>;
   getFocusedCell: () => CellPosition | undefined;
   onMessage: (message: string, error?: boolean) => void;
+  headerHeight?: number;
 }) {
   const ids = useRef(rowIds);
   ids.current = rowIds;
@@ -120,6 +122,10 @@ export function useCellRanges<T>({
         .elementFromPoint?.(x, y)
         ?.closest<HTMLElement>("[data-row-id][data-column-id]");
       if (!element || !viewport.current?.contains(element)) return;
+      if (
+        element.closest('[role="grid"],[role="treegrid"]') !== viewport.current
+      )
+        return;
       const rowId = element.dataset.rowId!,
         columnId = element.dataset.columnId!;
       if (!ids.current.includes(rowId)) return;
@@ -142,7 +148,7 @@ export function useCellRanges<T>({
         container = viewport.current;
       if (!current || !container) return;
       const rect = container.getBoundingClientRect();
-      const top = rect.top + 76,
+      const top = rect.top + headerHeight,
         bottom = rect.bottom,
         left = rect.left,
         right = rect.right;
@@ -203,7 +209,7 @@ export function useCellRanges<T>({
       cancelAnimationFrame(frame);
       drag.current = null;
     };
-  }, [controller, viewport]);
+  }, [controller, viewport, headerHeight]);
 
   function select(position: CellPosition, extend = false) {
     if (!controller || !ids.current.includes(position.rowId)) return;
@@ -235,6 +241,13 @@ export function useCellRanges<T>({
     return Boolean(controller.getSnapshot().range);
   }
   function onCopy(event: ReactClipboardEvent<HTMLElement>) {
+    if (
+      event.defaultPrevented ||
+      (event.target instanceof Element &&
+        event.target.closest('[role="grid"],[role="treegrid"]') !==
+          event.currentTarget)
+    )
+      return;
     if (interactive(event.target) || !ensureRange()) return;
     try {
       const value = controller!.copy();
@@ -250,6 +263,13 @@ export function useCellRanges<T>({
     }
   }
   function onPaste(event: ReactClipboardEvent<HTMLElement>) {
+    if (
+      event.defaultPrevented ||
+      (event.target instanceof Element &&
+        event.target.closest('[role="grid"],[role="treegrid"]') !==
+          event.currentTarget)
+    )
+      return;
     if (interactive(event.target) || !ensureRange()) return;
     event.preventDefault();
     const error = controller!.paste(event.clipboardData.getData("text/plain"));

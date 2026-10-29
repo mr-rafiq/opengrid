@@ -17,7 +17,7 @@ npm ci
 npm run dev
 ```
 
-Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows and a 130-column schema. Try grouped/tree views, cell ranges, validated paste, fill, native editors, charts, the formula lab, and genuine XLSX/PDF downloads. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
+Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows and a 130-column schema. Try grouped/tree views, nested column headers, cell ranges, validated paste, row editing, Find, notes, advanced filters, nested detail grids, charts, the formula lab, and genuine XLSX/PDF downloads. The remote lab demonstrates grouped server blocks and a live million-row viewport using simulated local providers. Import a bounded XLSX workbook into a separate preview. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
 
 ## React quick start
 
@@ -74,7 +74,8 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Stable multi-column sort and typed text, numeric, date, boolean, BigInt and membership filter predicates; quick search and pagination.
 - Editable fields with parsers, validators, atomic batch changes and bounded undo/redo; add/update/remove transactions.
 - Single/multiple row selection, column resize/reorder/hide/pin and configuration chooser.
-- Fixed-size row and column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
+- Variable-height row and fixed-width column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
+- Nested column-group headers, collapsible groups, per-row detail regions and independently editable nested grids.
 - Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
 - Native text/number/date/checkbox/select/multiline editors, asynchronous choices and typed custom-editor hooks.
 - Expandable grouping and path-based trees, built-in/custom aggregates and a standalone pivot utility.
@@ -83,16 +84,20 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Separate flat infinite, hierarchical server block and live viewport strategies with cache/refresh/retry/stale-request handling.
 - Model/range-linked bar, line and scatter SVG charts with configuration controls, an underlying data table and SVG export.
 - Optional real XLSX/PDF output with typed workbook cells, multiple sheets, tables/frozen headers and paginated PDF reports.
+- Nested typed advanced-filter expressions with a builder, formatted-cell Find, plain-text cell notes and optional atomic row-edit dialogs.
+- Optional bounded value-getter caching and schema-driven XLSX import with ZIP/XML resource limits and explicit formula policies.
 
-The primary browser grid uses the client-side model. Remote strategies currently expose provider APIs; binding limitations are documented separately. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning, master/detail and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
+The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 
-Detailed guides: [ranges/API](docs/API.md), [remote models](docs/REMOTE_MODELS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [charts](docs/CHARTS.md), and [exports](docs/EXPORTS.md).
+Detailed guides: [ranges/API](docs/API.md), [remote bindings](docs/REMOTE_GRIDS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [row editing](docs/ROW_EDITOR_UI.md), [advanced filters](docs/FILTER_BUILDER.md), [Find/notes](docs/FIND_NOTES.md), [column groups](docs/COLUMN_GROUPS.md), [charts](docs/CHARTS.md), [exports](docs/EXPORTS.md), and [import](docs/IMPORT.md).
 
 ## Keyboard controls
 
 Arrow keys move between cells. Home/End move across a row; Ctrl/Cmd+Home/End reach the first/last cell on the rendered page. Page Up/Down move by the visible area. Enter/F2 or double-click starts an edit, Escape cancels, and Enter/Tab commits. Space toggles a row. Shift-click a header for multiple sort keys. Focus a column separator and use Left/Right to resize. The column chooser provides keyboard-operable move/pin/hide controls.
 
 Shift-click or Shift+navigation extends a cell rectangle. Ctrl/Cmd+A selects visible data cells, C copies and V pastes. Ctrl/Cmd+D fills down and R fills right. Drag the range corner to repeat values; Alt-drag extends a numeric series. Multiline editors commit with Ctrl/Cmd+Enter. Clipboard permission failures are reported in the grid.
+
+Ctrl/Cmd+F opens Find in the current view. Alt+N opens the focused cell's note. Alt+Enter toggles an available detail region. Optional row editing opens a modal with explicit Save/Cancel; its accepted changes share one undo entry.
 
 ## Development and verification
 

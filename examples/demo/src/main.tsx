@@ -5,6 +5,9 @@ import { DataGrid, GridChart } from "@opengrid/react";
 import "@opengrid/react/styles.css";
 import "./page.css";
 import { FormulaLab } from "./formula-lab";
+import { RemoteLab } from "./remote-lab";
+import { HoldingDetail } from "./holding-detail";
+import { ImportLab } from "./import-lab";
 interface Holding {
   id: string;
   company: string;
@@ -45,10 +48,11 @@ function makeRows(count: number): Holding[] {
     };
   });
 }
-const money = (v: unknown) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    Number(v),
-  );
+const moneyFormat = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+const money = (v: unknown) => moneyFormat.format(Number(v));
 const columns: Column<Holding>[] = [
   {
     id: "company",
@@ -131,26 +135,44 @@ function App() {
   const [pivotOpen, setPivotOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const [formulaOpen, setFormulaOpen] = useState(false);
+  const [remoteOpen, setRemoteOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [chartRange, setChartRange] = useState<CellRange | null>(null);
   const [wide, setWide] = useState(false);
+  const [groupHeaders, setGroupHeaders] = useState(false);
+  const [rowEditing, setRowEditing] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
-  const activeColumns = useMemo(
-    () =>
-      wide
-        ? [
-            ...columns,
-            ...Array.from({ length: 120 }, (_, i): Column<Holding> => ({
-              id: `metric${i + 1}`,
-              header: `Metric ${i + 1}`,
-              width: 120,
-              type: "number",
-              valueGetter: (r) => Math.round(r.price * (i + 1) * 100) / 100,
-            })),
-          ]
-        : columns,
-    [wide],
-  );
+  const activeColumns = useMemo(() => {
+    const schema = wide
+      ? [
+          ...columns,
+          ...Array.from({ length: 120 }, (_, i): Column<Holding> => ({
+            id: `metric${i + 1}`,
+            header: `Metric ${i + 1}`,
+            width: 120,
+            type: "number",
+            valueGetter: (r) => Math.round(r.price * (i + 1) * 100) / 100,
+          })),
+        ]
+      : columns;
+    return groupHeaders
+      ? schema.map((column) => ({
+          ...column,
+          groupPath:
+            column.id === "company"
+              ? ["Identity"]
+              : [
+                  "Portfolio",
+                  ["price", "shares", "value"].includes(column.id)
+                    ? "Position"
+                    : column.id.startsWith("metric")
+                      ? "Metrics"
+                      : "Profile",
+                ],
+        }))
+      : schema;
+  }, [wide, groupHeaders]);
   const model = useMemo(
     () =>
       createGrid({
@@ -324,6 +346,24 @@ function App() {
               <button aria-pressed={wide} onClick={() => setWide(!wide)}>
                 Wide schema
               </button>
+              <button
+                aria-pressed={groupHeaders}
+                onClick={() => setGroupHeaders(!groupHeaders)}
+              >
+                Column groups
+              </button>
+              <button
+                aria-pressed={rowEditing}
+                onClick={() => setRowEditing(!rowEditing)}
+              >
+                Row editing
+              </button>
+              <button
+                aria-pressed={detailsOpen}
+                onClick={() => setDetailsOpen(!detailsOpen)}
+              >
+                Detail rows
+              </button>
               <label>
                 Rows{" "}
                 <select
@@ -367,6 +407,7 @@ function App() {
           </div>
           <DataGrid
             model={model}
+            editMode={rowEditing ? "row" : "cell"}
             onCellRangeChange={setChartRange}
             editorOptions={{
               sector: {
@@ -381,6 +422,12 @@ function App() {
             className={dark ? "og-dark" : ""}
             pagination={mode === "flat"}
             ariaLabel="Portfolio holdings"
+            detailHeight={360}
+            renderDetail={
+              detailsOpen
+                ? ({ row }) => <HoldingDetail holding={row} dark={dark} />
+                : undefined
+            }
             renderCell={({ value, column, row }) =>
               column.id === "change" ? (
                 <span className={Number(value) >= 0 ? "positive" : "negative"}>
@@ -484,6 +531,16 @@ function App() {
             <FormulaLab model={model} getRowId={(row) => row.id} />
           )}
         </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setRemoteOpen(!remoteOpen)}
+            aria-expanded={remoteOpen}
+          >
+            Remote model lab
+          </button>
+          {remoteOpen && <RemoteLab />}
+        </section>
+        <ImportLab />
         <footer>
           <span>Built for developers who want control.</span>
           <span>

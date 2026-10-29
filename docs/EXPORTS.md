@@ -82,7 +82,7 @@ const bytes = await exportXlsx(model, {
 });
 ```
 
-The callback must return an Excel expression without a leading `=` and may provide a cached numeric/string/boolean result. OpenGrid does **not** calculate that expression or validate its Excel semantics; the spreadsheet reader decides recalculation. Do not put untrusted expressions in this opt-in callback. There is no XLSX import parser in this package.
+The callback must return an Excel expression without a leading `=` and may provide a cached numeric/string/boolean result. OpenGrid does **not** calculate that expression or validate its Excel semantics; the spreadsheet reader decides recalculation. Do not put untrusted expressions in this opt-in callback. A separate bounded `importXlsx` preview parser is now exported by this package; see [import policy and limits](IMPORT.md). It does not execute formulas or mutate a grid.
 
 ## PDF support
 

@@ -1,4 +1,5 @@
 import type { Column, GridModel } from "@opengrid/core";
+export * from "./import-xlsx.js";
 import type { CellValue } from "exceljs";
 
 export interface ExportRowsOptions<T> {

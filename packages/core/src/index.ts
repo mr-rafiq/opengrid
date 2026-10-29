@@ -6,7 +6,15 @@ export * from "./ranges.js";
 export * from "./server-side.js";
 export * from "./viewport.js";
 export * from "./formula-engine.js";
+export * from "./find.js";
+export * from "./notes.js";
+export * from "./row-edit.js";
+export * from "./advanced-filters.js";
 import { aggregateValues } from "./analytics.js";
+import {
+  prepareAdvancedFilter,
+  evaluateFilterExpression,
+} from "./advanced-filters.js";
 import type {
   Column,
   Edit,
@@ -22,6 +30,8 @@ const blank = (value: unknown) =>
   value === null || value === undefined || value === "";
 const text = (value: unknown) =>
   value == null ? "" : String(value).toLocaleLowerCase();
+const own = <V>(record: Record<string, V>, key: string): V | undefined =>
+  Object.hasOwn(record, key) ? record[key] : undefined;
 
 function comparable(value: unknown, type?: Column<unknown>["type"]): unknown {
   if (blank(value)) return null;
@@ -89,12 +99,64 @@ export function csvCell(value: unknown): string {
 }
 
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
-  const columns = options.columns.map((column) => ({ ...column }));
+  const columns = options.columns.map((column) => {
+    if (
+      column.groupPath !== undefined &&
+      (!Array.isArray(column.groupPath) ||
+        Array.from(column.groupPath).some((part) => typeof part !== "string"))
+    )
+      throw new TypeError("Column groupPath must be an array of strings");
+    return {
+      ...column,
+      ...(column.groupPath === undefined
+        ? {}
+        : { groupPath: Object.freeze([...column.groupPath]) }),
+    };
+  });
+  const cacheEnabled =
+    options.valueCache === undefined ? false : options.valueCache;
+  if (typeof cacheEnabled !== "boolean")
+    throw new TypeError("valueCache must be a boolean");
+  const cacheMaximum =
+    options.valueCacheMaxEntries === undefined
+      ? 100000
+      : options.valueCacheMaxEntries;
+  if (
+    !Number.isSafeInteger(cacheMaximum) ||
+    cacheMaximum < 1 ||
+    cacheMaximum > 1000000
+  )
+    throw new RangeError(
+      "valueCacheMaxEntries must be a positive safe integer no greater than 1000000",
+    );
   const byColumn = new Map(columns.map((column) => [column.id, column]));
+  let externalFilter = options.externalFilter;
+  if (externalFilter !== undefined && typeof externalFilter !== "function")
+    throw new TypeError("externalFilter must be a function");
   if (byColumn.size !== columns.length || columns.some((column) => !column.id))
     throw new Error("Column IDs must be nonempty and unique");
   let rows = [...options.rows];
+  let indexedRows: T[] | undefined;
+  let rowsById: Map<string, T> | undefined;
   const idOf = options.getRowId;
+  function getRow(rowId: string): T | undefined {
+    if (indexedRows !== rows) {
+      rowsById = new Map(rows.map((row) => [idOf(row), row]));
+      indexedRows = rows;
+    }
+    return rowsById!.get(rowId);
+  }
+  const cachedValues = new Map<string, unknown>();
+  let cachedRows = rows,
+    cacheGeneration = 0;
+  function clearValueCache() {
+    cachedValues.clear();
+    cachedRows = rows;
+    cacheGeneration++;
+  }
+  function syncValueCache() {
+    if (cachedRows !== rows) clearValueCache();
+  }
   function assertRows(next: T[]) {
     const ids = next.map(idOf);
     if (
@@ -122,6 +184,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     return Object.freeze(snapshot);
   }
   function emit() {
+    syncValueCache();
     filteredCache = undefined;
     modelCache = undefined;
     rowIdCache = undefined;
@@ -145,6 +208,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     const ids = new Set(rows.map(idOf));
     const result: GridState = {
       ...next,
+      advancedFilter:
+        next.advancedFilter === undefined
+          ? undefined
+          : prepareAdvancedFilter(next.advancedFilter, columns),
       sorting: next.sorting
         .filter(
           (sort) =>
@@ -180,7 +247,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       expanded: [...new Set(next.expanded)],
     };
     for (const column of columns) {
-      const width = result.columnWidths[column.id];
+      const width = own(result.columnWidths, column.id);
       if (width !== undefined)
         result.columnWidths[column.id] = Math.max(
           column.minWidth ?? 40,
@@ -189,7 +256,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
             Number.isFinite(width) ? width : (column.width ?? 160),
           ),
         );
-      const pin = result.columnPinning[column.id];
+      const pin = own(result.columnPinning, column.id);
       if (
         pin !== undefined &&
         pin !== null &&
@@ -198,8 +265,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       )
         delete result.columnPinning[column.id];
       if (
-        result.columnVisibility[column.id] !== undefined &&
-        typeof result.columnVisibility[column.id] !== "boolean"
+        own(result.columnVisibility, column.id) !== undefined &&
+        typeof own(result.columnVisibility, column.id) !== "boolean"
       )
         delete result.columnVisibility[column.id];
     }
@@ -222,11 +289,37 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   });
   const getValue = (row: T, id: string): unknown => {
     const column = requireColumn(id);
-    return column.valueGetter
-      ? column.valueGetter(row)
-      : column.field
+    if (!column.valueGetter)
+      return column.field
         ? row[column.field]
         : (row as Record<string, unknown>)[id];
+    if (!cacheEnabled) return column.valueGetter(row);
+    syncValueCache();
+    const rowId = idOf(row);
+    if (typeof rowId !== "string" || getRow(rowId) !== row)
+      return column.valueGetter(row);
+    const key = JSON.stringify([rowId, id]);
+    if (cachedValues.has(key)) {
+      const value = cachedValues.get(key);
+      cachedValues.delete(key);
+      cachedValues.set(key, value);
+      return value;
+    }
+    const currentRows = rows,
+      generation = cacheGeneration;
+    const value = column.valueGetter(row);
+    // A getter must be pure, but a reentrant mutation/expiry must still never install
+    // a result computed against the previous cache generation or resident row.
+    if (
+      rows === currentRows &&
+      generation === cacheGeneration &&
+      getRow(rowId) === row
+    ) {
+      cachedValues.set(key, value);
+      while (cachedValues.size > cacheMaximum)
+        cachedValues.delete(cachedValues.keys().next().value!);
+    }
+    return value;
   };
   function sortedFiltered() {
     if (filteredCache) return filteredCache;
@@ -238,6 +331,13 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         )
       )
         return false;
+      if (
+        !evaluateFilterExpression(state.advancedFilter, (id, filter) =>
+          matchesFilter(getValue(row, id), filter, requireColumn(id)),
+        )
+      )
+        return false;
+      if (externalFilter && !externalFilter(row)) return false;
       if (!terms.length) return true;
       const haystack = columns
         .map((column) => {
@@ -397,20 +497,38 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     modelCache = flat;
     return flat;
   }
-  function setState(patch: Partial<GridState>) {
-    state = sanitize({ ...state, ...patch });
+  function updateState(patch: Partial<GridState>) {
+    const candidate = sanitize({ ...state, ...patch });
+    const previousState = state,
+      previousFiltered = filteredCache,
+      previousModel = modelCache,
+      previousIds = rowIdCache;
+    state = candidate;
     filteredCache = modelCache = undefined;
-    state = {
-      ...state,
-      page: Math.min(
-        state.page,
-        Math.max(0, Math.ceil(rowModel().length / state.pageSize) - 1),
-      ),
-    };
+    try {
+      state = {
+        ...state,
+        page: Math.min(
+          state.page,
+          Math.max(0, Math.ceil(rowModel().length / state.pageSize) - 1),
+        ),
+      };
+    } catch (failure) {
+      state = previousState;
+      filteredCache = previousFiltered;
+      modelCache = previousModel;
+      rowIdCache = previousIds;
+      throw failure;
+    }
+  }
+  function setState(patch: Partial<GridState>) {
+    updateState(patch);
     emit();
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
     const pending = new Map(rows.map((row) => [idOf(row), row]));
+    const originals = new Map(pending);
+    const validationTargets = new Map<string, Map<string, Column<T>>>();
     for (const edit of edits) {
       const column = byColumn.get(edit.columnId),
         row = pending.get(edit.rowId);
@@ -440,17 +558,44 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           !Number.isFinite(Date.parse(String(value)))
         )
           return "Enter a valid date";
-        const error = column.validate?.(value, row);
-        if (error) return error;
         const next = { ...row, [column.field]: value };
         if (idOf(next) !== edit.rowId)
           return "Editing a row ID is not supported";
         pending.set(edit.rowId, next);
+        const targets =
+          validationTargets.get(edit.rowId) ?? new Map<string, Column<T>>();
+        targets.set(edit.columnId, column);
+        validationTargets.set(edit.rowId, targets);
       } catch (error) {
         return error instanceof Error ? error.message : "Invalid value";
       }
     }
     if (!edits.length) return;
+    for (const [rowId, targets] of validationTargets) {
+      const finalRow = pending.get(rowId)!;
+      try {
+        for (const column of targets.values()) {
+          const error = column.validate?.(finalRow[column.field!], finalRow);
+          if (error) return error;
+        }
+        if (idOf(finalRow) !== rowId)
+          return "Editing a row ID is not supported";
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid value";
+      }
+    }
+    const changed = [...validationTargets].some(([rowId, targets]) => {
+      const before = originals.get(rowId)!,
+        after = pending.get(rowId)!;
+      return [...targets.values()].some((column) => {
+        const left = before[column.field!],
+          right = after[column.field!];
+        return left instanceof Date && right instanceof Date
+          ? !Object.is(left.getTime(), right.getTime())
+          : !Object.is(left, right);
+      });
+    });
+    if (!changed) return;
     undoStack.push(rows);
     if (undoStack.length > (options.historyLimit ?? 100)) undoStack.shift();
     redoStack.length = 0;
@@ -460,15 +605,18 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   function getColumns() {
     const ordered = state.columnOrder.map((id) => ({
       ...requireColumn(id),
-      width: state.columnWidths[id] ?? requireColumn(id).width ?? 160,
+      ...(requireColumn(id).groupPath === undefined
+        ? {}
+        : { groupPath: [...requireColumn(id).groupPath!] }),
+      width: own(state.columnWidths, id) ?? requireColumn(id).width ?? 160,
       hidden:
-        state.columnVisibility[id] === undefined
+        own(state.columnVisibility, id) === undefined
           ? requireColumn(id).hidden
-          : !state.columnVisibility[id],
+          : !own(state.columnVisibility, id),
       pinned:
-        state.columnPinning[id] === undefined
+        own(state.columnPinning, id) === undefined
           ? requireColumn(id).pinned
-          : state.columnPinning[id],
+          : own(state.columnPinning, id),
     }));
     return [
       ...ordered.filter((column) => column.pinned === "left"),
@@ -487,6 +635,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       };
     },
     getRows: () => [...rows],
+    getRow,
     setRows(next) {
       assertRows(next);
       rows = [...next];
@@ -496,6 +645,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     },
     getColumns,
     getValue,
+    expireValueCache() {
+      clearValueCache();
+      emit();
+    },
     getFilteredRows: () => [...sortedFiltered()],
     getRowModel: () => [...rowModel()],
     getPageRows() {
@@ -524,10 +677,26 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     setFilter(columnId, filter) {
       const column = requireColumn(columnId);
       if (column.filterable === false) return;
-      const filters = { ...state.filters };
-      if (filter) filters[columnId] = filter;
-      else delete filters[columnId];
+      const filters = filter
+        ? { ...state.filters, [columnId]: filter }
+        : { ...state.filters };
+      if (!filter) delete filters[columnId];
       setState({ filters, page: 0 });
+    },
+    setAdvancedFilter: (advancedFilter) =>
+      setState({ advancedFilter, page: 0 }),
+    setExternalFilter(predicate) {
+      if (predicate !== undefined && typeof predicate !== "function")
+        throw new TypeError("externalFilter must be a function");
+      const previous = externalFilter;
+      externalFilter = predicate;
+      try {
+        updateState({ page: 0 });
+      } catch (failure) {
+        externalFilter = previous;
+        throw failure;
+      }
+      emit();
     },
     setQuickFilter: (quickFilter) => setState({ quickFilter, page: 0 }),
     toggleSelection(id, multi = false) {

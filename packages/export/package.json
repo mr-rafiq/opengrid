@@ -1,7 +1,7 @@
 {
   "name": "@opengrid/export",
   "version": "0.1.0",
-  "description": "Optional real XLSX and PDF exports for OpenGrid",
+  "description": "Optional XLSX import and real XLSX/PDF exports for OpenGrid",
   "type": "module",
   "license": "MIT",
   "sideEffects": false,
@@ -18,10 +18,11 @@
   "dependencies": {
     "@opengrid/core": "0.1.0",
     "exceljs": "^4.4.0",
-    "pdf-lib": "^1.17.1"
+    "pdf-lib": "^1.17.1",
+    "jszip": "^3.10.2",
+    "saxes": "^6.0.0"
   },
   "devDependencies": {
-    "jszip": "^3.10.2",
     "pdfjs-dist": "^6.4.299"
   },
   "scripts": {

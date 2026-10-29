@@ -48,6 +48,64 @@ function cell(id: string, col: string) {
 }
 
 describe("React DataGrid", () => {
+  it("renders and controls prototype-like column IDs without inherited state lookups", () => {
+    const grid = createGrid({
+      rows: [{ id: "a", value: 4 }],
+      columns: [
+        {
+          id: "__proto__",
+          field: "value",
+          header: "Prototype id",
+          type: "number",
+          editable: true,
+        },
+        { id: "constructor", field: "value", header: "Constructor id" },
+      ],
+      getRowId: (row) => row.id,
+    });
+    render(<DataGrid model={grid} />);
+    expect(
+      screen.getByRole("button", { name: "Sort Prototype id" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Sort Constructor id" }),
+    ).toBeTruthy();
+    act(() => {
+      grid.pinColumn("__proto__", "left");
+      grid.resizeColumn("__proto__", 240);
+      grid.hideColumn("constructor", true);
+    });
+    expect(cell("a", "__proto__").style.width).toBe("240px");
+    expect(cell("a", "__proto__").style.position).toBe("sticky");
+    expect(
+      screen.queryByRole("button", { name: "Sort Constructor id" }),
+    ).toBeNull();
+    fireEvent.change(
+      screen.getByRole("textbox", { name: "Filter Prototype id" }),
+      { target: { value: "4" } },
+    );
+    expect(grid.getFilteredRows()).toHaveLength(1);
+  });
+  it("discards an uncommitted editor when its data model is replaced", () => {
+    const original = model(),
+      replacement = model();
+    replacement.setRows([
+      { id: "a", name: "Replacement", amount: 7, team: "North" },
+    ]);
+    const view = render(<DataGrid model={original} />);
+    fireEvent.keyDown(cell("a", "name"), { key: "F2" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Edit Name row a" }), {
+      target: { value: "Uncommitted" },
+    });
+    view.rerender(<DataGrid model={replacement} />);
+    expect(
+      screen.queryByRole("textbox", { name: "Edit Name row a" }),
+    ).toBeNull();
+    expect(cell("a", "name").textContent).toBe("Replacement");
+    expect(replacement.getRows()[0].name).toBe("Replacement");
+    expect(original.getRows()[0].name).toBe("Ada");
+    expect(replacement.undo()).toBe(false);
+  });
   it("renders typed data and custom content with labelled grid semantics", () => {
     render(
       <DataGrid

@@ -33,6 +33,8 @@ Use stable row and column IDs. Preserve input data ownership, exact BigInt value
 
 XLSX/PDF changes need independent format-reader checks as well as browser download tests. Preserve dependency notices and formula-string safety; keep WinAnsi/custom-font limitations explicit. Clipboard changes must test quoted/malformed TSV, protected cells, bounds, permission failures and atomic rollback. Chart changes must document sampling and numeric precision rather than implying financial/statistical fidelity.
 
+Import changes must preserve actual streamed-byte and XML preflight budgets before workbook parsing, atomic preview validation and inert formula policies. Add adversarial fixtures for changed archive/schema handling. Header/layout changes need pin-boundary/logical-ARIA and variable-height/detail focus cases. Find, notes and modal row edits need lifecycle, view-scope, cancellation and conflict tests; callback invocation counts are not performance benchmarks.
+
 For a new feature, include its public API, working example where useful, meaningful tests, limitations, and a ledger update linked to relevant evidence. A stub, type definition or extension callback does not justify marking the complete feature implemented. Status rows may be partial when the supported subset is described precisely.
 
 ## Accessibility

@@ -72,4 +72,6 @@ because a request finishes. Keep the provider function reference stable with
 Rich searching, virtualized lists, remote query text, and multi-select are not
 implemented by this native select control. Supply a custom editor for those
 interactions. Large-text editors need a sufficiently sized editing host; the grid
-uses fixed-height rows and does not expand row height automatically.
+does not measure or expand row height automatically. Explicit `getRowHeight` and
+detail heights are supported separately; the large-text editing host supplies
+its own usable dimensions.

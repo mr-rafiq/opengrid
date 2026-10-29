@@ -6,6 +6,7 @@ export interface Column<T> {
   id: string;
   field?: keyof T & string;
   header?: string;
+  groupPath?: readonly string[];
   width?: number;
   minWidth?: number;
   maxWidth?: number;
@@ -44,10 +45,15 @@ export type Filter = {
   value?: unknown;
   to?: unknown;
 };
+export type FilterExpression =
+  | { kind: "condition"; columnId: string; filter: Filter }
+  | { kind: "and" | "or"; children: FilterExpression[] }
+  | { kind: "not"; child: FilterExpression };
 export interface GridState {
   sorting: Sort[];
   filters: Record<string, Filter>;
   quickFilter: string;
+  advancedFilter?: FilterExpression | null;
   selected: RowId[];
   columnOrder: string[];
   columnWidths: Record<string, number>;
@@ -75,6 +81,9 @@ export interface GridOptions<T> {
   initialState?: Partial<GridState>;
   getTreePath?: (row: T) => string[];
   historyLimit?: number;
+  externalFilter?: (row: T) => boolean;
+  valueCache?: boolean;
+  valueCacheMaxEntries?: number;
 }
 export interface Edit<T> {
   rowId: string;
@@ -91,9 +100,11 @@ export interface GridModel<T> {
   setState(state: Partial<GridState>): void;
   subscribe(listener: () => void): () => void;
   getRows(): T[];
+  getRow(rowId: RowId): T | undefined;
   setRows(rows: T[]): void;
   getColumns(): Column<T>[];
   getValue(row: T, columnId: string): unknown;
+  expireValueCache(): void;
   getFilteredRows(): T[];
   getRowModel(): RowNode<T>[];
   getPageRows(): RowNode<T>[];
@@ -104,6 +115,8 @@ export interface GridModel<T> {
     multi?: boolean,
   ): void;
   setFilter(columnId: string, filter?: Filter): void;
+  setAdvancedFilter(expression: FilterExpression | null): void;
+  setExternalFilter(predicate?: (row: T) => boolean): void;
   setQuickFilter(value: string): void;
   toggleSelection(id: string, multi?: boolean): void;
   selectRows(ids: string[]): void;

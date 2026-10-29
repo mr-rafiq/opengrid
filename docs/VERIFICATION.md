@@ -1,5 +1,15 @@
 # Verification record
 
+## Interaction and remote-binding milestone
+
+This milestone adds read-only server/live React grids and local simulated providers, typed advanced-filter expressions and a visual builder, formatted-cell Find, plain-text notes, variable-height rows and nested detail grids, nested column headers, explicit modal row editing, optional bounded getter caching, and schema-driven XLSX import. The new importer validates ZIP/XML structure and resource budgets before workbook parsing; it does not evaluate formulas or mutate grid data automatically.
+
+Browser checks now include grouped-header collapse, atomic row editing, remote sort/filter/drilldown and live scrolling, Find focus, notes, advanced filters, nested-detail layout and an XLSX download/import round trip. React Strict Mode, disappearing group-toggle focus, prototype-like IDs, whole-row staged validation and no-op history behavior have explicit regressions.
+
+Final local results on Windows/Node 24.14.0: `npm run check` passed strict TypeScript, **543 tests in 28 files** (37.28 seconds), three ESM/declaration package builds and the Vite production demo build. `npm run test:e2e` passed **27 Chromium tests in 31.2 seconds**, including automated serious/critical axe checks in flat, dark, grouped, nested-detail and column-group views. Vitest concurrency is capped at four workers after the expanded suite exposed host-contention timeouts. A Strict Mode session-cancellation defect and disappearing group-toggle focus defect were fixed before this final run.
+
+All three local `npm pack` archives contain their MIT license and declaration entry point. Runtime-only `npm audit --omit=dev` reported **0 advisories** for the installed graph. ExcelJS's optional browser chunk is about 929 kB minified and loads on demand; Vite reports its standard large-chunk warning. No npm publication, deployment, manual screen-reader verification or cross-browser certification occurred.
+
 ## Expanded preview milestone
 
 The second implementation milestone adds horizontal virtualization, cell-range/clipboard/fill transactions, typed/custom/async editors, formula dependencies, SVG charts, hierarchical server blocks, live viewport strategies, and optional genuine XLSX/PDF output. Local strict typecheck and all three package/demo builds passed. The integrated unit run passed **258 tests in 13 files**. The complete Chromium run passed **17 tests in 57.2 seconds**, including keyboard navigation that mounts an offscreen native editor. Remote CI is separate evidence in the repository Actions tab.
@@ -32,4 +42,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Especially important missing areas include column virtualization, range/fill/clipboard operations, complete server-side/viewport models, XLSX/PDF, rich editing lifecycle and integrated chart tools. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, pinned/arbitrary full-width rows, row dragging, multi/custom filter-component lifecycles, Show Values As, print layouts, localization/touch coverage, aligned grids, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

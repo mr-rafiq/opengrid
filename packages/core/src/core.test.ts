@@ -566,3 +566,693 @@ describe("safe CSV and virtualization", () => {
     expect(() => getVirtualWindow(10, 0, 40, 0)).toThrow(RangeError);
   });
 });
+
+describe("final staged row validation and direct row lookup", () => {
+  it.each([false, true])(
+    "validates cross-field constraints against the final staged row regardless of edit order (%s)",
+    (reverse) => {
+      const model = createGrid({
+        rows: [{ id: "row", minimum: 5, maximum: 10 }],
+        getRowId: (row) => row.id,
+        columns: [
+          {
+            id: "minimum",
+            field: "minimum",
+            type: "number",
+            editable: true,
+            validate: (value, row) =>
+              Number(value) > row.maximum
+                ? "Minimum exceeds maximum"
+                : undefined,
+          },
+          {
+            id: "maximum",
+            field: "maximum",
+            type: "number",
+            editable: true,
+            validate: (value, row) =>
+              Number(value) < row.minimum ? "Maximum below minimum" : undefined,
+          },
+        ],
+      });
+      const listener = vi.fn();
+      model.subscribe(listener);
+      const edits = [
+        { rowId: "row", columnId: "minimum", value: "20" },
+        { rowId: "row", columnId: "maximum", value: "30" },
+      ];
+      expect(
+        model.batchEdit(reverse ? edits.reverse() : edits),
+      ).toBeUndefined();
+      expect(model.getRow("row")).toEqual({
+        id: "row",
+        minimum: 20,
+        maximum: 30,
+      });
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(model.undo()).toBe(true);
+      expect(model.getRow("row")).toEqual({
+        id: "row",
+        minimum: 5,
+        maximum: 10,
+      });
+      expect(model.undo()).toBe(false);
+    },
+  );
+  it("rolls back every row, history and notifications when a final cross-field validator rejects", () => {
+    const validate = vi.fn(
+      (
+        value: unknown,
+        row: { id: string; minimum: number; maximum: number },
+      ) => (Number(value) > row.maximum ? "Invalid final interval" : undefined),
+    );
+    const model = createGrid({
+      rows: [
+        { id: "a", minimum: 5, maximum: 10 },
+        { id: "b", minimum: 1, maximum: 2 },
+      ],
+      getRowId: (row) => row.id,
+      columns: [
+        {
+          id: "minimum",
+          field: "minimum",
+          editable: true,
+          type: "number",
+          validate,
+        },
+        { id: "maximum", field: "maximum", editable: true, type: "number" },
+      ],
+    });
+    const before = model.getRows(),
+      snapshot = model.getState(),
+      listener = vi.fn();
+    model.subscribe(listener);
+    expect(
+      model.batchEdit([
+        { rowId: "b", columnId: "maximum", value: 3 },
+        { rowId: "a", columnId: "minimum", value: 40 },
+        { rowId: "a", columnId: "maximum", value: 30 },
+      ]),
+    ).toBe("Invalid final interval");
+    expect(model.getRows()).toEqual(before);
+    expect(model.getState()).toBe(snapshot);
+    expect(listener).not.toHaveBeenCalled();
+    expect(model.undo()).toBe(false);
+  });
+  it("parses progressively but validates duplicate row/column targets only once against the final value", () => {
+    const parser = vi.fn(
+        (value: unknown, row: { id: string; a: number; b: number }) =>
+          Number(value) + row.a,
+      ),
+      validate = vi.fn(() => undefined);
+    const model = createGrid({
+      rows: [{ id: "r", a: 1, b: 2 }],
+      getRowId: (row) => row.id,
+      columns: [
+        { id: "a", field: "a", editable: true, type: "number", validate },
+        { id: "b", field: "b", editable: true, valueParser: parser },
+      ],
+    });
+    expect(
+      model.batchEdit([
+        { rowId: "r", columnId: "a", value: 3 },
+        { rowId: "r", columnId: "a", value: 5 },
+        { rowId: "r", columnId: "b", value: 10 },
+      ]),
+    ).toBeUndefined();
+    expect(model.getRow("r")).toEqual({ id: "r", a: 5, b: 15 });
+    expect(validate).toHaveBeenCalledTimes(1);
+    expect(validate.mock.calls[0]).toEqual([5, { id: "r", a: 5, b: 15 }]);
+  });
+  it("skips mutation/history/notification for normalized no-op edits and preserves redo", () => {
+    const model = grid();
+    model.editCell("a", "amount", 40);
+    model.undo();
+    const before = model.getRow("a"),
+      snapshot = model.getState(),
+      listener = vi.fn();
+    model.subscribe(listener);
+    expect(
+      model.batchEdit([{ rowId: "a", columnId: "amount", value: "30" }]),
+    ).toBeUndefined();
+    expect(model.getRow("a")).toBe(before);
+    expect(model.getState()).toBe(snapshot);
+    expect(listener).not.toHaveBeenCalled();
+    expect(model.redo()).toBe(true);
+    expect(model.getRow("a")?.amount).toBe(40);
+  });
+  it("keeps Date timestamps and BigInt exact during no-op detection", () => {
+    const model = createGrid({
+      rows: [
+        {
+          id: "r",
+          date: new Date("2026-01-01T00:00:00.123Z"),
+          count: 9007199254740993n,
+        },
+      ],
+      getRowId: (row) => row.id,
+      columns: [
+        { id: "date", field: "date", editable: true },
+        { id: "count", field: "count", type: "bigint", editable: true },
+      ],
+    });
+    const before = model.getRow("r");
+    expect(
+      model.batchEdit([
+        {
+          rowId: "r",
+          columnId: "date",
+          value: new Date("2026-01-01T00:00:00.123Z"),
+        },
+        { rowId: "r", columnId: "count", value: "9007199254740993" },
+      ]),
+    ).toBeUndefined();
+    expect(model.getRow("r")).toBe(before);
+    expect(model.undo()).toBe(false);
+  });
+  it("catches validator exceptions without mutation and preserves row ID guards", () => {
+    const model = grid({
+      columns: [
+        {
+          id: "name",
+          field: "name",
+          editable: true,
+          validate: () => {
+            throw new Error("Validator failure");
+          },
+        },
+        { id: "id", field: "id", editable: true },
+      ],
+    });
+    expect(model.editCell("a", "name", "Changed")).toBe("Validator failure");
+    expect(model.getRow("a")?.name).toBe("Alice");
+    expect(model.editCell("a", "id", "new")).toContain("row ID");
+    expect(model.undo()).toBe(false);
+  });
+  it("caches direct lookups by rows-array identity and refreshes after edits/undo/transactions/replacement", () => {
+    const getRowId = vi.fn((row: RecordRow) => row.id),
+      model = grid({ getRowId });
+    getRowId.mockClear();
+    expect(model.getRow("a")?.name).toBe("Alice");
+    const indexedCalls = getRowId.mock.calls.length;
+    expect(indexedCalls).toBe(4);
+    expect(model.getRow("b")?.name).toBe("Bob");
+    expect(model.getRow("missing")).toBeUndefined();
+    expect(getRowId).toHaveBeenCalledTimes(indexedCalls);
+    model.editCell("a", "amount", 99);
+    expect(model.getRow("a")?.amount).toBe(99);
+    model.undo();
+    expect(model.getRow("a")?.amount).toBe(30);
+    model.applyTransaction({ remove: ["a"] });
+    expect(model.getRow("a")).toBeUndefined();
+    model.setRows(rows);
+    expect(model.getRow("a")?.name).toBe("Alice");
+  });
+});
+
+describe("prototype-like column IDs", () => {
+  it("does not read inherited width, visibility or pinning and supports filtering/state serialization", () => {
+    const columns: Column<{ id: string; a: string; b: string; c: string }>[] = [
+      { id: "__proto__", field: "a" },
+      { id: "constructor", field: "b" },
+      { id: "toString", field: "c" },
+    ];
+    const model = createGrid({
+      rows: [{ id: "r", a: "A", b: "B", c: "C" }],
+      columns,
+      getRowId: (row) => row.id,
+    });
+    expect(model.getColumns().map((column) => column.id)).toEqual([
+      "__proto__",
+      "constructor",
+      "toString",
+    ]);
+    expect(model.getColumns().map((column) => column.width)).toEqual([
+      160, 160, 160,
+    ]);
+    model.resizeColumn("__proto__", 90);
+    model.hideColumn("constructor", true);
+    model.pinColumn("toString", "left");
+    model.pinColumn("__proto__", "right");
+    model.setFilter("__proto__", { op: "equals", value: "a" });
+    expect(model.getFilteredRows()).toHaveLength(1);
+    expect(Object.hasOwn(model.getState().filters, "__proto__")).toBe(true);
+    expect(Object.getPrototypeOf(model.getState().filters)).toBe(
+      Object.prototype,
+    );
+    const serialized = JSON.stringify(model.getState()),
+      restored = createGrid({
+        rows: model.getRows(),
+        columns,
+        getRowId: (row) => row.id,
+        initialState: JSON.parse(serialized),
+      });
+    expect(restored.getColumns()).toEqual(model.getColumns());
+    expect(restored.getFilteredRows()).toHaveLength(1);
+    restored.setFilter("__proto__");
+    expect(Object.hasOwn(restored.getState().filters, "__proto__")).toBe(false);
+    expect(restored.getFilteredRows()).toHaveLength(1);
+  });
+  it("normalizes malformed own records safely and ignores inherited caller-map properties", () => {
+    const inherited = Object.create({ constructor: 9, __proto__: 7 }) as Record<
+      string,
+      number
+    >;
+    const model = createGrid({
+      rows: [{ id: "r", value: 1 }],
+      columns: [
+        { id: "__proto__", field: "value" },
+        { id: "constructor", field: "value" },
+      ],
+      getRowId: (row) => row.id,
+      initialState: {
+        columnWidths: inherited,
+        columnPinning: JSON.parse(
+          '{"__proto__":"invalid","constructor":"left"}',
+        ),
+        columnVisibility: JSON.parse(
+          '{"__proto__":"invalid","constructor":false}',
+        ),
+      },
+    });
+    expect(model.getColumns().map((column) => column.id)).toEqual([
+      "constructor",
+      "__proto__",
+    ]);
+    expect(model.getColumns().map((column) => column.width)).toEqual([
+      160, 160,
+    ]);
+    expect(model.getColumns()[0].hidden).toBe(true);
+    expect(model.getColumns()[1].hidden).not.toBe(true);
+    expect(Object.hasOwn(model.getState().columnPinning, "__proto__")).toBe(
+      false,
+    );
+    model.setState({
+      columnWidths: JSON.parse('{"__proto__":12,"constructor":250}'),
+    });
+    expect(
+      model.getColumns().find((column) => column.id === "__proto__")?.width,
+    ).toBe(40);
+    expect(
+      model.getColumns().find((column) => column.id === "constructor")?.width,
+    ).toBe(250);
+  });
+});
+
+describe("bounded optional value-getter cache", () => {
+  it("is disabled by default and enabled explicitly for canonical getter results", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount * 2),
+      column: Column<RecordRow> = { id: "computed", valueGetter: getter };
+    const uncached = grid({ columns: [column] });
+    expect(uncached.getValue(rows[0], "computed")).toBe(60);
+    expect(uncached.getValue(rows[0], "computed")).toBe(60);
+    expect(getter).toHaveBeenCalledTimes(2);
+    getter.mockClear();
+    const cached = grid({ columns: [column], valueCache: true });
+    expect(cached.getValue(rows[0], "computed")).toBe(60);
+    expect(cached.getValue(rows[0], "computed")).toBe(60);
+    expect(getter).toHaveBeenCalledTimes(1);
+  });
+  it("preserves values across sorting, filters, search, selection, pagination, grouping and layout changes", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount * 2),
+      model = grid({
+        columns: [
+          ...columns,
+          {
+            id: "computed",
+            valueGetter: getter,
+            type: "number",
+            aggregate: "sum",
+          },
+        ],
+        valueCache: true,
+      });
+    rows.forEach((row) => model.getValue(row, "computed"));
+    expect(getter).toHaveBeenCalledTimes(4);
+    model.setSort("computed", "asc");
+    model.getFilteredRows();
+    model.setFilter("computed", { op: "gte", value: 20 });
+    model.setAdvancedFilter({
+      kind: "condition",
+      columnId: "computed",
+      filter: { op: "lte", value: 60 },
+    });
+    model.setQuickFilter("UK");
+    model.getFilteredRows();
+    model.setQuickFilter("");
+    model.toggleSelection("a", true);
+    model.resizeColumn("computed", 230);
+    model.pinColumn("computed", "left");
+    model.hideColumn("large", true);
+    model.moveColumn("computed", 1);
+    model.setState({ pageSize: 1, page: 2, groupBy: ["country"] });
+    model.getRowModel();
+    model.exportCsv();
+    expect(getter).toHaveBeenCalledTimes(4);
+  });
+  it("clears all entries when rows change through edits, undo/redo, transactions and setRows", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount * 2),
+      model = grid({
+        columns: [...columns, { id: "computed", valueGetter: getter }],
+        valueCache: true,
+      });
+    const read = () => model.getValue(model.getRow("a")!, "computed");
+    expect(read()).toBe(60);
+    expect(getter).toHaveBeenCalledTimes(1);
+    model.editCell("a", "amount", 40);
+    expect(read()).toBe(80);
+    model.undo();
+    expect(read()).toBe(60);
+    model.redo();
+    expect(read()).toBe(80);
+    model.applyTransaction({ update: [{ ...rows[0], amount: 50 }] });
+    expect(read()).toBe(100);
+    model.setRows(rows);
+    expect(read()).toBe(60);
+    expect(getter).toHaveBeenCalledTimes(6);
+  });
+  it("expires on any rows-array replacement even when the queried row object is unchanged", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount),
+      model = grid({
+        columns: [...columns, { id: "computed", valueGetter: getter }],
+        valueCache: true,
+      });
+    model.getValue(rows[0], "computed");
+    model.editCell("b", "amount", 11);
+    expect(model.getRow("a")).toBe(rows[0]);
+    model.getValue(rows[0], "computed");
+    expect(getter).toHaveBeenCalledTimes(2);
+    model.setRows(model.getRows());
+    model.getValue(rows[0], "computed");
+    expect(getter).toHaveBeenCalledTimes(3);
+  });
+  it("retains caches on normalized no-op edits and failed edits", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount),
+      model = grid({
+        columns: [...columns, { id: "computed", valueGetter: getter }],
+        valueCache: true,
+      });
+    model.getValue(rows[0], "computed");
+    model.editCell("a", "amount", "30");
+    expect(model.editCell("a", "amount", -1)).toBe("Must be positive");
+    model.getValue(rows[0], "computed");
+    expect(getter).toHaveBeenCalledTimes(1);
+  });
+  it("explicit expiry clears getter and derived caches and notifies for external closure dependencies", () => {
+    let multiplier = 1;
+    const getter = vi.fn((row: RecordRow) => row.amount * multiplier),
+      model = grid({
+        columns: [
+          {
+            id: "computed",
+            valueGetter: getter,
+            type: "number",
+            aggregate: "sum",
+          },
+        ],
+        valueCache: true,
+      });
+    model.setFilter("computed", { op: "gt", value: 25 });
+    expect(ids(model)).toEqual(["a"]);
+    model.getRowModel();
+    const snapshot = model.getState(),
+      listener = vi.fn();
+    model.subscribe(listener);
+    multiplier = 3;
+    expect(model.getValue(rows[1], "computed")).toBe(10);
+    expect(ids(model)).toEqual(["a"]);
+    const { expireValueCache } = model;
+    expireValueCache();
+    expect(listener).toHaveBeenCalledTimes(1);
+    expect(model.getState()).not.toBe(snapshot);
+    expect(ids(model)).toEqual(["a", "b", "c", "d"]);
+    expect(model.getValue(rows[1], "computed")).toBe(30);
+  });
+  it("explicit expiry refreshes derived queries when getter caching is disabled too", () => {
+    let factor = 1;
+    const model = grid({
+      columns: [
+        {
+          id: "computed",
+          valueGetter: (row) => row.amount * factor,
+          type: "number",
+        },
+      ],
+    });
+    model.setFilter("computed", { op: "gt", value: 25 });
+    expect(ids(model)).toEqual(["a"]);
+    factor = 3;
+    model.expireValueCache();
+    expect(ids(model)).toEqual(["a", "b", "c", "d"]);
+  });
+  it("uses bounded LRU eviction and refreshes recency on hits", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount),
+      model = grid({
+        columns: [{ id: "computed", valueGetter: getter }],
+        valueCache: true,
+        valueCacheMaxEntries: 2,
+      });
+    model.getValue(rows[0], "computed");
+    model.getValue(rows[1], "computed");
+    model.getValue(rows[0], "computed");
+    model.getValue(rows[2], "computed");
+    expect(getter).toHaveBeenCalledTimes(3);
+    model.getValue(rows[0], "computed");
+    expect(getter).toHaveBeenCalledTimes(3);
+    model.getValue(rows[1], "computed");
+    expect(getter).toHaveBeenCalledTimes(4);
+    model.getValue(rows[2], "computed");
+    expect(getter).toHaveBeenCalledTimes(5);
+  });
+  it("shares the capacity across rows and columns", () => {
+    const first = vi.fn((row: RecordRow) => row.amount),
+      second = vi.fn((row: RecordRow) => row.amount * 2),
+      model = grid({
+        columns: [
+          { id: "first", valueGetter: first },
+          { id: "second", valueGetter: second },
+        ],
+        valueCache: true,
+        valueCacheMaxEntries: 1,
+      });
+    model.getValue(rows[0], "first");
+    model.getValue(rows[0], "second");
+    model.getValue(rows[0], "first");
+    expect(first).toHaveBeenCalledTimes(2);
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+  it.each([undefined, null, false, 0, "", 0n])(
+    "caches successful falsy result %s",
+    (result) => {
+      const getter = vi.fn(() => result),
+        model = grid({
+          columns: [{ id: "computed", valueGetter: getter }],
+          valueCache: true,
+        });
+      expect(model.getValue(rows[0], "computed")).toBe(result);
+      expect(model.getValue(rows[0], "computed")).toBe(result);
+      expect(getter).toHaveBeenCalledTimes(1);
+    },
+  );
+  it("never caches a thrown getter and permits a later successful retry", () => {
+    let broken = true;
+    const expected = new Error("Getter failed"),
+      getter = vi.fn(() => {
+        if (broken) throw expected;
+        return 7;
+      }),
+      model = grid({
+        columns: [{ id: "computed", valueGetter: getter }],
+        valueCache: true,
+      });
+    expect(() => model.getValue(rows[0], "computed")).toThrow(expected);
+    expect(() => model.getValue(rows[0], "computed")).toThrow(expected);
+    broken = false;
+    expect(model.getValue(rows[0], "computed")).toBe(7);
+    expect(model.getValue(rows[0], "computed")).toBe(7);
+    expect(getter).toHaveBeenCalledTimes(3);
+  });
+  it("does not share or populate entries for foreign rows with the same ID", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount),
+      model = grid({
+        columns: [{ id: "computed", valueGetter: getter }],
+        valueCache: true,
+        valueCacheMaxEntries: 1,
+      }),
+      foreign = { ...rows[0], amount: 999 };
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(model.getValue(foreign, "computed")).toBe(999);
+    expect(model.getValue(foreign, "computed")).toBe(999);
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(getter).toHaveBeenCalledTimes(3);
+    for (let index = 0; index < 20; index++)
+      model.getValue({ ...rows[0], id: "foreign-" + index }, "computed");
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(getter).toHaveBeenCalledTimes(23);
+  });
+  it("does not reuse cached values for prior row objects after replacement", () => {
+    const getter = vi.fn((row: RecordRow) => row.amount),
+      model = grid({
+        columns: [...columns, { id: "computed", valueGetter: getter }],
+        valueCache: true,
+      });
+    model.getValue(rows[0], "computed");
+    model.editCell("a", "amount", 99);
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(model.getValue(model.getRow("a")!, "computed")).toBe(99);
+    expect(model.getValue(model.getRow("a")!, "computed")).toBe(99);
+    expect(getter).toHaveBeenCalledTimes(3);
+  });
+  it("never caches raw field access or value formatters", () => {
+    let raw = 1;
+    const rawGetter = vi.fn(() => raw),
+      row = Object.defineProperty({ id: "r", raw: 0 }, "raw", {
+        get: rawGetter,
+      }),
+      formatter = vi.fn((value: unknown) => String(value)),
+      getter = vi.fn(() => 7);
+    const model = createGrid({
+      rows: [row],
+      columns: [
+        { id: "raw", field: "raw" },
+        { id: "computed", valueGetter: getter, valueFormatter: formatter },
+      ],
+      getRowId: (row) => row.id,
+      valueCache: true,
+    });
+    expect(model.getValue(row, "raw")).toBe(1);
+    raw = 2;
+    expect(model.getValue(row, "raw")).toBe(2);
+    expect(rawGetter).toHaveBeenCalledTimes(2);
+    model.exportCsv();
+    model.exportCsv();
+    expect(getter).toHaveBeenCalledTimes(1);
+    expect(formatter).toHaveBeenCalledTimes(2);
+  });
+  it("uses collision-safe keys including prototype-like identifiers", () => {
+    const getter = vi.fn((row: { id: string; value: number }) => row.value),
+      first = { id: "__proto__", value: 1 },
+      second = { id: "constructor", value: 2 },
+      model = createGrid({
+        rows: [first, second],
+        columns: [
+          { id: "__proto__", valueGetter: getter },
+          { id: "constructor", valueGetter: getter },
+        ],
+        getRowId: (row) => row.id,
+        valueCache: true,
+      });
+    expect(model.getValue(first, "__proto__")).toBe(1);
+    expect(model.getValue(second, "__proto__")).toBe(2);
+    expect(model.getValue(first, "constructor")).toBe(1);
+    expect(model.getValue(first, "__proto__")).toBe(1);
+    expect(getter).toHaveBeenCalledTimes(3);
+    const left = { id: "a:b", value: 3 },
+      right = { id: "a", value: 4 },
+      collision = createGrid({
+        rows: [left, right],
+        columns: [
+          { id: "c", valueGetter: getter },
+          { id: "b:c", valueGetter: getter },
+        ],
+        getRowId: (row) => row.id,
+        valueCache: true,
+      });
+    expect(collision.getValue(left, "c")).toBe(3);
+    expect(collision.getValue(right, "b:c")).toBe(4);
+  });
+  it("does not install a result across reentrant expiry or row mutation", () => {
+    let model: ReturnType<typeof grid>,
+      expire = true,
+      multiplier = 1;
+    const getter = vi.fn((row: RecordRow) => {
+      const result = row.amount * multiplier;
+      if (expire) {
+        expire = false;
+        model.expireValueCache();
+        multiplier = 2;
+      }
+      return result;
+    });
+    model = grid({
+      columns: [...columns, { id: "computed", valueGetter: getter }],
+      valueCache: true,
+    });
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(model.getValue(rows[0], "computed")).toBe(60);
+    expect(getter).toHaveBeenCalledTimes(2);
+    let mutate = true;
+    const change = vi.fn((row: RecordRow) => {
+      const result = row.amount;
+      if (mutate) {
+        mutate = false;
+        model.editCell("a", "amount", 99);
+      }
+      return result;
+    });
+    model = grid({
+      columns: [...columns, { id: "computed", valueGetter: change }],
+      valueCache: true,
+    });
+    expect(model.getValue(rows[0], "computed")).toBe(30);
+    expect(model.getValue(model.getRow("a")!, "computed")).toBe(99);
+    expect(change).toHaveBeenCalledTimes(2);
+  });
+  it.each([0, -1, 1.5, NaN, Infinity, 1000001, null, "10"])(
+    "rejects invalid capacity %s even when caching is disabled",
+    (maximum) => {
+      expect(() => grid({ valueCacheMaxEntries: maximum as number })).toThrow(
+        RangeError,
+      );
+    },
+  );
+  it("accepts minimum and maximum capacities and rejects nonboolean enablement", () => {
+    expect(() => grid({ valueCacheMaxEntries: 1 })).not.toThrow();
+    expect(() => grid({ valueCacheMaxEntries: 1000000 })).not.toThrow();
+    expect(() => grid({ valueCache: 1 as unknown as boolean })).toThrow(
+      TypeError,
+    );
+    expect(() => grid({ valueCache: null as unknown as boolean })).toThrow(
+      TypeError,
+    );
+  });
+});
+
+describe("column group path metadata", () => {
+  it("detaches the caller's array and each returned column definition without a UI depth restriction", () => {
+    const path = ["Finance", "Revenue"],
+      model = grid({
+        columns: [{ id: "amount", field: "amount", groupPath: path }],
+      });
+    path[0] = "Changed";
+    path.push("Unexpected");
+    expect(model.getColumns()[0].groupPath).toEqual(["Finance", "Revenue"]);
+    const first = model.getColumns(),
+      second = model.getColumns();
+    expect(first[0].groupPath).not.toBe(second[0].groupPath);
+    (first[0].groupPath as string[])[0] = "Mutated";
+    expect(model.getColumns()[0].groupPath).toEqual(["Finance", "Revenue"]);
+    const deep = Array.from({ length: 20 }, (_, index) => String(index));
+    expect(
+      grid({
+        columns: [{ id: "amount", field: "amount", groupPath: deep }],
+      }).getColumns()[0].groupPath,
+    ).toEqual(deep);
+  });
+  it("preserves absent/empty paths and rejects malformed metadata", () => {
+    expect(grid().getColumns()[0].groupPath).toBeUndefined();
+    expect(
+      grid({
+        columns: [{ id: "name", field: "name", groupPath: [] }],
+      }).getColumns()[0].groupPath,
+    ).toEqual([]);
+    for (const groupPath of ["group", [1], [null], Array(2)])
+      expect(() =>
+        grid({
+          columns: [
+            { id: "name", field: "name", groupPath: groupPath as string[] },
+          ],
+        }),
+      ).toThrow(TypeError);
+  });
+});

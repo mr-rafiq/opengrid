@@ -14,6 +14,8 @@ OpenGrid separates data processing, provider lifecycles, browser interaction and
 
 `types.ts` defines the client `GridModel<T>`. Stable row and column IDs carry identity across sort/filter/reorder. Positions are display coordinates, not identity. A `RowNode` distinguishes source data from synthetic groups. Ranges, remote stores and formulas have additional contracts in their own modules; they are not all serialized inside `GridState`.
 
+The core also contains the validated advanced-filter AST/external-predicate pipeline, bounded getter cache, literal Find controller, plain-text note store and staged row-edit sessions. React exports the corresponding builder/dialogs, grouped headers, variable-height layout and separate remote bindings. The optional document package now includes bounded XLSX import as well as export.
+
 ## Client data and rendering flow
 
 ```mermaid
@@ -31,7 +33,7 @@ flowchart LR
 
 The client pipeline filters, stably sorts, builds groups or a path tree, flattens expanded nodes and applies pagination before the rendering window. Pagination counts displayed group nodes as well as data rows. The React range controller uses visible data-row IDs from the current page. Chart/export row policies differ intentionally and are documented in [charts](CHARTS.md) and [exports](EXPORTS.md); they must not silently inherit DOM-window limits.
 
-Rows remain resident regardless of DOM window size. Horizontal windowing creates spacers for omitted columns while preserving total width, logical ARIA indices and pinned/focused columns. Fixed sizes are required; variable heights, spanning and RTL are outside this strategy. Offscreen keyboard navigation scrolls and restores focus after the target cell mounts.
+Rows remain resident regardless of DOM window size. Horizontal windowing uses fixed column widths and spacers while preserving total width, logical ARIA indices and pinned/focused columns. Client rows now support explicit variable heights through prefix-sum geometry; detail blocks add known heights to that layout. No DOM measuring/automatic asynchronous size observation, merged spans or RTL is supplied. Offscreen keyboard navigation scrolls and restores focus after the target cell mounts. Nested group headers retain logical spans and split at pin/order boundaries; client collapse keeps one representative leaf and restores prior visibility.
 
 ## State, edits and ranges
 
@@ -41,11 +43,15 @@ Parsers/validators run before publication. A batch commits all changes or none a
 
 Native editor controls use string drafts; BigInt is not converted through Number. The React host owns final keyboard navigation and commits. Async option providers receive cancellation and request-identity guards; failures expose retry. Custom editors must preserve draft/commit/cancel/error semantics. See [editors](EDITORS.md).
 
+Whole-row editing stages raw fields in a separate `createRowEditSession`, validates the final staged row and commits one batch. `RowEditDialog` provides explicit Save/Cancel/reload with conflict handling. Client `editMode="row"` opts into this modal path; default cell mode retains inline editing. This is not reference inline full-row blur-save semantics or backend persistence.
+
+Find uses literal formatted text and stable cell IDs; the client bar restricts it to current-page visible data rows and restores focus through virtual scrolling. Notes stay outside row data/history in a bounded versioned store; native modal UI renders text literally. Advanced filtering applies per-column conditions, a validated AND/OR/NOT AST, external predicate and quick terms with AND; callbacks stay outside serialized state. Getter caching is opt-in bounded LRU, invalidated by data generations or explicit expiry; formatter output is not cached.
+
 ## Distinct remote provider stores
 
 `InfiniteDataSource` is a flat cached block loader. `ServerSideRowModel` is a hierarchical route/block store that forwards sort/filter/group/aggregate/pivot queries, validates results and supports cache refresh/retry plus atomic updates to loaded nodes. `LiveViewportRowModel` owns a buffered absolute-index subscription and server-pushed rows/counts. Each controls cancellation, stale generations, validation and cleanup according to its own contract.
 
-These primitives are standalone. They do not make the client `DataGrid` a complete server renderer. Applications still bind loaded nodes/placeholders/errors, expansion/result columns, selection, transport and backend persistence. A loaded-node cache update is not an HTTP write. Provider-fixture tests establish store behavior, not production service availability. See [remote models](REMOTE_MODELS.md).
+The provider stores remain independent of client `DataGrid`. Separate read-only `ServerDataGrid` and `LiveViewportDataGrid` now bind them to React: server route/block paging and drilldown versus sparse absolute-index live scrolling. Both surface load/error/retry state and retain provider authority. Full mixed-route expansion, automatic pivot schemas, server-wide selection and write workflows remain absent. Backend persistence and transport belong to the application; a loaded-node cache update is not an HTTP write. Provider/component tests are not production service availability. See [remote models](REMOTE_MODELS.md) and [bindings](REMOTE_GRIDS.md).
 
 ## Formula and analysis modules
 
@@ -55,7 +61,9 @@ Pivoting is a client projection utility plus server query/metadata forwarding, n
 
 ## Optional document output
 
-`@opengrid/export` reads model values and returns actual OOXML/PDF bytes. It does not scrape React renderers. Dependencies load on demand. Ordinary XLSX formula-like strings stay strings; formula descriptors require explicit opt-in. PDF's standard Helvetica path supports WinAnsi, rejecting unsupported text rather than silently corrupting it. CSV/TSV keep formula-prefix safeguards. File validation uses independent ZIP/PDF readers; native import remains absent.
+`@opengrid/export` reads model values and returns actual OOXML/PDF bytes without scraping React renderers. Dependencies load on demand. Formula-like XLSX strings stay strings; formula descriptors require explicit opt-in. PDF's standard Helvetica path supports WinAnsi and rejects unsupported text. CSV/TSV retain formula safeguards. Independent ZIP/PDF readers validate output.
+
+`importXlsx` preflights all archive parts using actual expanded-byte/count/depth budgets before workbook parsing, then maps/parses/validates a preview. It never writes to a grid or evaluates formulas. Formula policy and applying accepted rows are explicit application decisions. Merges/named ranges, macros/encryption/legacy formats and arbitrary workbook fidelity are unsupported/rejected. See [import](IMPORT.md).
 
 ## Verification and accessibility
 
