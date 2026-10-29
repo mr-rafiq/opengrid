@@ -323,3 +323,17 @@ Read the [alignment guide](ALIGNED_COLUMNS.md) for initialization, effect owners
 `DataGrid` accepts `pinnedTopRowIds` and `pinnedBottomRowIds`. Visible leaf records in the current page (or expanded view when pagination is off) move into ordered sticky bands, with one rendered instance per ID. Absent/filtered/collapsed/off-page IDs are ignored, top wins duplicate requests, and at most 1,000 combined requests are accepted. Bands remain mounted; the viewport expands when necessary to retain a usable body. Core sorting, filtering, pagination, aggregates and exports remain unchanged.
 
 `isFullWidthRow(node)` with `renderFullWidthRow({node,rowId,rowPinned,viewportWidth})` renders one gridcell spanning all logical columns. It uses the declared row height and remains a keyboard row target, while ordinary cell ranges/Find exclude its absent per-column cells. Interactive descendants own their controls. Optional detail blocks remain separately counted and can open with Alt+Enter. Stable-ID focus, editing and ranges continue across ordinary pinned rows. No automatic height measurement or split left/center/right renderer is supplied. See [projection and adapter contract](PINNED_FULL_WIDTH_ROWS.md).
+
+## Calculated columns
+
+`createCalculatedGrid({...gridOptions,calculatedColumns,calculationCacheMaxEntries?,calculationLimits?})` returns `{model,calculations}`. Definitions compile once and add read-only number/text/boolean columns. Same-row `[columnId]` references and safe formula operations feed actual sorting, typed/advanced/quick filtering, grouping/aggregation and exports. A1 addresses and ranges are rejected in this mode; the separate cell formula engine retains its own positional language.
+
+The controller exposes `getResult(rowId,columnId)`, `evaluate(row,columnId)`, `getDefinitions()`, `getDependencies(columnId)`, `getStats()`, `expire()` and `dispose()`. Typed errors project to null in data operations and error labels in cells; raw rows remain unchanged. Bounded cached results track model snapshot and canonical row identity, while transient failures can retry. Getter evaluation emits no notifications or model subscriptions. Explicit expiry refreshes the model; reusable cache-only disposal supports Strict Mode cleanup.
+
+Schemas remain fixed per instance. Applying edited definitions recreates a model with explicitly compatible state and resets history; this is demonstrated in the authoring lab. No implicit schema migration, BigInt/date formula evaluation, pivot definition management or backend persistence is supplied. See [calculated columns](CALCULATED_COLUMNS.md).
+
+## Custom filter components
+
+`DataGrid.filterComponents` maps column IDs to React component types accepting `ColumnFilterProps<T>`. The grid supplies the column, controlled filter, accessible label and bound `onFilterChange`/`onClear` callbacks. Components use normal React lifecycle; persisted filters survive hiding/unmounting and focused native/custom filter columns stay mounted through horizontal virtualization. The native input remains the default.
+
+`NumberRangeFilter` provides inclusive number, exact BigInt-string and ISO-date/timestamp bounds. Invalid or reversed drafts keep the last valid applied filter and show an associated error; external filter changes resynchronize the controls. Multiple independent component instances and AND/OR multi-filter panels are not implemented by this registry. See [custom filters](CUSTOM_FILTERS.md).

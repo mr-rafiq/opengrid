@@ -8,13 +8,19 @@ import {
   useMemo,
   Fragment,
 } from "react";
-import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
+import type {
+  CSSProperties,
+  KeyboardEvent,
+  ReactNode,
+  ComponentType,
+} from "react";
 import type {
   Column,
   GridModel,
   RowNode,
   CellPosition,
   CellRange,
+  Filter,
 } from "@opengrid/core";
 import { useCellRanges } from "./use-cell-ranges.js";
 import { useFind } from "./use-find.js";
@@ -41,6 +47,7 @@ import { getColumnWindow } from "./column-window.js";
 import type { ColumnWindowEntry } from "./column-window.js";
 import { createRowProjection } from "./row-projection.js";
 import type { FullWidthRowContext, RowRegion } from "./row-projection.js";
+import type { ColumnFilterProps } from "./filter-components.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -76,6 +83,10 @@ export interface DataGridProps<T> {
   ariaLabel?: string;
   toolbar?: boolean;
   advancedFiltering?: boolean;
+  filterComponents?: Record<
+    string,
+    ComponentType<ColumnFilterProps<NoInfer<T>>>
+  >;
   notes?: CellNotesStore | false;
   pagination?: boolean;
   className?: string;
@@ -141,6 +152,7 @@ export function DataGrid<T>({
   ariaLabel = "Data grid",
   toolbar = true,
   advancedFiltering = true,
+  filterComponents,
   notes,
   pagination = true,
   className = "",
@@ -236,6 +248,16 @@ export function DataGrid<T>({
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(1024);
+  const [focusedFilterColumnId, setFocusedFilterColumnId] = useState<
+    string | null
+  >(null);
+  const FilterOwner = useMemo(
+    () =>
+      function FilterOwner({ children }: { children: ReactNode }) {
+        return <>{children}</>;
+      },
+    [model],
+  );
   const [focus, setFocus] = useState<FocusCell>({
     rowId: rows[0]?.id ?? "",
     columnId: columns[0]?.id ?? "",
@@ -299,6 +321,7 @@ export function DataGrid<T>({
       retainIndices: [
         columns.findIndex((column) => column.id === focus.columnId),
         columns.findIndex((column) => column.id === editing?.columnId),
+        columns.findIndex((column) => column.id === focusedFilterColumnId),
       ],
     },
   );
@@ -438,6 +461,17 @@ export function DataGrid<T>({
   }, [onCellRangeChange, ranges.range]);
 
   useEffect(() => () => dragCleanup.current?.(), []);
+  useEffect(() => {
+    if (
+      focusedFilterColumnId &&
+      !columns.some((column) => column.id === focusedFilterColumnId)
+    )
+      setFocusedFilterColumnId(null);
+  }, [
+    model,
+    focusedFilterColumnId,
+    columns.map((column) => column.id).join("\u0000"),
+  ]);
   useLayoutEffect(() => {
     if (rowEditing) setRestoreRowFocus(rowEditing.position);
     setRowEditing(null);
@@ -660,6 +694,61 @@ export function DataGrid<T>({
       : [...detailIds, rowId];
     if (expandedDetailRows === undefined) setLocalDetails(next);
     onExpandedDetailRowsChange?.(next);
+  }
+  function applyColumnFilter(columnId: string, filter?: Filter) {
+    model.setFilter(columnId, filter);
+    if (viewport.current) viewport.current.scrollTop = 0;
+    setScrollTop(0);
+  }
+  function renderColumnFilter(column: Column<T>) {
+    const filter = Object.hasOwn(state.filters, column.id)
+      ? state.filters[column.id]
+      : undefined;
+    const Component =
+      filterComponents && Object.hasOwn(filterComponents, column.id)
+        ? filterComponents[column.id]
+        : undefined;
+    const label = `Filter ${column.header ?? column.id}`;
+    return (
+      <FilterOwner>
+        {Component ? (
+          <Component
+            column={column}
+            filter={filter}
+            label={label}
+            onFilterChange={(filter) => applyColumnFilter(column.id, filter)}
+            onClear={() => applyColumnFilter(column.id)}
+          />
+        ) : (
+          <input
+            aria-label={label}
+            placeholder={
+              column.type === "number" || column.type === "bigint"
+                ? "= value"
+                : "Filter..."
+            }
+            value={text(filter?.value)}
+            onChange={(event) =>
+              applyColumnFilter(
+                column.id,
+                event.target.value
+                  ? {
+                      op:
+                        column.type === "number" ||
+                        column.type === "bigint" ||
+                        column.type === "boolean" ||
+                        column.type === "date"
+                          ? "equals"
+                          : "contains",
+                      value: event.target.value,
+                    }
+                  : undefined,
+              )
+            }
+          />
+        )}
+      </FilterOwner>
+    );
   }
   function toggleColumnGroup(path: string[]) {
     const same = (left: readonly string[], right: readonly string[]) =>
@@ -1526,7 +1615,12 @@ export function DataGrid<T>({
         )}
       </p>
       {toolbar && (
-        <div className="og-toolbar" role="toolbar" aria-label="Grid tools">
+        <div
+          className="og-toolbar"
+          role="toolbar"
+          aria-label="Grid tools"
+          style={{ zIndex: 7 }}
+        >
           <label className="og-search">
             <span aria-hidden="true">{"\u2315"}</span>
             <input
@@ -1812,6 +1906,7 @@ export function DataGrid<T>({
             minWidth: "100%",
             borderBottom: 0,
             boxShadow: "inset 0 -1px 0 var(--og-border)",
+            zIndex: 6,
           }}
         >
           {groupDepth > 0 && (
@@ -1988,37 +2083,26 @@ export function DataGrid<T>({
                     aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                     className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
                     style={cellStyle(column)}
+                    onFocusCapture={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        event.target.closest(
+                          '[role="grid"],[role="treegrid"]',
+                        ) === viewport.current
+                      )
+                        setFocusedFilterColumnId(column.id);
+                    }}
+                    onBlurCapture={(event) => {
+                      if (
+                        event.relatedTarget instanceof Node &&
+                        !event.currentTarget.contains(event.relatedTarget)
+                      )
+                        setFocusedFilterColumnId((current) =>
+                          current === column.id ? null : current,
+                        );
+                    }}
                   >
-                    {column.filterable !== false && (
-                      <input
-                        aria-label={`Filter ${column.header ?? column.id}`}
-                        placeholder={
-                          column.type === "number" || column.type === "bigint"
-                            ? "= value"
-                            : "Filter..."
-                        }
-                        value={text(state.filters[column.id]?.value)}
-                        onChange={(event) => {
-                          model.setFilter(
-                            column.id,
-                            event.target.value
-                              ? {
-                                  op:
-                                    column.type === "number" ||
-                                    column.type === "bigint" ||
-                                    column.type === "boolean" ||
-                                    column.type === "date"
-                                      ? "equals"
-                                      : "contains",
-                                  value: event.target.value,
-                                }
-                              : undefined,
-                          );
-                          if (viewport.current) viewport.current.scrollTop = 0;
-                          setScrollTop(0);
-                        }}
-                      />
-                    )}
+                    {column.filterable !== false && renderColumnFilter(column)}
                   </div>
                 );
               })}

@@ -27,6 +27,8 @@ const model = createGrid({
 | `GridOptions.valueCacheMaxEntries?: number` | Shared entry capacity across all rows and columns; default `100000`                |
 | `GridModel.expireValueCache(): void`        | Clears all getter entries and derived filter/row caches, then notifies subscribers |
 
+`Column.valueCache: false` opts a getter out of this generic cache. `true` or omission still follows the grid's global opt-in; it does not enable caching by itself. Calculated columns use this opt-out for their projections and maintain a separate bounded calculation cache, while referenced base getters can retain ordinary memoization. Explicit model expiry invalidates both layers through the model snapshot generation; see [calculated columns](CALCULATED_COLUMNS.md).
+
 The capacity must be a positive safe integer no larger than `1000000`, even if caching is currently disabled. Invalid values throw `RangeError` during model creation; nonboolean enablement throws `TypeError`. The limit bounds entry count, not the size of objects a getter returns.
 
 ## Canonical rows and cache keys

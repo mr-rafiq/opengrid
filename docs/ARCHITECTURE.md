@@ -39,6 +39,8 @@ Row projection resolves current-view leaf IDs into unique top/body/bottom bands 
 
 ## State, edits and ranges
 
+The formula engine and calculated-grid factory share a tokenizer/parser/evaluator program layer. Cell formulas retain positional references and dependency invalidation; calculated definitions compile once with symbolic same-row references. Generated read-only getters participate in ordinary grid pipelines and opt out of generic getter memoization to avoid caching error projections. A separate bounded controller cache observes model snapshot and canonical row identities without subscriptions or notifications during reads. Explicit expiry refreshes the model, and schema replacement remains an application action with history reset.
+
 The client model owns data and view state; React owns transient focus, editor drafts and pointer interactions. Retain one model per grid and subscribe through stable snapshots. Snapshot consumers must not mutate returned state or borrowed row payloads. JSON persistence needs explicit BigInt encoding and a future migration/version policy.
 
 Parsers/validators run before publication. A batch commits all changes or none and forms one undo unit. Paste/fill reuse that path so protected/invalid/out-of-bounds operations do not partially write. Transactions use stable IDs; replacing rows and applying client transactions clear edit history. Range selection is one rectangle, separate from row selection, with endpoint invalidation after schema/view changes.

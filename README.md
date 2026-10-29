@@ -92,10 +92,14 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Bounded static print snapshots with explicit refresh, hierarchy/formatting and isolated browser print layout.
 - Shared column-order/width/visibility/pinning synchronization across models, with independent row state and disposal.
 - Unique current-view rows in sticky top/bottom bands, with stable-ID focus/editing/ranges; custom full-width rows with declared heights and detail regions.
+- Compiled read-only calculated columns feeding real sort/filter/group/export pipelines, with same-row dependencies and an add/edit authoring example.
+- Controlled custom React filter components and inclusive number/BigInt/ISO-date bounds, preserving valid model filters through invalid drafts and virtualization.
 
 The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 
 Detailed guides: [ranges/API](docs/API.md), [remote bindings](docs/REMOTE_GRIDS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [row editing](docs/ROW_EDITOR_UI.md), [advanced filters](docs/FILTER_BUILDER.md), [Find/notes](docs/FIND_NOTES.md), [column groups](docs/COLUMN_GROUPS.md), [charts](docs/CHARTS.md), [exports](docs/EXPORTS.md), [import](docs/IMPORT.md), [value transforms](docs/SHOW_VALUES_AS.md), [printing](docs/PRINTING.md), and [aligned columns](docs/ALIGNED_COLUMNS.md).
+
+Use the [calculated-column factory](docs/CALCULATED_COLUMNS.md) for compiled derived values, and [custom filter components](docs/CUSTOM_FILTERS.md) to provide controlled React filter interfaces.
 
 ## Keyboard controls
 

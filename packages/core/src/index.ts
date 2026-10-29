@@ -12,6 +12,7 @@ export * from "./row-edit.js";
 export * from "./advanced-filters.js";
 export * from "./value-transforms.js";
 export * from "./aligned-columns.js";
+export * from "./calculated-grid.js";
 import { aggregateValues } from "./analytics.js";
 import {
   prepareAdvancedFilter,
@@ -102,6 +103,11 @@ export function csvCell(value: unknown): string {
 
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const columns = options.columns.map((column) => {
+    if (
+      column.valueCache !== undefined &&
+      typeof column.valueCache !== "boolean"
+    )
+      throw new TypeError("Column valueCache must be a boolean");
     if (
       column.groupPath !== undefined &&
       (!Array.isArray(column.groupPath) ||
@@ -295,7 +301,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       return column.field
         ? row[column.field]
         : (row as Record<string, unknown>)[id];
-    if (!cacheEnabled) return column.valueGetter(row);
+    if (!cacheEnabled || column.valueCache === false)
+      return column.valueGetter(row);
     syncValueCache();
     const rowId = idOf(row);
     if (typeof rowId !== "string" || getRow(rowId) !== row)

@@ -10,3 +10,4 @@ export * from "./group-headers.js";
 export * from "./row-edit-dialog.js";
 export * from "./print-view.js";
 export * from "./row-projection.js";
+export * from "./filter-components.js";

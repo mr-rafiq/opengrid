@@ -540,3 +540,40 @@
   white-space: normal;
   align-content: center;
 }
+.og-root .og-number-range-filter {
+  display: flex;
+  position: relative;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+}
+.og-root .og-number-range-filter > input {
+  flex: 1;
+  width: 0;
+  min-width: 0;
+}
+.og-root .og-number-range-filter > .og-range-filter-clear {
+  flex: 0 0 18px;
+  width: 18px;
+  padding: 1px;
+  border: 0;
+  background: transparent;
+  color: var(--og-muted);
+}
+.og-root .og-range-filter-error {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 5px);
+  z-index: 20;
+  width: max-content;
+  min-width: 180px;
+  max-width: min(320px, 80vw);
+  padding: 8px 10px;
+  white-space: normal;
+  background: var(--og-bg);
+  border: 1px solid var(--og-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px #213e4e20;
+  color: var(--og-text);
+}

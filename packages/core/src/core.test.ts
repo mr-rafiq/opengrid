@@ -1256,3 +1256,40 @@ describe("column group path metadata", () => {
       ).toThrow(TypeError);
   });
 });
+
+describe("per-column getter-cache opt-out", () => {
+  it("lets selected columns bypass global memoization while other getters stay cached", () => {
+    const cached = vi.fn((row: RecordRow) => row.amount),
+      uncached = vi.fn((row: RecordRow) => row.amount * 2);
+    const model = grid({
+      columns: [
+        { id: "cached", valueGetter: cached },
+        { id: "uncached", valueGetter: uncached, valueCache: false },
+      ],
+      valueCache: true,
+    });
+    for (let index = 0; index < 2; index++) {
+      expect(model.getValue(rows[0], "cached")).toBe(30);
+      expect(model.getValue(rows[0], "uncached")).toBe(60);
+    }
+    expect(cached).toHaveBeenCalledTimes(1);
+    expect(uncached).toHaveBeenCalledTimes(2);
+    model.expireValueCache();
+    model.getValue(rows[0], "cached");
+    expect(cached).toHaveBeenCalledTimes(2);
+  });
+  it("does not opt into global caching when only a column requests true", () => {
+    const getter = vi.fn(() => 7),
+      model = grid({
+        columns: [{ id: "computed", valueGetter: getter, valueCache: true }],
+      });
+    model.getValue(rows[0], "computed");
+    model.getValue(rows[0], "computed");
+    expect(getter).toHaveBeenCalledTimes(2);
+    expect(() =>
+      grid({
+        columns: [{ id: "invalid", valueCache: "true" as unknown as boolean }],
+      }),
+    ).toThrow(TypeError);
+  });
+});

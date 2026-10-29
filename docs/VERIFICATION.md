@@ -1,5 +1,17 @@
 # Verification record
 
+## Calculated columns and custom filters
+
+`npm run check` passed strict TypeScript, **709 tests in 35 files** (20.52 seconds), three package builds and the production example. This includes 31 calculated-grid integration cases, two per-column generic-cache cases, 18 custom-filter cases and all 46 existing formula-engine regressions after the shared-language refactor. Built-ESM smoke verified calculated values, edit recalculation, CSV output and the legacy formula API without import-cycle errors.
+
+The full Chromium grid suite passed **37 scenarios in 34.2 seconds**. New workflows verify authoring/recreating definitions without changing raw data, derived sort/filter/group aggregation, chained additions, read-only cells, positional-reference rejection, runtime cycle diagnostics/recovery, valid filter preservation across invalid drafts/remounts and native/custom filter focus through horizontal virtualization. The combined view passed a serious/critical axe scan. Production Pages build succeeded with 32 documentation routes and **9 site scenarios passed in 6.7 seconds**. Schemas, ranges, remote calculations and multi-filter limits remain explicit in their guides.
+
+## GitHub Pages delivery
+
+The showcase/docs site was published as `7a7550764112832acbdd217eae6d8dc5f89d1cbb` at [mr-rafiq.github.io/opengrid](https://mr-rafiq.github.io/opengrid/), with the actual [portfolio playground](https://mr-rafiq.github.io/opengrid/demo/) and 30 prerendered documentation routes. Both [Pages build/deployment](https://github.com/mr-rafiq/opengrid/actions/runs/40830293363) and [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40830293390) passed for that exact commit.
+
+Final merged validation passed clean install/audit (0 advisories), formatting, strict typing, 658 unit/React tests, all package/demo/site builds, 33 grid browser scenarios and 9 local production-site scenarios. Against the public HTTPS URL, 8 browser scenarios passed (the local-filesystem artifact audit is intentionally skipped), including live grid interaction, physical deep links/encoded aliases, mobile navigation, docs search/code copying, genuine 404 behavior and three serious/critical axe scans. An independent live crawl verified all 32 sitemap pages and 38 internal page/asset targets with zero failures. Live XLSX and PDF downloads had real `PK`/`%PDF-` signatures, and published pinned/full-width controls worked without runtime errors. Actual deployed desktop/mobile landing and documentation screenshots were visually inspected with no document-wide horizontal overflow. No manual screen-reader or touch-device conformance claim is made.
+
 ## Pinned and full-width row milestone
 
 `npm run check` passed strict TypeScript, **658 tests in 33 files** (23.57 seconds), all three package builds and the production example build. The full Chromium suite passed **33 scenarios in 33.2 seconds**. Fifteen new component cases exercise pin resolution, stable-ID focus through pin changes, modal restoration, range copy/paste/fill/undo, tree presentation without source mutation, full-width exclusion, details and nested-grid event isolation.

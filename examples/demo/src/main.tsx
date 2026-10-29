@@ -10,7 +10,12 @@ import {
   type CellRange,
   type RowNode,
 } from "@opengrid/core";
-import { DataGrid, GridChart, GridPrintView } from "@opengrid/react";
+import {
+  DataGrid,
+  GridChart,
+  GridPrintView,
+  NumberRangeFilter,
+} from "@opengrid/react";
 import "@opengrid/react/styles.css";
 import "./page.css";
 import { FormulaLab } from "./formula-lab";
@@ -19,6 +24,7 @@ import { HoldingDetail } from "./holding-detail";
 import { ImportLab } from "./import-lab";
 import { AlignedLab } from "./aligned-lab";
 import { HoldingSummary } from "./holding-summary";
+import { CalculatedLab } from "./calculated-lab";
 interface Holding {
   id: string;
   company: string;
@@ -145,6 +151,10 @@ const isSummaryRow = (node: RowNode<Holding>) =>
   node.kind === "row" && node.id === "3";
 const summaryRowHeight = (node: RowNode<Holding>) =>
   isSummaryRow(node) ? 92 : 38;
+const rangeFilterComponents = {
+  price: NumberRangeFilter,
+  shares: NumberRangeFilter,
+};
 function App() {
   const [size, setSize] = useState(1000);
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
@@ -171,6 +181,8 @@ function App() {
   const [rowEditing, setRowEditing] = useState(false);
   const [pinnedRows, setPinnedRows] = useState(false);
   const [fullWidthRows, setFullWidthRows] = useState(false);
+  const [customFilters, setCustomFilters] = useState(false);
+  const [calculatedOpen, setCalculatedOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -445,6 +457,12 @@ function App() {
               >
                 Full-width rows
               </button>
+              <button
+                aria-pressed={customFilters}
+                onClick={() => setCustomFilters(!customFilters)}
+              >
+                Custom filters
+              </button>
               <label>
                 Rows{" "}
                 <select
@@ -488,6 +506,7 @@ function App() {
           </div>
           <DataGrid
             model={model}
+            filterComponents={customFilters ? rangeFilterComponents : undefined}
             pinnedTopRowIds={pinnedRows ? topHoldingPins : undefined}
             pinnedBottomRowIds={pinnedRows ? bottomHoldingPins : undefined}
             isFullWidthRow={fullWidthRows ? isSummaryRow : undefined}
@@ -667,6 +686,15 @@ function App() {
           {remoteOpen && <RemoteLab />}
         </section>
         <ImportLab />
+        <section className="pivot-panel">
+          <button
+            onClick={() => setCalculatedOpen(!calculatedOpen)}
+            aria-expanded={calculatedOpen}
+          >
+            Calculated columns lab
+          </button>
+          {calculatedOpen && <CalculatedLab />}
+        </section>
         <section className="pivot-panel">
           <button
             onClick={() => setPrintOpen(!printOpen)}
