@@ -1,5 +1,26 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const esMessages = Object.freeze({
+  "richSelect.open": (params, _format) => `Elegir ${params.label}`,
+  "richSelect.title": (params, _format) => `Elegir ${params.label}`,
+  "richSelect.search": (params, _format) =>
+    `Buscar opciones de ${params.label}`,
+  "richSelect.choices": (params, _format) => `Opciones de ${params.label}`,
+  "richSelect.help":
+    "Busque o use las flechas para elegir. Intro o Aplicar guarda la opción; Escape cancela.",
+  "richSelect.apply": "Aplicar opción",
+  "richSelect.noMatches": "No hay opciones coincidentes",
+  "richSelect.blank": "(en blanco)",
+  "richSelect.count": (params, format) =>
+    `${format.number(params.count)} ${params.count === 1 ? "opción" : "opciones"}`,
+  "richSelect.invalidOptions":
+    "La lista de opciones no es válida o supera los límites admitidos.",
+  "richSelect.unavailable":
+    "La opción actual no está disponible. Elija un valor de la lista para continuar.",
+  "richSelect.failed": "No se pudo aplicar la opción.",
+  "richSelect.changed":
+    "Las opciones cambiaron. Vuelva a elegir un valor disponible.",
+  "richSelect.rejected": "No se pudo aplicar esta opción.",
+  "richSelect.applying": "Aplicando opción…",
   "common.cancel": "Cancelar",
   "common.clear": "Limpiar",
   "common.remove": "Quitar",

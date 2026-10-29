@@ -282,6 +282,10 @@ export function RowEditDialog<T>({
               column: column.header ?? column.id,
             }),
             editorType: config?.type,
+            displayValue:
+              config?.type === "richSelect" && column.valueFormatter
+                ? column.valueFormatter(snapshot.values[column.id], info.row!)
+                : undefined,
             options: config?.options,
             asyncOptions: config?.asyncOptions,
             autoFocus: false,
@@ -289,11 +293,20 @@ export function RowEditDialog<T>({
             error: error || undefined,
             errorId,
             inlineValidation: false,
+            editingContext: "row",
+            contextKey: info.session,
+            searchMode: config?.searchMode,
             onChange: (value) => {
               const message = info.session?.setValue(column.id, value);
               setLocalError(message ?? "");
             },
             onCommit: save,
+            onApplyValue: (value, context) => {
+              if (context.signal.aborted || !info.session) return false;
+              const message = info.session.setValue(column.id, value);
+              setLocalError(message ?? "");
+              return !message;
+            },
             onCancel: close,
             onKeyDown: (event) =>
               keyDown(

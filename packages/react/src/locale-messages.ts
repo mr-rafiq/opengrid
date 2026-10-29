@@ -1,5 +1,20 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "richSelect.open": { label: string };
+  "richSelect.title": { label: string };
+  "richSelect.search": { label: string };
+  "richSelect.choices": { label: string };
+  "richSelect.help": undefined;
+  "richSelect.apply": undefined;
+  "richSelect.noMatches": undefined;
+  "richSelect.blank": undefined;
+  "richSelect.count": { count: number };
+  "richSelect.invalidOptions": undefined;
+  "richSelect.unavailable": undefined;
+  "richSelect.failed": undefined;
+  "richSelect.changed": undefined;
+  "richSelect.rejected": undefined;
+  "richSelect.applying": undefined;
   "common.cancel": undefined;
   "common.clear": undefined;
   "common.remove": undefined;
@@ -454,6 +469,21 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "richSelect.open": { label: "string" },
+  "richSelect.title": { label: "string" },
+  "richSelect.search": { label: "string" },
+  "richSelect.choices": { label: "string" },
+  "richSelect.help": {},
+  "richSelect.apply": {},
+  "richSelect.noMatches": {},
+  "richSelect.blank": {},
+  "richSelect.count": { count: "number" },
+  "richSelect.invalidOptions": {},
+  "richSelect.unavailable": {},
+  "richSelect.failed": {},
+  "richSelect.changed": {},
+  "richSelect.rejected": {},
+  "richSelect.applying": {},
   "common.cancel": {},
   "common.clear": {},
   "common.remove": {},

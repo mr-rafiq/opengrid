@@ -229,24 +229,24 @@ XLSX supports multiple sheets, typed cells, widths/colors/number formats, freeze
 
 ## React adapter
 
-| Prop                     | Default / purpose                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------ |
-| `model`                  | Required `GridModel<T>`.                                                                               |
-| `height`                 | `480` pixels for grid viewport; toolbar/status add space outside it.                                   |
-| `rowHeight`              | `38`, fixed pixel row height.                                                                          |
-| `overscan`               | `6` rows around the visible window.                                                                    |
-| `columnOverscan`         | `200` pixels around the horizontal window.                                                             |
-| `virtualizeColumns`      | `true`; retain pinned/focused columns while windowing other fixed-width columns.                       |
-| `selectionMode`          | `multiple`; also `single` or `none`.                                                                   |
-| `cellSelection`          | `true`; enables one rectangular range, clipboard and fill interactions independently of row selection. |
-| `onCellRangeChange`      | Receives `CellRange` or `null`; pass it to a sibling chart when desired.                               |
-| `editorOptions`          | Per-column `{ type?, options?, asyncOptions? }` configuration.                                         |
-| `renderEditor`           | Custom `CellEditorRenderer<T>`; keep the supplied draft/commit/cancel/error contract.                  |
-| `ariaLabel`              | `Data grid`; use a task-specific name.                                                                 |
-| `toolbar` / `pagination` | Both `true`; disable pagination for a single virtualized display model.                                |
-| `className`              | Additional root CSS class.                                                                             |
-| `renderCell`             | `(context: { value, row, column }) => ReactNode` for data cells.                                       |
-| `onCellEdit`             | Receives attempted `{ rowId, columnId, value, error? }`; value is the raw input draft.                 |
+| Prop                     | Default / purpose                                                                                                         |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| `model`                  | Required `GridModel<T>`.                                                                                                  |
+| `height`                 | `480` pixels for grid viewport; toolbar/status add space outside it.                                                      |
+| `rowHeight`              | `38`, fixed pixel row height.                                                                                             |
+| `overscan`               | `6` rows around the visible window.                                                                                       |
+| `columnOverscan`         | `200` pixels around the horizontal window.                                                                                |
+| `virtualizeColumns`      | `true`; retain pinned/focused columns while windowing other fixed-width columns.                                          |
+| `selectionMode`          | `multiple`; also `single` or `none`.                                                                                      |
+| `cellSelection`          | `true`; enables one rectangular range, clipboard and fill interactions independently of row selection.                    |
+| `onCellRangeChange`      | Receives `CellRange` or `null`; pass it to a sibling chart when desired.                                                  |
+| `editorOptions`          | Per-column `{ type?, options?, asyncOptions?, searchMode? }` configuration; `richSelect` uses a staged searchable dialog. |
+| `renderEditor`           | Custom `CellEditorRenderer<T>`; keep the supplied draft/commit/cancel/error contract.                                     |
+| `ariaLabel`              | `Data grid`; use a task-specific name.                                                                                    |
+| `toolbar` / `pagination` | Both `true`; disable pagination for a single virtualized display model.                                                   |
+| `className`              | Additional root CSS class.                                                                                                |
+| `renderCell`             | `(context: { value, row, column }) => ReactNode` for data cells.                                                          |
+| `onCellEdit`             | Receives attempted `{ rowId, columnId, value, error? }`; value is the raw input draft.                                    |
 
 Arrow keys move cell focus; Home/End move across a row; Control/Command Home/End move to grid bounds; Page keys move a viewport. Enter/F2 start editing; Escape cancels; Space selects rows; Control/Command Z and Shift Z undo/redo. Shift-click headers adds sort keys. Resize separators support Arrow keys. Column chooser buttons provide keyboard alternatives to dragging. Group/tree rows expand with Enter or Left/Right navigation where applicable.
 
@@ -254,7 +254,7 @@ With cell selection enabled, Shift+navigation extends the rectangle; Control/Com
 
 Both row and column windows retain logical ARIA coordinates. `getColumnWindow(columns, options)` is exported for fixed-width horizontal projection, returning rendered-column and spacer entries; pinned and explicitly retained indexes always render. It accepts explicit `direction`; its scroll offset is a positive distance from inline start. Independent merged spans use owner-aware geometry and remain clipped at pin boundaries. Client row geometry uses explicit variable heights and prefix sums; see the layout section below.
 
-`CellEditor` provides text, number, date, checkbox, select and textarea controls. BigInt uses text to preserve precision. Async select providers receive an AbortSignal, reject stale responses and expose retry; rich search, virtualized options and multi-select are not implemented. Large text uses the grid's editing host rather than variable row heights. See [editor contracts](EDITORS.md) for custom-host keyboard/error/lifecycle requirements.
+`CellEditor` provides text, number, date, checkbox, select and textarea controls. BigInt uses text to preserve precision. Async select providers receive an AbortSignal, reject stale responses and expose retry. `richSelect` adds bounded searchable/virtualized single-string choices, staged Apply/Cancel and row-form integration; multi-select, complex objects and remote query text remain open. See [rich choices](RICH_SELECT.md). Large text uses the grid's editing host rather than variable row heights. See [editor contracts](EDITORS.md) for custom-host keyboard/error/lifecycle requirements.
 
 `Sparkline` accepts `values: number[]`, optional width (`100`), height (`28`), label (`Trend`) and color (`currentColor`). It renders a labeled SVG line, omitting nonfinite points; it has no tooltips, axes, area/bar modes or integrated chart state. Provide a meaningful text label and, where necessary, a separate accessible data representation.
 
@@ -354,7 +354,7 @@ Enable `DataGrid.rowDragging` for single-row native handles, before/after indica
 
 `Column.colSpan` accepts a positive safe integer or pure `(row) => number` callback. Client `DataGrid` clips spans to their pin region and renders only the owner, while preserving logical header/filter positions and ARIA column indices. Navigation, editing, notes and Find resolve owners; hidden/covered drafts cancel. Rectangular range, grid clipboard and fill operations are disabled visibly whenever span metadata is configured. Row selection, native editor text clipboard and separate full-row form fields remain available.
 
-The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getColumnSpanWindow` for bounded immutable geometry. Row spans, remote adapter layout and merged exports are unsupported. See [column spans](COLUMN_SPANS.md) for callback behavior, budgets, cache and focus semantics.
+The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getColumnSpanWindow` for bounded immutable geometry. Separate vertical and combined rectangular planners support row spans; remote adapter layout and merged exports remain unsupported. See [column spans](COLUMN_SPANS.md), [row spans](ROW_SPANS.md) and [combined spans](COMBINED_SPANS.md) for callback behavior, budgets, cache and focus semantics.
 
 ## Row spans
 

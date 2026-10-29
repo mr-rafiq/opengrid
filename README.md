@@ -80,6 +80,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Nested column-group headers, collapsible groups, per-row detail regions and independently editable nested grids.
 - Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
 - Native text/number/date/checkbox/select/multiline editors, asynchronous choices and typed custom-editor hooks.
+- Searchable single-choice rich editors with 10,000 virtualized options, exact string IDs, async retry, staged validation and atomic row-form integration.
 - Expandable grouping and path-based trees, built-in/custom aggregates and a standalone pivot utility.
 - CSV with RFC 4180 escaping and spreadsheet formula neutralization; basic SVG sparklines.
 - A safe formula dependency engine with A1/local references, ranges, lazy IF, aggregates, targeted invalidation, cycle diagnostics and resource limits.
@@ -147,3 +148,5 @@ GitHub Actions runs these checks on push and pull requests. See [verification ev
 [Column sizing](docs/COLUMN_SIZING.md): constrained flex allocation and explicit rendered-text autosizing, cancellation reports and manual-width reset. Try the Column sizing lab in the live demo.
 
 [Typed column conditions](docs/COLUMN_FILTERS.md): staged operators and flat AND/OR groups with exact integer/date inputs, source-conflict handling and stable native modal hosting.
+
+Use the [searchable choice editor](docs/RICH_SELECT.md) for virtualized string choices, asynchronous retry and explicit Apply/Cancel in cells or row forms. Try the Rich choice editor lab in the demo.

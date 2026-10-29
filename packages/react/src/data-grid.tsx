@@ -76,6 +76,7 @@ export interface EditorConfig {
   type?: EditorType;
   options?: readonly EditorOption[];
   asyncOptions?: (signal?: AbortSignal) => Promise<readonly EditorOption[]>;
+  searchMode?: CellEditorProps<unknown>["searchMode"];
 }
 import { getColumnWindow } from "./column-window.js";
 import type { ColumnWindowEntry } from "./column-window.js";
@@ -1842,6 +1843,7 @@ export function DataGrid<T>({
     column: Column<T>,
     row: number,
     index: number,
+    displayValue: string,
   ) {
     if (!editing || !node.data) return null;
     const config = editorOptions[column.id] ?? {};
@@ -1849,6 +1851,7 @@ export function DataGrid<T>({
       row: node.data,
       column,
       value: editing.draft,
+      displayValue,
       label: t("grid.editCell", {
         column: column.header ?? column.id,
         rowId: node.id,
@@ -1859,6 +1862,9 @@ export function DataGrid<T>({
       error: error || undefined,
       errorId,
       inlineValidation: false,
+      editingContext: "cell",
+      contextKey: model,
+      searchMode: config.searchMode,
       onChange: (value) => {
         const next = { ...(editingRef.current ?? editing), draft: value };
         editingRef.current = next;
@@ -1868,6 +1874,23 @@ export function DataGrid<T>({
       onCommit: () => {
         const accepted = commitEdit();
         if (accepted) focusAt(row, index);
+        return accepted;
+      },
+      onApplyValue: (value, context) => {
+        if (context.signal.aborted) return false;
+        props.onChange(value);
+        const accepted = commitEdit();
+        if (accepted) {
+          if (context.reason === "enter") {
+            if (hasRowSpans) {
+              pendingRowSpanEditMove.current = {
+                rowId: node.id,
+                columnId: column.id,
+              };
+              setFocus((current) => ({ ...current }));
+            } else focusAt(Math.min(rows.length - 1, row + 1), index);
+          } else focusAt(row, index);
+        }
         return accepted;
       },
       onCancel: () => {
@@ -2824,10 +2847,16 @@ export function DataGrid<T>({
                               width: "100%",
                             }}
                           >
-                            {renderEditorControl(node, column, row, index)}
+                            {renderEditorControl(
+                              node,
+                              column,
+                              row,
+                              index,
+                              display,
+                            )}
                           </div>
                         ) : (
-                          renderEditorControl(node, column, row, index)
+                          renderEditorControl(node, column, row, index, display)
                         )
                       ) : (
                         <>

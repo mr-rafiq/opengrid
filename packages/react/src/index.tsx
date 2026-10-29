@@ -1,5 +1,19 @@
 export * from "./data-grid.js";
 export * from "./editors.js";
+export { RichSelectEditor } from "./rich-select-editor.js";
+export type {
+  RichSelectEditorProps,
+  RichSelectApplyContext,
+} from "./rich-select-editor.js";
+export {
+  prepareRichSelectOptions,
+  RichSelectOptionsError,
+  RICH_SELECT_LIMITS,
+} from "./rich-select-options.js";
+export type {
+  RichSelectChoiceIndex,
+  RichSelectSearchMode,
+} from "./rich-select-options.js";
 export * from "./charts.js";
 export * from "./remote-grids.js";
 export * from "./row-layout.js";

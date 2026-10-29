@@ -14,6 +14,9 @@ custom editing host.
 Required props are `row`, `column`, `value`, `label`, `onChange`, `onCommit`, and
 `onCancel`. Optional props are `editorType`, `options`, `asyncOptions`, `error`,
 `errorId`, `inlineValidation`, `onBlur`, `onKeyDown`, and `autoFocus`.
+Rich choice controls additionally accept `searchMode`, `displayValue`,
+`editingContext`, a stable `contextKey` and `onApplyValue`; see the
+[searchable choice contract](RICH_SELECT.md).
 
 `CellEditorRenderer<T>` is a function from `CellEditorProps<T>` to a React node.
 `CellEditorComponent<T>` is the corresponding React component type. A custom
@@ -31,14 +34,15 @@ without rendering a duplicate alert. The editor shell exposes
 
 ## Built-in controls
 
-| Type        | Native control | Notes                                                           |
-| ----------- | -------------- | --------------------------------------------------------------- |
-| `text`      | Text input     | Default for text and BigInt columns                             |
-| `number`    | Number input   | BigInt columns use numeric text input to preserve digits        |
-| `date`      | Date input     | String values use native `YYYY-MM-DD` date format               |
-| `boolean`   | Checkbox       | Writes exactly `"true"` or `"false"`                            |
-| `select`    | Select         | Options contain string `value` and `label`; optional `disabled` |
-| `largeText` | Textarea       | Newlines are retained; host controls editor dimensions          |
+| Type         | Native control        | Notes                                                           |
+| ------------ | --------------------- | --------------------------------------------------------------- |
+| `text`       | Text input            | Default for text and BigInt columns                             |
+| `number`     | Number input          | BigInt columns use numeric text input to preserve digits        |
+| `date`       | Date input            | String values use native `YYYY-MM-DD` date format               |
+| `boolean`    | Checkbox              | Writes exactly `"true"` or `"false"`                            |
+| `select`     | Select                | Options contain string `value` and `label`; optional `disabled` |
+| `richSelect` | Modal searchable list | Staged single choice, virtualized options, exact string IDs     |
+| `largeText`  | Textarea              | Newlines are retained; host controls editor dimensions          |
 
 By default, column `type` chooses number, date, boolean, or text. Select and
 large-text controls are selected explicitly with `editorType`.
@@ -69,9 +73,11 @@ commit the draft. A retry makes a fresh request; no value is committed merely
 because a request finishes. Keep the provider function reference stable with
 `useCallback` so ordinary parent renders do not restart requests.
 
-Rich searching, virtualized lists, remote query text, and multi-select are not
-implemented by this native select control. Supply a custom editor for those
-interactions. Large-text editors need a sufficiently sized editing host; the grid
+The native `select` does not implement search or virtualized options. Choose
+`richSelect` for the bounded searchable single-choice dialog. Remote query text,
+complex values, custom option renderers and multi-select remain open. Rich
+controls use explicit Apply/Cancel rather than automatic blur commit.
+Large-text editors need a sufficiently sized editing host; the grid
 does not measure or expand row height automatically. Explicit `getRowHeight` and
 detail heights are supported separately; the large-text editing host supplies
 its own usable dimensions.

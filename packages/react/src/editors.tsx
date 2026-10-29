@@ -8,9 +8,18 @@ import type {
 import type { Column } from "@opengrid/core";
 import { gridMessage, useGridLocale } from "./locale.js";
 import type { GridMessage } from "./locale.js";
+import { RichCellEditorBridge } from "./rich-cell-editor-bridge.js";
+import type { RichSelectApplyContext } from "./rich-select-editor.js";
+import type { RichSelectSearchMode } from "./rich-select-options.js";
 
 export type EditorType =
-  "text" | "number" | "date" | "boolean" | "select" | "largeText";
+  | "text"
+  | "number"
+  | "date"
+  | "boolean"
+  | "select"
+  | "largeText"
+  | "richSelect";
 export interface EditorOption {
   value: string;
   label: string;
@@ -22,6 +31,8 @@ export interface CellEditorProps<T> {
   column: Column<T>;
   /** Editors preserve text; the grid model parses and validates committed values. */
   value: string;
+  /** Optional formatted caption for controls with a closed picker launcher. */
+  displayValue?: string;
   onChange: (value: string) => void;
   onCommit: () => boolean | void;
   onCancel: () => void;
@@ -35,9 +46,17 @@ export interface CellEditorProps<T> {
   /** Set false when the host renders the validation alert identified by errorId. */
   inlineValidation?: boolean;
   onBlur?: () => void;
-  /** A supplied handler owns all keyboard policy, including Enter, Escape and Tab. */
+  /** Native controls delegate keyboard policy here; rich pickers use explicit Apply/Cancel. */
   onKeyDown?: (event: KeyboardEvent<HTMLElement>) => void;
   autoFocus?: boolean;
+  /** Picker integration distinguishes immediate cell saves from staged row fields. */
+  editingContext?: "cell" | "row";
+  contextKey?: unknown;
+  searchMode?: RichSelectSearchMode;
+  onApplyValue?: (
+    value: string,
+    context: RichSelectApplyContext,
+  ) => boolean | void | Promise<boolean | void>;
 }
 export type CellEditorRenderer<T> = (context: CellEditorProps<T>) => ReactNode;
 export type CellEditorComponent<T> = ComponentType<CellEditorProps<T>>;
@@ -61,8 +80,16 @@ const validOptions = (value: unknown): value is readonly EditorOption[] =>
       typeof option.label === "string",
   );
 
-/** Native editors with a shared text-value contract and cancellable asynchronous choices. */
-export function CellEditor<T>({
+/** Native inputs and staged rich choices share the host's string-draft contract. */
+export function CellEditor<T>(props: CellEditorProps<T>) {
+  return props.editorType === "richSelect" ? (
+    <RichCellEditorBridge {...props} />
+  ) : (
+    <NativeCellEditor {...props} />
+  );
+}
+
+function NativeCellEditor<T>({
   row: _row,
   column,
   value,

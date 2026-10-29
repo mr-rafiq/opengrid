@@ -745,3 +745,103 @@
 .og-row .og-cell.og-row-spanning:focus {
   z-index: 3 !important;
 }
+/* Rich choices remain outside virtual row/header DOM in the grid popup host. */
+.og-rich-select-editor {
+  width: 100%;
+  height: 100%;
+}
+.og-rich-select-launcher,
+.og-root .og-rich-select-launcher {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 30px;
+  text-align: start;
+}
+.og-rich-select-launcher > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.og-rich-select-dialog {
+  width: min(520px, calc(100vw - 32px));
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid var(--og-border, #dce4e9);
+  border-radius: 12px;
+  padding: 20px;
+  color: var(--og-text, #172b40);
+  background: var(--og-surface, #fff);
+  font: 13px/1.45 var(--og-font, system-ui, sans-serif);
+  box-shadow: 0 18px 70px #172b4033;
+}
+.og-rich-select-dialog::backdrop {
+  background: #172b4055;
+}
+.og-rich-select-dialog h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.og-rich-select-dialog p {
+  margin: 8px 0;
+}
+.og-rich-select-dialog label {
+  display: block;
+  margin: 12px 0 5px;
+}
+.og-rich-select-dialog input {
+  width: 100%;
+  min-height: 34px;
+  box-sizing: border-box;
+}
+.og-rich-select-status {
+  color: var(--og-muted, #536c80);
+  font-size: 12px;
+}
+.og-rich-select-list {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  border: 1px solid var(--og-border, #dce4e9);
+  border-radius: 7px;
+  position: relative;
+}
+.og-rich-select-option {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--og-border, #dce4e9);
+  cursor: pointer;
+}
+.og-rich-select-option > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.og-rich-select-option[aria-disabled="true"] {
+  color: var(--og-muted, #536c80);
+  cursor: not-allowed;
+}
+.og-rich-select-active {
+  background: var(--og-accent-soft, #e2f3ee);
+  box-shadow: inset 3px 0 var(--og-accent, #008f80);
+}
+.og-rich-select-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+.og-rich-select-error {
+  color: var(--og-danger, #a22836);
+}
+.og-rich-select-notice {
+  color: var(--og-muted, #536c80);
+}

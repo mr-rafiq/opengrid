@@ -1,5 +1,24 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "richSelect.open": (params, _format) => `Choose ${params.label}`,
+  "richSelect.title": (params, _format) => `Choose ${params.label}`,
+  "richSelect.search": (params, _format) => `Search ${params.label} choices`,
+  "richSelect.choices": (params, _format) => `${params.label} choices`,
+  "richSelect.help":
+    "Search or use the arrow keys to choose. Enter or Apply saves the choice; Escape cancels.",
+  "richSelect.apply": "Apply choice",
+  "richSelect.noMatches": "No matching choices",
+  "richSelect.blank": "(blank)",
+  "richSelect.count": (params, format) =>
+    `${format.number(params.count)} ${params.count === 1 ? "choice" : "choices"}`,
+  "richSelect.invalidOptions":
+    "The choice list is invalid or exceeds supported limits.",
+  "richSelect.unavailable":
+    "The current choice is unavailable. Choose a listed value to continue.",
+  "richSelect.failed": "The choice could not be applied.",
+  "richSelect.changed": "Choices changed. Choose an available value again.",
+  "richSelect.rejected": "This choice could not be applied.",
+  "richSelect.applying": "Applying choice…",
   "common.cancel": "Cancel",
   "common.clear": "Clear",
   "common.remove": "Remove",

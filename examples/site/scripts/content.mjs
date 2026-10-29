@@ -57,6 +57,7 @@ const labels = {
   "gap-inventory": "Remaining gaps",
   "row-dragging-ui": "Managed row dragging",
   "row-editor-ui": "Row editor UI",
+  "rich-select": "Searchable choice editors",
   "remote-grids": "Remote React grids",
   "remote-models": "Remote data models",
   "show-values-as": "Analytical transforms",
@@ -75,6 +76,7 @@ const order = [
   "overview",
   "api",
   "editors",
+  "rich-select",
   "row-editor-ui",
   "row-edit",
   "row-reorder",
@@ -121,6 +123,7 @@ const section = (slug) =>
     ? "Start building"
     : [
           "editors",
+          "rich-select",
           "row-editor-ui",
           "row-edit",
           "row-reorder",
