@@ -1544,7 +1544,10 @@ export function DataGrid<T>({
                       column = columns[index];
                     const value = node.data
                       ? model.getValue(node.data, column.id)
-                      : node.aggregates?.[column.id];
+                      : node.aggregates &&
+                          Object.hasOwn(node.aggregates, column.id)
+                        ? node.aggregates[column.id]
+                        : undefined;
                     const isEditing =
                       editMode === "cell" &&
                       editing?.rowId === node.id &&

@@ -59,13 +59,19 @@ The provider stores remain independent of client `DataGrid`. Separate read-only 
 
 Pivoting is a client projection utility plus server query/metadata forwarding, not a complete interactive grid pivot mode. `GridChart` is a model-reactive SVG panel with finite-number projection, bounded sampling, controls/table and SVG export. It has no full chart persistence/cross-filtering/pivot-chart framework. These are meaningful slices with explicit boundaries, not aliases for complete parity.
 
+Analytical value transforms are separate display-matrix projections over one explicitly selected measure. Percentages use row/column/grand totals or supplied parent-denominator tables; ordered modes use supplied axis order. Exact BigInt fractions stay distinct from Number values. Diagnostics/resource budgets are explicit; raw grid values, sorting and state remain unchanged. `createAlignedColumns` is another independent core utility: shared-ID column layout propagation only, with bounded feedback handling and owned disposal. It does not synchronize browser scroll positions or row/filter/selection state.
+
 ## Optional document output
 
 `@opengrid/export` reads model values and returns actual OOXML/PDF bytes without scraping React renderers. Dependencies load on demand. Formula-like XLSX strings stay strings; formula descriptors require explicit opt-in. PDF's standard Helvetica path supports WinAnsi and rejects unsupported text. CSV/TSV retain formula safeguards. Independent ZIP/PDF readers validate output.
 
 `importXlsx` preflights all archive parts using actual expanded-byte/count/depth budgets before workbook parsing, then maps/parses/validates a preview. It never writes to a grid or evaluates formulas. Formula policy and applying accepted rows are explicit application decisions. Merges/named ranges, macros/encryption/legacy formats and arbitrary workbook fidelity are unsupported/rejected. See [import](IMPORT.md).
 
+`GridPrintView` is a third output path: a bounded captured HTML table, independent of virtual rendering, with explicit stale/refresh semantics and user-triggered browser printing. Print-only isolation targets one instance and cleans up markers/listeners; paper behavior remains browser/printer controlled. It does not generate PDF bytes or capture nested detail DOM. Row-projection helpers are groundwork, not proof of pinned top/bottom or arbitrary full-width DataGrid integration; those features remain missing in the parity ledger.
+
 ## Verification and accessibility
+
+The [alignment guide](ALIGNED_COLUMNS.md) and [focused tests](../packages/core/src/aligned-columns.test.ts) establish shared-column state/constraint propagation, feedback bounds and lifecycle handling. This evidence adds neither scroll synchronization nor atomic rollback across runtime model failures.
 
 Core tests cover algorithms, precision, atomicity, formula graphs and provider lifecycles. Component tests cover editors, charts, ranges and logical windows. Browser tests cover real scrolling/focus, pointer/keyboard behavior, clipboard and downloads. Packaging verifies ESM/declarations and optional dependency boundaries. The [verification record](VERIFICATION.md) owns executed results.
 

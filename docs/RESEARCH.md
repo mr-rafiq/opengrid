@@ -30,6 +30,8 @@ Remote store/binding tests use provider fixtures and in-memory simulations, not 
 
 ## Remaining evidence limits
 
+Additional source now supplies all five percentage display transforms with explicit parent-denominator tables and exact BigInt ratios, bounded static browser-print snapshots, and shared-column-state alignment. These are partial feature-family implementations: no automatic hierarchy/display-state integration, physical-printer certification or horizontal-scroll alignment is inferred. Row-projection groundwork does not establish pinned/full-width client-grid support.
+
 No AG Grid runtime scenarios were recorded in this pass. Documentation establishes described capabilities, not internal algorithms, performance, edge-case behavior or accessibility outcomes. OpenGrid tests establish only their executed cases. A browser engine passing a keyboard test does not establish screen-reader usability.
 
 The [feature ledger](FEATURE_PARITY.md) records implementation status separately from these observations. Each future release should preserve its source version, actual test commands/results and unverified boundaries. Re-review the reference before expanding a parity claim; the live documentation may change.

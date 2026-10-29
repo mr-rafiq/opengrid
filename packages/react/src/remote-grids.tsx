@@ -97,7 +97,10 @@ export function ServerDataGrid<T>({
           editable: false,
           valueGetter: (record) => {
             if (record.node.kind === "group")
-              return record.node.aggregates?.[column.id];
+              return record.node.aggregates &&
+                Object.hasOwn(record.node.aggregates, column.id)
+                ? record.node.aggregates[column.id]
+                : undefined;
             return column.valueGetter
               ? column.valueGetter(record.node.data)
               : column.field

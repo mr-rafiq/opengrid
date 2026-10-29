@@ -297,3 +297,23 @@ Every ZIP/XML part is preflighted using actual expanded-byte/count/depth budgets
 ## Optional getter cache
 
 `GridOptions.valueCache` defaults false; true enables bounded LRU memoization of valueGetter results for current resident rows. `valueCacheMaxEntries` defaults 100,000, capped at 1,000,000 entries. Data changes/undo/redo invalidate generations; `expireValueCache()` refreshes getters/derived models for changed closure dependencies. Raw fields/formatters are not memoized; getters must remain pure and their returned objects immutable by convention. No granular dependency/never-expire policy or throughput guarantee. See [cache](VALUE_CACHE.md).
+
+## Analytical display transforms
+
+`transformValues(matrix, { columns, transform, totals?, limits? })` projects a pivot/aggregate matrix without changing raw values, row order or grid state. Explicitly select columns of **one compatible measure**; opaque column IDs do not identify units or hierarchy automatically. Supported modes are percent of row/column/grand total and percent of parent row/column total, plus running total, difference from previous and percent difference from previous along the supplied row/column order. Parent modes require explicit per-cell denominator tables; ordinary totals can be overridden for non-additive/subtotal-aware calculations.
+
+Number percentages are fractions (`0.25` means 25%). BigInt ratios remain reduced exact `ValueRatio` fractions; `formatValueRatio` formats them with bounded rounding without converting to Number. Mixed nonzero Number/BigInt measures reject. Blank/invalid/zero-denominator/overflow cases produce null cells and diagnostics; malformed configuration or budgets reject. No automatic parent discovery, menu/state integration, display-value sorting/filtering or server calculation is supplied. See [Show Values As](SHOW_VALUES_AS.md) for all five percentage modes, ordered differences, precision and limits.
+
+## Static browser print view
+
+`GridPrintView` renders a separate bounded HTML table from a detached string-only snapshot. It captures model values, marks later model changes stale and requires an explicit Refresh to recapture. `scope` is filtered (default), view, page, selected or all; selected intersects current filtered rows, while view/page preserve visible group labels/aggregates/depth. Only visible columns are captured; custom React renderer/detail content is not scraped.
+
+`maxRows` defaults 1,000 (hard maximum 10,000) and `maxCells` defaults 100,000 (hard maximum 1,000,000, including headers). Exceeding limits rejects instead of truncating. The explicit Print snapshot button calls `window.print`, isolates the selected snapshot through print-only CSS and restores markers/listeners after printing/cleanup. Page size/orientation and repeated-header/break requests remain browser/printer dependent. `buildGridPrintSnapshot` exports the same pure projection. This is browser printing, distinct from `exportPdf` file bytes. See [printing](PRINTING.md).
+
+## Shared aligned-column state
+
+`createAlignedColumns(models, { properties?, initialSourceIndex? })` links two through 32 distinct structural column models, even with different row types. It aligns only IDs present in **every** model. Properties default to order, width, visibility and pinning; a selected subset can be supplied. Initialization is synchronous from source index zero by default. Shared order replaces shared slots while nonshared columns retain their own positions/properties; widths use the intersection of participating constraints.
+
+The returned link exposes frozen `sharedColumnIds` and `dispose` to detach listeners. No-op fingerprints and bounded queued propagation prevent ordinary feedback loops; invalid schema/constraints or failed convergence report errors and detach rather than continuing indefinitely. Recreate links after schema changes. This is column-state alignment only: no horizontal scroll synchronization, row/filter/selection sharing or complete aligned-grid compatibility.
+
+Read the [alignment guide](ALIGNED_COLUMNS.md) for initialization, effect ownership and failure semantics; [focused tests](../packages/core/src/aligned-columns.test.ts) cover those boundaries. Runtime failure can leave already-applied values and is not a distributed transaction.

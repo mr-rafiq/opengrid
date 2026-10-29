@@ -86,10 +86,13 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Optional real XLSX/PDF output with typed workbook cells, multiple sheets, tables/frozen headers and paginated PDF reports.
 - Nested typed advanced-filter expressions with a builder, formatted-cell Find, plain-text cell notes and optional atomic row-edit dialogs.
 - Optional bounded value-getter caching and schema-driven XLSX import with ZIP/XML resource limits and explicit formula policies.
+- Display-only aggregation percentages, running totals and prior differences, with exact BigInt fractions and explicit parent denominators.
+- Bounded static print snapshots with explicit refresh, hierarchy/formatting and isolated browser print layout.
+- Shared column-order/width/visibility/pinning synchronization across models, with independent row state and disposal.
 
 The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 
-Detailed guides: [ranges/API](docs/API.md), [remote bindings](docs/REMOTE_GRIDS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [row editing](docs/ROW_EDITOR_UI.md), [advanced filters](docs/FILTER_BUILDER.md), [Find/notes](docs/FIND_NOTES.md), [column groups](docs/COLUMN_GROUPS.md), [charts](docs/CHARTS.md), [exports](docs/EXPORTS.md), and [import](docs/IMPORT.md).
+Detailed guides: [ranges/API](docs/API.md), [remote bindings](docs/REMOTE_GRIDS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [row editing](docs/ROW_EDITOR_UI.md), [advanced filters](docs/FILTER_BUILDER.md), [Find/notes](docs/FIND_NOTES.md), [column groups](docs/COLUMN_GROUPS.md), [charts](docs/CHARTS.md), [exports](docs/EXPORTS.md), [import](docs/IMPORT.md), [value transforms](docs/SHOW_VALUES_AS.md), [printing](docs/PRINTING.md), and [aligned columns](docs/ALIGNED_COLUMNS.md).
 
 ## Keyboard controls
 

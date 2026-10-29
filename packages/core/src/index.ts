@@ -10,6 +10,8 @@ export * from "./find.js";
 export * from "./notes.js";
 export * from "./row-edit.js";
 export * from "./advanced-filters.js";
+export * from "./value-transforms.js";
+export * from "./aligned-columns.js";
 import { aggregateValues } from "./analytics.js";
 import {
   prepareAdvancedFilter,

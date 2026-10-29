@@ -1,13 +1,22 @@
 import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import { createGrid, pivot, type Column, type CellRange } from "@opengrid/core";
-import { DataGrid, GridChart } from "@opengrid/react";
+import {
+  createGrid,
+  pivot,
+  transformValues,
+  formatValueRatio,
+  type ValueTransform,
+  type Column,
+  type CellRange,
+} from "@opengrid/core";
+import { DataGrid, GridChart, GridPrintView } from "@opengrid/react";
 import "@opengrid/react/styles.css";
 import "./page.css";
 import { FormulaLab } from "./formula-lab";
 import { RemoteLab } from "./remote-lab";
 import { HoldingDetail } from "./holding-detail";
 import { ImportLab } from "./import-lab";
+import { AlignedLab } from "./aligned-lab";
 interface Holding {
   id: string;
   company: string;
@@ -133,6 +142,17 @@ function App() {
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
   const [dark, setDark] = useState(false);
   const [pivotOpen, setPivotOpen] = useState(false);
+  const [pivotMode, setPivotMode] = useState<
+    | "raw"
+    | "percentOfRowTotal"
+    | "percentOfColumnTotal"
+    | "percentOfGrandTotal"
+    | "runningTotal"
+    | "differenceFromPrevious"
+    | "percentDifferenceFromPrevious"
+  >("raw");
+  const [alignedOpen, setAlignedOpen] = useState(false);
+  const [printOpen, setPrintOpen] = useState(false);
   const [chartOpen, setChartOpen] = useState(false);
   const [formulaOpen, setFormulaOpen] = useState(false);
   const [remoteOpen, setRemoteOpen] = useState(false);
@@ -198,6 +218,37 @@ function App() {
     pivotKey: "region",
     values: [{ field: "shares", aggregate: "sum" }],
   });
+  const transformed =
+    pivotOpen && totals.columns.length > 0 && pivotMode !== "raw"
+      ? transformValues(totals, {
+          columns: totals.columns,
+          transform: ([
+            "runningTotal",
+            "differenceFromPrevious",
+            "percentDifferenceFromPrevious",
+          ].includes(pivotMode)
+            ? { type: pivotMode, axis: "columns" }
+            : { type: pivotMode }) as ValueTransform,
+        })
+      : null;
+  const displayTotals = transformed ?? totals;
+  const percentMode = pivotMode.startsWith("percent");
+  function pivotText(value: unknown) {
+    if (value == null) return "—";
+    if (typeof value === "object" && "kind" in value && value.kind === "ratio")
+      return formatValueRatio(value as Parameters<typeof formatValueRatio>[0], {
+        style: percentMode ? "percent" : "decimal",
+        fractionDigits: 2,
+      });
+    if (typeof value === "number")
+      return percentMode
+        ? new Intl.NumberFormat("en-US", {
+            style: "percent",
+            maximumFractionDigits: 2,
+          }).format(value)
+        : value.toLocaleString();
+    return String(value);
+  }
   function download() {
     const blob = new Blob([model.exportCsv()], {
       type: "text/csv;charset=utf-8;",
@@ -255,7 +306,7 @@ function App() {
   return (
     <div className={dark ? "workspace dark" : "workspace"}>
       <aside className="rail">
-        <a className="brand" href="#">
+        <a className="brand" href="#" aria-label="OpenGrid home">
           ▦
         </a>
         <span className="rail-active" title="Data explorer">
@@ -481,6 +532,41 @@ function App() {
           <section className="pivot-panel">
             <h2>Shares by sector and region</h2>
             <p>Computed by the standalone pivot utility from filtered rows.</p>
+            <label>
+              Show pivot values as{" "}
+              <select
+                aria-label="Show pivot values as"
+                value={pivotMode}
+                onChange={(event) =>
+                  setPivotMode(event.target.value as typeof pivotMode)
+                }
+              >
+                <option value="raw">Raw shares</option>
+                <option value="percentOfRowTotal">Percent of row total</option>
+                <option value="percentOfColumnTotal">
+                  Percent of column total
+                </option>
+                <option value="percentOfGrandTotal">
+                  Percent of grand total
+                </option>
+                <option value="runningTotal">
+                  Running total across regions
+                </option>
+                <option value="differenceFromPrevious">
+                  Difference from previous region
+                </option>
+                <option value="percentDifferenceFromPrevious">
+                  Percent difference from previous region
+                </option>
+              </select>
+            </label>
+            {transformed && (
+              <p>
+                {transformed.diagnostics.length} diagnostic cells. Blank results
+                preserve missing values or invalid denominators; raw model
+                values remain unchanged.
+              </p>
+            )}
             <table>
               <thead>
                 <tr>
@@ -491,11 +577,11 @@ function App() {
                 </tr>
               </thead>
               <tbody>
-                {totals.rows.map((r) => (
+                {displayTotals.rows.map((r) => (
                   <tr key={String(r.keys[0])}>
                     <th>{String(r.keys[0])}</th>
                     {totals.columns.map((c) => (
-                      <td key={c}>{Number(r.cells[c]).toLocaleString()}</td>
+                      <td key={c}>{pivotText(r.cells[c])}</td>
                     ))}
                   </tr>
                 ))}
@@ -541,6 +627,33 @@ function App() {
           {remoteOpen && <RemoteLab />}
         </section>
         <ImportLab />
+        <section className="pivot-panel">
+          <button
+            onClick={() => setPrintOpen(!printOpen)}
+            aria-expanded={printOpen}
+          >
+            Print view
+          </button>
+          {printOpen && (
+            <GridPrintView
+              model={model}
+              scope={mode === "flat" ? "page" : "view"}
+              title="Portfolio print snapshot"
+              caption="Captured portfolio data; refresh explicitly after changing the grid."
+              orientation="landscape"
+              pageSize="A4"
+            />
+          )}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setAlignedOpen(!alignedOpen)}
+            aria-expanded={alignedOpen}
+          >
+            Aligned columns lab
+          </button>
+          {alignedOpen && <AlignedLab />}
+        </section>
         <footer>
           <span>Built for developers who want control.</span>
           <span>

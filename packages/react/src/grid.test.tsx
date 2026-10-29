@@ -42,12 +42,31 @@ function model(rows = data) {
   });
 }
 function cell(id: string, col: string) {
-  return document.querySelector<HTMLDivElement>(
-    `[data-row-id="${id}"][data-column-id="${col}"]`,
-  )!;
+  return (Array.from(
+    document.querySelectorAll<HTMLDivElement>("[data-row-id][data-column-id]"),
+  ).find(
+    (element) =>
+      element.dataset.rowId === id && element.dataset.columnId === col,
+  ) ?? null)!;
 }
 
 describe("React DataGrid", () => {
+  it("does not render inherited object properties as missing group aggregates", () => {
+    const grid = createGrid({
+      rows: [{ id: "a", team: "North", value: 4 }],
+      getRowId: (row) => row.id,
+      columns: [
+        { id: "team", field: "team" },
+        { id: "constructor", field: "value" },
+        { id: "__proto__", field: "value", aggregate: "sum" },
+      ],
+      initialState: { groupBy: ["team"] },
+    });
+    render(<DataGrid model={grid} toolbar={false} />);
+    const group = grid.getRowModel()[0];
+    expect(cell(group.id, "constructor").textContent).toBe("");
+    expect(cell(group.id, "__proto__").textContent).toBe("4");
+  });
   it("renders and controls prototype-like column IDs without inherited state lookups", () => {
     const grid = createGrid({
       rows: [{ id: "a", value: 4 }],

@@ -35,6 +35,8 @@ XLSX/PDF changes need independent format-reader checks as well as browser downlo
 
 Import changes must preserve actual streamed-byte and XML preflight budgets before workbook parsing, atomic preview validation and inert formula policies. Add adversarial fixtures for changed archive/schema handling. Header/layout changes need pin-boundary/logical-ARIA and variable-height/detail focus cases. Find, notes and modal row edits need lifecycle, view-scope, cancellation and conflict tests; callback invocation counts are not performance benchmarks.
 
+Analytical transforms need denominator, measure-isolation, exact BigInt-ratio and diagnostic/budget cases. Print changes need snapshot scope/staleness, no-silent-truncation and target-isolation cleanup tests; native PDF and physical print remain different evidence. Column-alignment changes need shared/nonshared state, width-bound intersections, feedback convergence and disposal tests; they do not imply scroll alignment.
+
 For a new feature, include its public API, working example where useful, meaningful tests, limitations, and a ledger update linked to relevant evidence. A stub, type definition or extension callback does not justify marking the complete feature implemented. Status rows may be partial when the supported subset is described precisely.
 
 ## Accessibility

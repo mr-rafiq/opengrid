@@ -1,5 +1,13 @@
 # Verification record
 
+## Display tools milestone
+
+This milestone adds five percentage projections (with explicit caller-provided parent denominators), running totals and prior differences, exact BigInt ratios, a bounded captured print view, and shared-column model alignment. The demo exposes transform selection, print refresh/layout and two independently sorted grids with synchronized columns. The separate row-projection helper has tests and design documentation; pinned/full-width DataGrid integration is still pending.
+
+`npm run check` passed strict TypeScript, **643 tests in 32 files** (15.19 seconds), three package builds and the production demo build. New focused coverage includes 34 transform cases, 37 alignment cases, 16 print cases and 12 projection-helper cases. Group aggregate rendering now reads only own properties for prototype-like column IDs. The print table has a named keyboard focus target for its scroll area, correcting an axe finding before publication.
+
+The final full Chromium run passed **30 scenarios in 29.8 seconds**, including pivot transform arithmetic/source preservation, aligned visibility with independent sorting, captured print refresh/staleness, serious/critical axe checks, target-isolated print CSS, a genuine browser-generated PDF and print-target cleanup. No physical printer was invoked: the test replaces `window.print` and exercises Chromium's print rendering separately. Built-module smoke checks confirmed width propagation, an exact 20.00% BigInt ratio and detached print rows. All three local package archives contain declarations and their MIT license.
+
 ## Interaction and remote-binding milestone
 
 This milestone adds read-only server/live React grids and local simulated providers, typed advanced-filter expressions and a visual builder, formatted-cell Find, plain-text notes, variable-height rows and nested detail grids, nested column headers, explicit modal row editing, optional bounded getter caching, and schema-driven XLSX import. The new importer validates ZIP/XML structure and resource budgets before workbook parsing; it does not evaluate formulas or mutate grid data automatically.
@@ -9,6 +17,8 @@ Browser checks now include grouped-header collapse, atomic row editing, remote s
 Final local results on Windows/Node 24.14.0: `npm run check` passed strict TypeScript, **543 tests in 28 files** (37.28 seconds), three ESM/declaration package builds and the Vite production demo build. `npm run test:e2e` passed **27 Chromium tests in 31.2 seconds**, including automated serious/critical axe checks in flat, dark, grouped, nested-detail and column-group views. Vitest concurrency is capped at four workers after the expanded suite exposed host-contention timeouts. A Strict Mode session-cancellation defect and disappearing group-toggle focus defect were fixed before this final run.
 
 All three local `npm pack` archives contain their MIT license and declaration entry point. Runtime-only `npm audit --omit=dev` reported **0 advisories** for the installed graph. ExcelJS's optional browser chunk is about 929 kB minified and loads on demand; Vite reports its standard large-chunk warning. No npm publication, deployment, manual screen-reader verification or cross-browser certification occurred.
+
+Published as `0ff3c2b29bfe2f2452619a16acbb20eb8fb5b023`; [GitHub Actions passed for that exact commit](https://github.com/mr-rafiq/opengrid/actions/runs/40823592254).
 
 ## Expanded preview milestone
 
@@ -42,4 +52,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, pinned/arbitrary full-width rows, row dragging, multi/custom filter-component lifecycles, Show Values As, print layouts, localization/touch coverage, aligned grids, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, pinned/arbitrary full-width rows, row dragging, multi/custom filter-component lifecycles, localization/touch coverage, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
