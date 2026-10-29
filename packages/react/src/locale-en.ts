@@ -1,5 +1,27 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "multiFilter.title": (params, _format) =>
+    `Combined filters for ${params.column}`,
+  "multiFilter.help":
+    "Apply settings in each child filter, then apply the combined filter. All active children must match.",
+  "multiFilter.unreadable":
+    "Unable to read the applied filter. Reload it before applying changes.",
+  "multiFilter.conflict":
+    "The applied filter changed. Reload it or explicitly keep your staged filters.",
+  "multiFilter.failed": "Unable to apply the combined filter.",
+  "multiFilter.unsupported":
+    "These child filters cannot edit the current settings. Starting new filters discards those settings only when you apply.",
+  "multiFilter.reload": "Reload applied filters",
+  "multiFilter.keep": "Keep staged filters",
+  "multiFilter.replace": "Start new child filters",
+  "multiFilter.child": (params, _format) => `Edit ${params.label}`,
+  "multiFilter.childFailed": (params, _format) =>
+    `${params.label} could not be staged. Correct or clear its settings.`,
+  "multiFilter.count": (params, format) =>
+    `${format.number(params.count)} of ${format.number(params.total)} active`,
+  "multiFilter.pending": "Staged changes are pending.",
+  "multiFilter.clearDraft": "Clear staged filters",
+  "multiFilter.apply": "Apply combined filter",
   "hierarchy.changed": "The row hierarchy changed. Try selection again.",
   "hierarchy.unavailable": "Hierarchy selection is unavailable.",
   "hierarchy.selectSubtree": (params, _format) =>

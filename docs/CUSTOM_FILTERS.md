@@ -72,7 +72,4 @@ external operators remain applied but show a message asking the user to edit a
 bound or clear the filter before replacing it. Text and boolean columns are not
 supported by this numeric/date range control; use another custom component.
 
-This is one filter instance per column. Independent multi-filter instances,
-their combined AND/OR editor, and AG Grid's multi-filter lifecycle/API are not
-implemented by this registry. Use the separate advanced filter builder when a
-compound expression across columns is needed.
+The registry renders one configured component per column. Compose independent named children through [MultiFilter](MULTI_FILTERS.md), which owns bounded staged drafts and parent Apply/Cancel. Reference display modes and its complete custom-filter lifecycle/API remain unsupported.

@@ -119,7 +119,7 @@ Use [managed row moving](docs/ROW_DRAGGING_UI.md) for pointer and keyboard inter
 
 Use the [calculated-column factory](docs/CALCULATED_COLUMNS.md) for compiled derived values, and [custom filter components](docs/CUSTOM_FILTERS.md) to provide controlled React filter interfaces.
 
-Use [resident set-list filters](docs/SET_FILTERS.md) for staged checkbox choices, search, exact BigInt/date identity and update conflicts. Tree/remote value lists and independent multi-filter panels remain open.
+Use [resident set-list filters](docs/SET_FILTERS.md) for staged checkbox choices, search, exact BigInt/date identity and update conflicts. [Independent named filters](docs/MULTI_FILTERS.md) combine staged child controls with source-conflict handling. Tree/remote value lists and cross-filter availability remain open.
 
 Use [editable formula grids](docs/FORMULA_GRID.md) for explicit per-cell expressions and computed pipeline values. The plain text mode editor preserves raw expressions; reference-aware fill, rich completion, structural rewriting and full-row formula sessions remain open.
 

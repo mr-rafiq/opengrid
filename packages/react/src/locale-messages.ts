@@ -1,5 +1,20 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "multiFilter.title": { column: string };
+  "multiFilter.help": undefined;
+  "multiFilter.unreadable": undefined;
+  "multiFilter.conflict": undefined;
+  "multiFilter.failed": undefined;
+  "multiFilter.unsupported": undefined;
+  "multiFilter.reload": undefined;
+  "multiFilter.keep": undefined;
+  "multiFilter.replace": undefined;
+  "multiFilter.child": { label: string };
+  "multiFilter.childFailed": { label: string };
+  "multiFilter.count": { count: number; total: number };
+  "multiFilter.pending": undefined;
+  "multiFilter.clearDraft": undefined;
+  "multiFilter.apply": undefined;
   "hierarchy.changed": undefined;
   "hierarchy.unavailable": undefined;
   "hierarchy.selectSubtree": { label: string };
@@ -473,6 +488,21 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "multiFilter.title": { column: "string" },
+  "multiFilter.help": {},
+  "multiFilter.unreadable": {},
+  "multiFilter.conflict": {},
+  "multiFilter.failed": {},
+  "multiFilter.unsupported": {},
+  "multiFilter.reload": {},
+  "multiFilter.keep": {},
+  "multiFilter.replace": {},
+  "multiFilter.child": { label: "string" },
+  "multiFilter.childFailed": { label: "string" },
+  "multiFilter.count": { count: "number", total: "number" },
+  "multiFilter.pending": {},
+  "multiFilter.clearDraft": {},
+  "multiFilter.apply": {},
   "hierarchy.changed": {},
   "hierarchy.unavailable": {},
   "hierarchy.selectSubtree": { label: "string" },

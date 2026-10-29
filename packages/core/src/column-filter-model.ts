@@ -1,9 +1,22 @@
-import type { CompoundFilter, Filter, ScalarFilter } from "./types.js";
+import type {
+  CompoundFilter,
+  Filter,
+  ScalarFilter,
+  MultiColumnFilter,
+  ColumnFilterSlot,
+} from "./types.js";
 
 export const COLUMN_FILTER_LIMITS = Object.freeze({
   maxConditions: 16,
   maxMembershipValues: 10000,
   maxTextLength: 256000,
+});
+export const MULTI_FILTER_LIMITS = Object.freeze({
+  maxFilters: 4,
+  maxConditions: 64,
+  maxMembershipValues: 10000,
+  maxTextLength: 256000,
+  maxIdLength: 128,
 });
 export type ColumnFilterErrorCode = "SHAPE" | "OPERATOR" | "VALUE" | "LIMIT";
 export class ColumnFilterValidationError extends TypeError {
@@ -126,6 +139,12 @@ export function assertColumnFilterOperator(filter: Filter): void {
           "filter.op",
           "Conditions require an AND or OR group",
         );
+      if (Object.hasOwn(filter, "filters") && descriptor.value !== "multi")
+        return fail(
+          "SHAPE",
+          "filter.op",
+          "Named child filters require a multi filter",
+        );
       return;
     }
     current = Object.getPrototypeOf(current);
@@ -134,6 +153,12 @@ export function assertColumnFilterOperator(filter: Filter): void {
     return fail("SHAPE", "filter.op", "Filter prototype depth exceeded");
   if (Object.hasOwn(filter, "conditions"))
     return fail("SHAPE", "filter.op", "Conditions require an AND or OR group");
+  if (Object.hasOwn(filter, "filters"))
+    return fail(
+      "SHAPE",
+      "filter.op",
+      "Named child filters require a multi filter",
+    );
 }
 
 /** New flat groups own only primitives; callers use ISO strings, never Date objects. */
@@ -245,6 +270,102 @@ export function prepareCompoundFilter(value: unknown): CompoundFilter {
   return Object.freeze({ op: group.op, conditions: Object.freeze(conditions) });
 }
 
+/** Independent named children are ANDed; each child owns a scalar or flat group. */
+export function prepareMultiFilter(value: unknown): MultiColumnFilter {
+  const input = record(value, ["op", "filters"], "filter");
+  if (input.op !== "multi")
+    return fail("OPERATOR", "filter.op", "Expected a multi filter");
+  if (!Array.isArray(input.filters) || !input.filters.length)
+    return fail(
+      "SHAPE",
+      "filter.filters",
+      "A multi filter requires named children",
+    );
+  if (input.filters.length > MULTI_FILTER_LIMITS.maxFilters)
+    return fail(
+      "LIMIT",
+      "filter.filters",
+      "Multi-filter child budget exceeded",
+    );
+  arrayShape(input.filters, "filter.filters");
+  const ids = new Set<string>(),
+    filters: ColumnFilterSlot[] = [];
+  let conditions = 0,
+    membership = 0,
+    text = 0;
+  const addText = (operand: unknown) => {
+    if (typeof operand === "string") text += operand.length;
+    else if (typeof operand === "bigint") text += String(operand).length;
+  };
+  for (let index = 0; index < input.filters.length; index++) {
+    const path = `filter.filters[${index}]`,
+      child = record(
+        arrayValue(input.filters, index, "filter.filters"),
+        ["id", "filter"],
+        path,
+      );
+    if (typeof child.id !== "string" || !child.id)
+      return fail(
+        "SHAPE",
+        `${path}.id`,
+        "A child requires a nonempty string ID",
+      );
+    if (child.id.length > MULTI_FILTER_LIMITS.maxIdLength)
+      return fail(
+        "LIMIT",
+        `${path}.id`,
+        "Multi-filter ID length budget exceeded",
+      );
+    if (ids.has(child.id))
+      return fail("SHAPE", `${path}.id`, "Child filter IDs must be unique");
+    ids.add(child.id);
+    if (child.filter === undefined) {
+      filters.push(Object.freeze({ id: child.id }));
+      continue;
+    }
+    let prepared: ScalarFilter | CompoundFilter;
+    try {
+      const leaf = record(
+        child.filter,
+        ["op", "value", "to", "conditions"],
+        `${path}.filter`,
+      );
+      prepared =
+        leaf.op === "and" || leaf.op === "or"
+          ? prepareCompoundFilter(child.filter)
+          : prepareCompoundFilter({ op: "and", conditions: [child.filter] })
+              .conditions[0];
+    } catch (error: unknown) {
+      if (error instanceof ColumnFilterValidationError)
+        return fail(error.code, `${path}.filter`, error.message);
+      throw error;
+    }
+    const leaves =
+      prepared.op === "and" || prepared.op === "or"
+        ? prepared.conditions
+        : [prepared];
+    conditions += leaves.length;
+    for (const leaf of leaves) {
+      if (leaf.op === "in") {
+        const values = leaf.value as readonly unknown[];
+        membership += values.length;
+        values.forEach(addText);
+      } else {
+        addText(leaf.value);
+        addText(leaf.to);
+      }
+    }
+    if (
+      conditions > MULTI_FILTER_LIMITS.maxConditions ||
+      membership > MULTI_FILTER_LIMITS.maxMembershipValues ||
+      text > MULTI_FILTER_LIMITS.maxTextLength
+    )
+      return fail("LIMIT", path, "Shared multi-filter operand budget exceeded");
+    filters.push(Object.freeze({ id: child.id, filter: prepared }));
+  }
+  return Object.freeze({ op: "multi", filters: Object.freeze(filters) });
+}
+
 function isGroupInput(filter: Filter): boolean {
   assertColumnFilterOperator(filter);
   return (
@@ -255,6 +376,8 @@ function isGroupInput(filter: Filter): boolean {
 }
 /** Retain historical scalar operand permissiveness, including shared mutable Dates. */
 export function prepareColumnFilter(filter: Filter): Filter {
+  assertColumnFilterOperator(filter);
+  if (filter.op === "multi") return prepareMultiFilter(filter);
   if (isGroupInput(filter)) return prepareCompoundFilter(filter);
   const scalar = filter as ScalarFilter;
   return {
@@ -278,6 +401,8 @@ export function prepareColumnFilters(
           "Filter accessors are not supported",
         );
       const filter = descriptor.value as Filter;
+      assertColumnFilterOperator(filter);
+      if (filter.op === "multi") return [id, prepareMultiFilter(filter)];
       if (isGroupInput(filter)) return [id, prepareCompoundFilter(filter)];
       // Transport queries historically preserve absent operand properties. Clone legacy
       // leaves without adding value:undefined; structuredClone owns arrays/Dates/objects

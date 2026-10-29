@@ -308,7 +308,9 @@ export function DataGrid<T>({
       const filter = Object.hasOwn(state.filters, column.id)
         ? state.filters[column.id]
         : undefined;
-      return filter?.op === "and" || filter?.op === "or";
+      return (
+        filter?.op === "and" || filter?.op === "or" || filter?.op === "multi"
+      );
     })
     .map((column) => column.id);
   const [conditionPanels, setConditionPanels] = useState(() => ({

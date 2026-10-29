@@ -1,5 +1,27 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const esMessages = Object.freeze({
+  "multiFilter.title": (params, _format) =>
+    `Filtros combinados de ${params.column}`,
+  "multiFilter.help":
+    "Confirme los ajustes de cada filtro y después aplique el filtro combinado. Todos los filtros activos deben coincidir.",
+  "multiFilter.unreadable":
+    "No se puede leer el filtro aplicado. Recárguelo antes de aplicar cambios.",
+  "multiFilter.conflict":
+    "El filtro aplicado ha cambiado. Recárguelo o conserve explícitamente los filtros preparados.",
+  "multiFilter.failed": "No se pudo aplicar el filtro combinado.",
+  "multiFilter.unsupported":
+    "Estos filtros no pueden editar los ajustes actuales. Inicie filtros nuevos para sustituirlos solo al aplicar.",
+  "multiFilter.reload": "Recargar filtros aplicados",
+  "multiFilter.keep": "Conservar filtros preparados",
+  "multiFilter.replace": "Iniciar filtros nuevos",
+  "multiFilter.child": (params, _format) => `Editar ${params.label}`,
+  "multiFilter.childFailed": (params, _format) =>
+    `${params.label} no se pudo preparar. Corrija o borre sus ajustes.`,
+  "multiFilter.count": (params, format) =>
+    `${format.number(params.count)} de ${format.number(params.total)} activos`,
+  "multiFilter.pending": "Hay cambios preparados pendientes.",
+  "multiFilter.clearDraft": "Borrar filtros preparados",
+  "multiFilter.apply": "Aplicar filtro combinado",
   "hierarchy.changed":
     "La jerarquía de filas ha cambiado. Intente seleccionar de nuevo.",
   "hierarchy.unavailable": "La selección jerárquica no está disponible.",

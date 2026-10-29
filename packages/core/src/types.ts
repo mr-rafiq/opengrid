@@ -51,14 +51,27 @@ export type ScalarFilter = {
   value?: unknown;
   to?: unknown;
   conditions?: never;
+  filters?: never;
 };
 export interface CompoundFilter {
   op: "and" | "or";
   conditions: readonly ScalarFilter[];
   value?: never;
   to?: never;
+  filters?: never;
 }
-export type Filter = ScalarFilter | CompoundFilter;
+export interface ColumnFilterSlot {
+  readonly id: string;
+  readonly filter?: ScalarFilter | CompoundFilter;
+}
+export interface MultiColumnFilter {
+  op: "multi";
+  readonly filters: readonly ColumnFilterSlot[];
+  value?: never;
+  to?: never;
+  conditions?: never;
+}
+export type Filter = ScalarFilter | CompoundFilter | MultiColumnFilter;
 export type FilterExpression =
   | { kind: "condition"; columnId: string; filter: ScalarFilter }
   | { kind: "and" | "or"; children: FilterExpression[] }

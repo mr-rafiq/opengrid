@@ -2,6 +2,7 @@ import type { Column, Filter } from "./types.js";
 import {
   assertColumnFilterOperator,
   prepareCompoundFilter,
+  prepareMultiFilter,
 } from "./column-filter-model.js";
 
 export const isFilterBlank = (value: unknown) =>
@@ -43,6 +44,12 @@ export function matchesFilter<T>(
   column?: Column<T>,
 ): boolean {
   assertColumnFilterOperator(filter);
+  if (filter.op === "multi")
+    return prepareMultiFilter(filter).filters.every(
+      (child) =>
+        child.filter === undefined ||
+        matchesFilter(value, child.filter, column),
+    );
   if (filter.op === "and" || filter.op === "or") {
     const group = prepareCompoundFilter(filter);
     return group.op === "and"
@@ -101,6 +108,14 @@ export function compileFilterPredicate<T>(
   column?: Column<T>,
 ): FilterPredicate {
   assertColumnFilterOperator(filter);
+  if (filter.op === "multi") {
+    const children = prepareMultiFilter(filter).filters.flatMap((child) =>
+      child.filter === undefined
+        ? []
+        : [compileFilterPredicate(child.filter, column)],
+    );
+    return (value) => children.every((child) => child(value));
+  }
   if (filter.op === "and" || filter.op === "or") {
     const group = prepareCompoundFilter(filter),
       children = group.conditions.map((condition) =>

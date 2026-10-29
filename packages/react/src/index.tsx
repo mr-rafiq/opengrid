@@ -1,4 +1,9 @@
 export * from "./data-grid.js";
+export { MultiFilter, createMultiFilter } from "./multi-filter.js";
+export type {
+  MultiFilterProps,
+  MultiFilterDefinition,
+} from "./multi-filter.js";
 export type { HierarchySelectionMode } from "./use-hierarchy-selection.js";
 export * from "./editors.js";
 export { RichSelectEditor } from "./rich-select-editor.js";

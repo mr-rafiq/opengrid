@@ -24,10 +24,12 @@ export * from "./formula-grid.js";
 export * from "./column-widths.js";
 export {
   COLUMN_FILTER_LIMITS,
+  MULTI_FILTER_LIMITS,
   ColumnFilterValidationError,
   prepareColumnFilter,
   prepareColumnFilters,
   prepareCompoundFilter,
+  prepareMultiFilter,
 } from "./column-filter-model.js";
 export type { ColumnFilterErrorCode } from "./column-filter-model.js";
 import {
