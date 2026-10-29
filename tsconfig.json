@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@opengrid/core": ["./packages/core/src/index.ts"],
+      "@opengrid/react": ["./packages/react/src/index.tsx"]
+    }
+  },
+  "include": ["packages", "examples", "tests", "*.ts"]
+}

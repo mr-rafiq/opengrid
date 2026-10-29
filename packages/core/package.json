@@ -1,0 +1,28 @@
+{
+  "name": "@opengrid/core",
+  "version": "0.1.0",
+  "description": "Original framework-neutral data grid engine",
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "node ../../scripts/package-assets.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mr-rafiq/opengrid.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/mr-rafiq/opengrid#readme"
+}
