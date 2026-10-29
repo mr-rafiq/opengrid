@@ -15,6 +15,11 @@ export * from "./aligned-columns.js";
 export * from "./calculated-grid.js";
 export * from "./set-filter-index.js";
 export * from "./formula-grid.js";
+export * from "./column-widths.js";
+import {
+  clampColumnWidth,
+  getColumnWidthConstraints,
+} from "./column-widths.js";
 import { takeGridExtension } from "./grid-extension.js";
 export { matchesFilter } from "./filter-predicates.js";
 import {
@@ -59,6 +64,14 @@ export function csvCell(value: unknown): string {
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const extension = takeGridExtension(options);
   const columns = options.columns.map((column) => {
+    const widthConstraints = getColumnWidthConstraints(column);
+    if (
+      column.flex !== undefined &&
+      (typeof column.flex !== "number" ||
+        !Number.isFinite(column.flex) ||
+        column.flex <= 0)
+    )
+      throw new RangeError("Column flex must be a positive finite number");
     if (
       column.spanRows !== undefined &&
       typeof column.spanRows !== "boolean" &&
@@ -88,6 +101,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       throw new TypeError("Column groupPath must be an array of strings");
     return {
       ...column,
+      width: widthConstraints.width,
       ...(column.groupPath === undefined
         ? {}
         : { groupPath: Object.freeze([...column.groupPath]) }),
@@ -233,14 +247,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       expanded: [...new Set(next.expanded)],
     };
     for (const column of columns) {
-      const width = own(result.columnWidths, column.id);
-      if (width !== undefined)
-        result.columnWidths[column.id] = Math.max(
-          column.minWidth ?? 40,
-          Math.min(
-            column.maxWidth ?? Infinity,
-            Number.isFinite(width) ? width : (column.width ?? 160),
-          ),
+      if (Object.hasOwn(result.columnWidths, column.id))
+        result.columnWidths[column.id] = clampColumnWidth(
+          column,
+          own(result.columnWidths, column.id),
         );
       const pin = own(result.columnPinning, column.id);
       if (

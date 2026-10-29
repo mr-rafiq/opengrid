@@ -8,6 +8,7 @@ export interface Column<T> {
   header?: string;
   groupPath?: readonly string[];
   width?: number;
+  flex?: number;
   minWidth?: number;
   maxWidth?: number;
   hidden?: boolean;

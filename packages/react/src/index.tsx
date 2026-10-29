@@ -24,3 +24,13 @@ export type {
   FormulaCellEditorProps,
   FormulaEditMode,
 } from "./formula-cell-editor.js";
+export { createColumnSizingController } from "./column-sizing.js";
+export type {
+  DataGridSizingController,
+  ColumnSizingSnapshot,
+  AutoSizeOptions,
+  AutoSizeReport,
+  AutoSizeMeasurement,
+  AutoSizeCancelReason,
+  AutoSizeSkipReason,
+} from "./column-sizing.js";

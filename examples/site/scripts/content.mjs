@@ -65,6 +65,7 @@ const labels = {
   "custom-filters": "Custom column filters",
   "set-filters": "Set-list filters",
   "formula-grid": "Editable formula grids",
+  "column-sizing": "Column sizing",
   "calculated-columns": "Calculated columns",
 };
 const order = [
@@ -77,6 +78,7 @@ const order = [
   "row-reorder",
   "row-dragging-ui",
   "column-groups",
+  "column-sizing",
   "column-spans",
   "row-spans",
   "localization",

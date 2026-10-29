@@ -381,3 +381,7 @@ The React package exports `normalizeScrollLeft(native, maximum, direction)`, `de
 Ordinary touch cell backgrounds retain native pan/pinch behavior. Completed taps focus/select; guarded double-tap or the Edit cell action opens the configured editor. Extend range retains a valid current anchor and lets users scroll before tapping an endpoint. Fill mode chooses copy or numeric series for the dedicated fill grip; release uses the existing atomic validation/history pipeline.
 
 Pointer resizing previews local geometry and commits a changed width once on release, for mouse, pen and touch. Captured gestures track their owning primary pointer and cancel on interruption, stale model/view state or unmount. Touch header/group/row drag-and-drop and physical-device coverage remain open. See [touch interaction](TOUCH.md).
+
+## Column sizing
+
+DataGrid accepts sizingRef for explicit rendered-text sizing, resolved-width snapshots and manual-override reset. Column.flex enables constrained measured-container allocation. See [column sizing](COLUMN_SIZING.md) for exact signatures, reports, budgets and limitations.

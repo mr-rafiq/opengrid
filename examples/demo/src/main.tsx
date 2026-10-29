@@ -31,6 +31,7 @@ import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
 import { FormulaGridLab } from "./formula-grid-lab";
+import { SizingLab } from "./sizing-lab";
 interface Holding {
   id: string;
   company: string;
@@ -196,6 +197,7 @@ function App() {
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
   const [formulaGridOpen, setFormulaGridOpen] = useState(false);
+  const [sizingOpen, setSizingOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -759,6 +761,15 @@ function App() {
             Formula grid lab
           </button>
           {formulaGridOpen && <FormulaGridLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setSizingOpen(!sizingOpen)}
+            aria-expanded={sizingOpen}
+          >
+            Column sizing lab
+          </button>
+          {sizingOpen && <SizingLab />}
         </section>
         <section className="pivot-panel">
           <button

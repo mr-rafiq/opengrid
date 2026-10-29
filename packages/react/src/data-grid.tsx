@@ -2,6 +2,7 @@ import {
   useEffect,
   useId,
   useLayoutEffect,
+  useImperativeHandle,
   useSyncExternalStore,
   useRef,
   useState,
@@ -14,6 +15,7 @@ import type {
   ReactNode,
   ComponentType,
   DragEvent,
+  Ref,
 } from "react";
 import type {
   Column,
@@ -36,7 +38,14 @@ import {
   getFormulaGridController,
   isFormulaInput,
   isFormulaError,
+  resolveColumnWidths,
+  getColumnWidthConstraints,
 } from "@opengrid/core";
+import { createColumnSizingController } from "./column-sizing.js";
+import type {
+  ColumnSizingSnapshot,
+  DataGridSizingController,
+} from "./column-sizing.js";
 import { FormulaCellEditor } from "./formula-cell-editor.js";
 import type { FormulaEditMode } from "./formula-cell-editor.js";
 import {
@@ -87,6 +96,8 @@ export interface CellContext<T> {
 }
 export interface DataGridProps<T> {
   model: GridModel<T>;
+  /** Explicit commands measure only currently rendered default text cells and leaf headers. */
+  sizingRef?: Ref<DataGridSizingController>;
   /** Registered formula models are detected automatically. A supplied controller must own this model. */
   formulas?: FormulaGridController<T>;
   direction?: GridDirection;
@@ -228,6 +239,7 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 /** A row- and column-virtualized grid with optional variable row heights and detail rows. The supplied model owns data and persisted state. */
 export function DataGrid<T>({
   model,
+  sizingRef,
   formulas: suppliedFormulas,
   direction = "ltr",
   height = 480,
@@ -350,6 +362,27 @@ export function DataGrid<T>({
   const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
   const selectionWidth =
     (selectionMode === "none" ? 0 : 44) + (rowDragging ? 32 : 0);
+  const [viewportWidth, setViewportWidth] = useState(1024);
+  const [sizingWidth, setSizingWidth] = useState<number | undefined>();
+  const [containerSizingRevision, setContainerSizingRevision] = useState(0);
+  const lastContainerWidth = useRef<number | null>(null);
+  const baseColumnWidths = useMemo(
+    () =>
+      resolveColumnWidths(ordered, {
+        availableWidth: sizingWidth,
+        leadingWidth: selectionWidth,
+        columnWidths: state.columnWidths,
+      }),
+    [model, state, sizingWidth, selectionWidth],
+  );
+  const baseWidthSignature = JSON.stringify([
+    selectionWidth,
+    ...ordered.map((column) => [
+      column.id,
+      baseColumnWidths.widths[column.id],
+      pinOf(column),
+    ]),
+  ]);
   const resizeAllowed = useRef(true);
   const columnResize = useColumnResize({
     model,
@@ -363,21 +396,36 @@ export function DataGrid<T>({
       rowHeight,
       !!isFullWidthRow,
       !!renderDetail,
+      containerSizingRevision,
+      baseWidthSignature,
     ]),
     canResize: () => resizeAllowed.current,
     onCommitError: (error) =>
       setError(error instanceof Error ? error.message : String(error)),
   });
-  const widthOf = (column: Column<T>) =>
-    columnResize.preview?.columnId === column.id
-      ? columnResize.preview.width
-      : Object.hasOwn(state.columnWidths, column.id)
-        ? state.columnWidths[column.id]
-        : (column.width ?? 160);
-  const totalWidth = columns.reduce(
-    (width, column) => width + widthOf(column),
-    selectionWidth,
+  const resolvedColumnWidths = useMemo(
+    () =>
+      columnResize.preview
+        ? resolveColumnWidths(ordered, {
+            availableWidth: sizingWidth,
+            leadingWidth: selectionWidth,
+            columnWidths: state.columnWidths,
+            preview: columnResize.preview,
+          })
+        : baseColumnWidths,
+    [
+      baseColumnWidths,
+      columnResize.preview?.columnId,
+      columnResize.preview?.width,
+    ],
   );
+  const widthOf = (column: Column<T>) => resolvedColumnWidths.widths[column.id];
+  const totalWidth = resolvedColumnWidths.totalWidth;
+  const widthGeometrySignature = JSON.stringify([
+    selectionWidth,
+    ...columns.map((column) => [column.id, widthOf(column), pinOf(column)]),
+  ]);
+  const previousWidthGeometry = useRef(widthGeometrySignature);
   const spanColumns = columns.map((column) => ({
     ...column,
     hidden: false,
@@ -426,6 +474,7 @@ export function DataGrid<T>({
     direction,
     columnResize.preview?.columnId,
     columnResize.preview?.width,
+    widthGeometrySignature,
   ]);
   function ownerAt(row: number, leaf: number) {
     return getColumnSpanOwner(spanPlanFor(row), leaf);
@@ -486,7 +535,6 @@ export function DataGrid<T>({
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const previousDirection = useRef(direction);
-  const [viewportWidth, setViewportWidth] = useState(1024);
   function scrollMaximum(container: HTMLElement) {
     return Math.max(
       0,
@@ -893,6 +941,57 @@ export function DataGrid<T>({
       setAnnouncement(message);
     },
   });
+  const sizingViewToken = useMemo(
+    () => ({}),
+    [
+      model,
+      state,
+      widthGeometrySignature,
+      containerSizingRevision,
+      locale,
+      direction,
+      className,
+      renderCell,
+      rowViewSignature,
+    ],
+  );
+  const sizingSnapshot = useRef<ColumnSizingSnapshot<T> | null>(null);
+  const nextSizingSnapshot: ColumnSizingSnapshot<T> = {
+    model,
+    viewport: viewport.current,
+    columns: allColumns,
+    widths: resolvedColumnWidths.widths,
+    viewToken: sizingViewToken,
+    busy: Boolean(editing || rowEditing || noteEditing || draggingRowId),
+    customRenderer: Boolean(renderCell),
+  };
+  // Pair committed metadata with committed DOM when concurrent renders suspend.
+  useLayoutEffect(() => {
+    sizingSnapshot.current = nextSizingSnapshot;
+  });
+  const sizingController = useRef<ReturnType<
+    typeof createColumnSizingController<T>
+  > | null>(null);
+  useLayoutEffect(() => {
+    const controller = createColumnSizingController(() => ({
+      ...sizingSnapshot.current!,
+      viewport: viewport.current,
+      busy: Boolean(
+        sizingSnapshot.current?.busy ||
+        editingRef.current ||
+        managedDrag.current ||
+        columnResize.isActive() ||
+        ranges.isGestureActive(),
+      ),
+    }));
+    sizingController.current = controller;
+    return () => {
+      controller.dispose();
+      if (sizingController.current === controller)
+        sizingController.current = null;
+    };
+  }, [model]);
+  useImperativeHandle(sizingRef, () => sizingController.current!, [model]);
   const touchTaps = useTouchTaps({
     viewport,
     model,
@@ -1063,7 +1162,13 @@ export function DataGrid<T>({
     const container = viewport.current;
     if (!container) return;
     const measure = () => {
-      if (container.clientWidth > 0) setViewportWidth(container.clientWidth);
+      const width = container.clientWidth;
+      if (lastContainerWidth.current !== width) {
+        lastContainerWidth.current = width;
+        setSizingWidth(width > 0 ? width : undefined);
+        setContainerSizingRevision((revision) => revision + 1);
+      }
+      if (width > 0) setViewportWidth(width);
     };
     measure();
     const observer =
@@ -1081,9 +1186,17 @@ export function DataGrid<T>({
     const container = viewport.current;
     if (!container) return;
     const flipped = previousDirection.current !== direction;
+    const geometryChanged =
+      previousWidthGeometry.current !== widthGeometrySignature;
     previousDirection.current = direction;
+    previousWidthGeometry.current = widthGeometrySignature;
     let offset = flipped ? scrollLeft : readInlineScroll(container);
-    if (flipped) {
+    const active = document.activeElement;
+    const ownsFocusedCell =
+      active instanceof Element &&
+      container.contains(active) &&
+      !!active.closest("[data-row-id][data-column-id]");
+    if (flipped || (geometryChanged && ownsFocusedCell)) {
       const index = columns.findIndex((column) => column.id === focus.columnId);
       const span = ownerAt(focusRow, index);
       if (span && !span.pinned) {
@@ -1104,7 +1217,7 @@ export function DataGrid<T>({
     }
     const clamped = writeInlineScroll(container, offset);
     if (clamped !== scrollLeft) setScrollLeft(clamped);
-  }, [totalWidth, viewportWidth, direction]);
+  }, [totalWidth, viewportWidth, direction, widthGeometrySignature]);
   useLayoutEffect(() => {
     const container = viewport.current;
     if (!container) return;
@@ -2715,7 +2828,17 @@ export function DataGrid<T>({
                               ) : null}
                             </span>
                           )}
-                          <span className="og-cell-content">
+                          <span
+                            className="og-cell-content"
+                            data-og-size-text={
+                              node.kind === "row" &&
+                              node.data &&
+                              !renderCell &&
+                              span.span === 1
+                                ? "cell"
+                                : undefined
+                            }
+                          >
                             {node.kind === "group" && index === 0 ? (
                               <>
                                 {node.label}{" "}
@@ -3296,10 +3419,12 @@ export function DataGrid<T>({
                 const sort = state.sorting.find(
                   (sort) => sort.columnId === column.id,
                 );
+                const widthBounds = getColumnWidthConstraints(column);
                 return (
                   <div
                     key={column.id}
                     role="columnheader"
+                    data-og-size-column-id={column.id}
                     aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                     aria-sort={
                       sort
@@ -3349,7 +3474,9 @@ export function DataGrid<T>({
                         );
                       }}
                     >
-                      <span>{column.header ?? column.id}</span>
+                      <span data-og-size-text="header">
+                        {column.header ?? column.id}
+                      </span>
                       <span className="og-sort-indicator" aria-hidden="true">
                         {sort?.direction === "asc"
                           ? "\u2191"
@@ -3369,10 +3496,10 @@ export function DataGrid<T>({
                         column: column.header ?? column.id,
                       })}
                       aria-valuenow={widthOf(column)}
-                      aria-valuemin={column.minWidth ?? 40}
+                      aria-valuemin={widthBounds.minWidth}
                       aria-valuemax={
-                        Number.isFinite(column.maxWidth)
-                          ? column.maxWidth
+                        Number.isFinite(widthBounds.maxWidth)
+                          ? widthBounds.maxWidth
                           : undefined
                       }
                       className="og-resizer"

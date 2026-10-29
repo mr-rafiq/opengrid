@@ -20,6 +20,7 @@ export interface UseColumnResizeOptions<T> {
 }
 export interface ColumnResizeBinding<T> {
   readonly preview: ColumnResizePreview | null;
+  isActive(): boolean;
   begin(
     event: ReactPointerEvent<HTMLElement>,
     column: Column<T>,
@@ -366,5 +367,10 @@ export function useColumnResize<T>({
     }
     setPreview({ columnId: gesture.columnId, width: constrained });
   }
-  return { preview, begin };
+  return {
+    // A render can replace the owning model/view before layout cleanup cancels.
+    preview: active.current && valid(active.current) ? preview : null,
+    begin,
+    isActive: () => active.current !== null,
+  };
 }

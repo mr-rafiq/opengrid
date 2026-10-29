@@ -678,6 +678,7 @@ export function useCellRanges<T>({
     fillMode,
     setFillMode,
     cancelGesture: () => cancelCurrent.current(),
+    isGestureActive: () => drag.current !== null,
     select,
     begin,
     onCopy,

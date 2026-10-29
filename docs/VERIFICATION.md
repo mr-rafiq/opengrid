@@ -14,6 +14,8 @@ After the final direction fix, the complete Chromium suite passed **65 scenarios
 
 The production Pages build generated **42 documentation routes**, including the editable formula guide and working lab. All **nine production site scenarios passed in 10.8 seconds** with one worker, retaining route/asset, keyboard/mobile navigation, search/copy, generated-link, real-404 and serious/critical axe checks.
 
+The initial functional commit `c3604266ad3025ab3e0f05f452283a1725c2c1d4` failed remote formatting; a one-line wrapping correction was published without changing behavior. Corrected commit `2704cdecf098220b11804b8ee2151e880b5a5754` passed [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40894863665) and [Pages](https://github.com/mr-rafiq/opengrid/actions/runs/40894863675) for that exact SHA. Live HTTPS checks verified the new guide, raw formula entry, rejected Enter/Tab drafts, dependent source edits and shared undo. Native touch entry and actual language/direction buttons retained editor DOM/raw draft/mode/focus. Typed cycle display/inspector, isolated RTL error codes and cycle undo passed, with no runtime errors or serious/critical axe findings. The deployed screenshot was visually inspected.
+
 ## Resident set-list filtering
 
 Strict TypeScript, **1,116 tests in 62 files** (110.10 seconds), all three package/declaration builds and the production demo passed with one worker. The 41 new core/component cases cover canonical scalar identity, exact BigInt and negative zero, date instants, blank/invalid compatibility, source-wide counts, frozen indexes, bounded construction, cache expiry, final controlled application, cancellation, live source reconciliation and external-filter conflicts. Calculation-local membership compilation is checked against existing comparisons and actual ordinary/advanced filtering; public direct matcher behavior remains live.
@@ -179,3 +181,22 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 ## Limits
 
 No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing capabilities include RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, combined two-dimensional spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+
+## Flex and rendered-text sizing checkpoint
+
+Local execution on 2026-10-29, Windows/Node 24.14.0, one test worker. This adds constrained flex allocation, manual ownership/reset and explicit rendered-default-text autosizing; the [column sizing guide](COLUMN_SIZING.md) defines the bounded contract and remaining gaps.
+
+| Check                          | Executed result                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run format:check`         | Passed across all matched repository files.                                                                                                                        |
+| `npm run check`                | Strict TypeScript passed; **1,202 tests in 68 files passed**, 121.16 seconds for tests; core, React and export ESM/declaration builds plus production demo passed. |
+| Built ESM/SSR smoke            | Passed constrained/frozen flex output, fallback SSR and plain-text markers, silent allocation/SSR, zero minimum, manual reset and unavailable/disposed reports.    |
+| Complete Chromium suite        | **68 passed**, 2.8 minutes, one worker. Includes all existing span, formula, set-list, touch, remote and document flows.                                           |
+| Pages production build         | Passed: **43 documentation routes**, landing page, portfolio demo, generated assets and genuine 404.                                                               |
+| Production site Chromium suite | **9 passed**, 10.8 seconds, one worker; responsive navigation, deep links, search/copy/source links and serious/critical axe checks.                               |
+
+The 41 added unit/integration cases cover constrained allocation against an independent numerical oracle, bounds and width-state roundtrips; atomic text measurements and skips; font/cache/DOM/model/view cancellation and resource cleanup; real measured-container flex, silent resize, pin/RTL/span geometry and manual reset. Regression tests reproduce active-preview model replacement and preserve committed widths while a concurrent replacement suspends. Scaled/zoomed ancestor samples are explicitly skipped to avoid mixing geometry units.
+
+Three sizing browser workflows verify container changes without persistent overrides, RTL physical pins and keyboard manual resize/reset, rendered sample counts, offscreen long text included only after scrolling, horizontal virtualization, transformed-body measurement skips, cancellation during held resize and no serious/critical axe findings. The resulting sizing example screenshot was visually inspected. These are functional checks, not throughput, manual screen-reader or physical-device certification. Existing Vite large-chunk notices remain build warnings, not a bundle-size or latency guarantee.
+
+Exact-commit CI/Pages and public URL evidence is separate from these local results and will be recorded after publication is inspected.
