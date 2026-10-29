@@ -86,6 +86,14 @@ test("flex follows real container space, preserves physical pins in RTL and rest
   await expect
     .poll(async () => (await widths(grid)).description)
     .toBeCloseTo(before.widths.description, 0);
+  const resetReport = JSON.parse(
+    await region.getByTestId("sizing-report").innerText(),
+  );
+  expect(resetReport.widths.description).toBeCloseTo(
+    (await widths(grid)).description,
+    0,
+  );
+  expect(resetReport.manual).toEqual({});
   expect(errors).toEqual([]);
 });
 test("autosizes only rendered default text, then measures an offscreen long value after scrolling", async ({

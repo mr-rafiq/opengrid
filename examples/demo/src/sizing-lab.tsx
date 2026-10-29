@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { createGrid, type Column } from "@opengrid/core";
 import { DataGrid, type DataGridSizingController } from "@opengrid/react";
 
@@ -121,7 +122,7 @@ export function SizingLab() {
         <button
           type="button"
           onClick={() => {
-            sizing.current?.resetWidths();
+            flushSync(() => sizing.current?.resetWidths());
             readWidths();
           }}
         >
