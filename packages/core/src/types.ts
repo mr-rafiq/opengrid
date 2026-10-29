@@ -19,6 +19,7 @@ export interface Column<T> {
   valueGetter?: (row: T) => unknown;
   valueCache?: boolean;
   colSpan?: number | ((row: T) => number);
+  spanRows?: boolean | ((previous: T, next: T) => boolean);
   valueFormatter?: (value: unknown, row: T) => string;
   valueParser?: (value: unknown, row: T) => unknown;
   validate?: (value: unknown, row: T) => string | undefined;

@@ -627,3 +627,10 @@
   border-bottom: 1px solid var(--og-border);
   font-size: 12px;
 }
+.og-row .og-cell.og-row-spanning {
+  background: inherit;
+  flex-shrink: 0;
+}
+.og-row .og-cell.og-row-spanning:focus {
+  z-index: 3 !important;
+}

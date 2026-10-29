@@ -34,4 +34,6 @@ Additional source supplies all five percentage display transforms with explicit 
 
 No AG Grid runtime scenarios were recorded in this pass. Documentation establishes described capabilities, not internal algorithms, performance, edge-case behavior or accessibility outcomes. OpenGrid tests establish only their executed cases. A browser engine passing a keyboard test does not establish screen-reader usability.
 
+The public [row-spanning specification](https://www.ag-grid.com/react-data-grid/row-spanning/) was revisited for the vertical-span milestone. It describes merging contiguous equal-value leaf cells, custom adjacent predicates and automatic-height integration. OpenGrid's compact run index, clipping rules, budgets and interaction semantics are independently designed; automatic-height integration and combined two-dimensional spans remain separate gaps.
+
 The [feature ledger](FEATURE_PARITY.md) records implementation status separately from these observations. Each future release should preserve its source version, actual test commands/results and unverified boundaries. Re-review the reference before expanding a parity claim; the live documentation may change.

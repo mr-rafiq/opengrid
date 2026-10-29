@@ -107,6 +107,12 @@ export function csvCell(value: unknown): string {
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const columns = options.columns.map((column) => {
     if (
+      column.spanRows !== undefined &&
+      typeof column.spanRows !== "boolean" &&
+      typeof column.spanRows !== "function"
+    )
+      throw new TypeError("Column spanRows must be a boolean or function");
+    if (
       column.colSpan !== undefined &&
       typeof column.colSpan !== "function" &&
       (typeof column.colSpan !== "number" ||

@@ -97,6 +97,7 @@ export function ServerDataGrid<T>({
           editable: false,
           // Span geometry currently belongs to the client DataGrid contract.
           colSpan: undefined,
+          spanRows: undefined,
           valueGetter: (record) => {
             if (record.node.kind === "group")
               return record.node.aggregates &&

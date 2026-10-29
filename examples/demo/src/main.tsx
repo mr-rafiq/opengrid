@@ -26,6 +26,7 @@ import { AlignedLab } from "./aligned-lab";
 import { HoldingSummary } from "./holding-summary";
 import { CalculatedLab } from "./calculated-lab";
 import { SpanLab } from "./span-lab";
+import { RowSpanLab } from "./row-span-lab";
 interface Holding {
   id: string;
   company: string;
@@ -186,6 +187,7 @@ function App() {
   const [rowDragging, setRowDragging] = useState(false);
   const [calculatedOpen, setCalculatedOpen] = useState(false);
   const [spansOpen, setSpansOpen] = useState(false);
+  const [rowSpansOpen, setRowSpansOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -713,6 +715,15 @@ function App() {
             Column spans lab
           </button>
           {spansOpen && <SpanLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setRowSpansOpen(!rowSpansOpen)}
+            aria-expanded={rowSpansOpen}
+          >
+            Row spans lab
+          </button>
+          {rowSpansOpen && <RowSpanLab />}
         </section>
         <section className="pivot-panel">
           <button

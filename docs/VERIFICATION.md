@@ -1,5 +1,17 @@
 # Verification record
 
+## Vertical row spans and gap audit
+
+`npm run check` passed strict TypeScript, **880 tests in 44 files** (78.23 seconds), all three ESM/declaration package builds and the production demo. New focused coverage totals 69 cases: compact run planning, core metadata validation and 17 React interactions. A built-ESM smoke verified exported owner/window lookup, real model editing and undo. All local test configurations now default to one concurrent worker; no system memory/security settings or unrelated processes were changed.
+
+The complete Chromium suite passed **46 scenarios with one worker in 2.4 minutes**. Vertical spans were checked with 120-row/4560-pixel owners, independent right-pinned runs, original ARIA column/row-span positions, selection per source row, owner edit splitting and undo/focus restoration, and offscreen anchor skeletons that omit unrelated controls/values. Real hit-testing verified pinned owners across horizontal scrolling and detail controls outside merged runs. Pin, detail and full-width boundaries, Find counts and a combined-view serious/critical axe scan passed. Existing remote/million-row and client/100,000-row regressions also passed.
+
+Review found an invalidation gap when pure getter/predicate closure dependencies changed without replacing row objects. Explicit value-cache expiry and same-reference `setRows` now rebuild runs, while actual selection/width-only changes reuse them. Date/BigInt filter operands are compared without JSON serialization; unsupported or over-budget state shapes conservatively invalidate. Tests cover both refresh paths following cosmetic changes. Compact planner tests exercise 100,000 rows; component tests verify bounded rendered anchors over 10,000 rows. These are functional/resource bounds, not latency or throughput benchmarks.
+
+The new [gap inventory](GAP_INVENTORY.md) separates completed bounded contracts from partial breadth. Combined two-dimensional spans, merged clipboard/export, auto-measured height, remote row spans, localization/RTL/touch and the other listed workflows remain open. Automated checks do not establish manual screen-reader or physical-device conformance.
+
+The production Pages build passed with 37 documentation routes, and all **9 site scenarios passed with one worker in 12.5 seconds**. The two new guides are available through documentation navigation and full-text search.
+
 ## Column spanning
 
 After recovering the Windows execution connection, strict typecheck passed and `npm test -- --maxWorkers=1` passed **811 tests in 41 files** (71.66 seconds). All package/declaration and production demo builds passed. New coverage includes 13 React integration scenarios, bounded immutable span planning, static metadata validation, covered-value Find exclusion and Strict Mode predicate lifecycle. Built React ESM smoke verified public geometry/window exports and merged right-pin offsets.
@@ -88,4 +100,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, vertical row spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, combined two-dimensional spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

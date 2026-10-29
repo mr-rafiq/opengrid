@@ -12,3 +12,4 @@ export * from "./print-view.js";
 export * from "./row-projection.js";
 export * from "./filter-components.js";
 export * from "./column-spans.js";
+export * from "./row-spans.js";

@@ -6,7 +6,7 @@ export default defineConfig({
   test: {
     include: ["packages/**/*.test.{ts,tsx}"],
     environment: "node",
-    maxWorkers: 4,
+    maxWorkers: 1,
   },
   resolve: {
     alias: {

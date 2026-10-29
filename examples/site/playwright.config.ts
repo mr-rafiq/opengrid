@@ -3,7 +3,7 @@ const deployed = process.env.SITE_URL;
 export default defineConfig({
   testDir: "./tests",
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 3,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: "list",
   use: {

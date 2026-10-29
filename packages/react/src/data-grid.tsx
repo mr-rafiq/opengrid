@@ -55,6 +55,8 @@ import {
   getColumnSpanWindow,
 } from "./column-spans.js";
 import type { ColumnSpanCell } from "./column-spans.js";
+import { createRowSpanPlan } from "./row-spans.js";
+import type { RowSpanPlan, RowSpanRow } from "./row-spans.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -124,6 +126,67 @@ interface Editing {
 const text = (value: unknown) => (value == null ? "" : String(value));
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
+/** Bounded sanitized-state comparison; uncertain inputs force run-cache expiry. */
+function sameSpanStateValue(
+  left: unknown,
+  right: unknown,
+  budget = { remaining: 50000 },
+  depth = 0,
+): boolean {
+  if (Object.is(left, right)) return true;
+  if (--budget.remaining < 0 || depth > 32) return false;
+  if (left instanceof Date || right instanceof Date)
+    return (
+      left instanceof Date &&
+      right instanceof Date &&
+      Object.is(
+        Date.prototype.getTime.call(left),
+        Date.prototype.getTime.call(right),
+      )
+    );
+  if (
+    left === null ||
+    right === null ||
+    typeof left !== "object" ||
+    typeof right !== "object"
+  )
+    return false;
+  const array = Array.isArray(left);
+  if (array !== Array.isArray(right)) return false;
+  if (
+    array &&
+    ((left as unknown[]).length !== (right as unknown[]).length ||
+      (left as unknown[]).length > budget.remaining)
+  )
+    return false;
+  if (!array) {
+    const a = Object.getPrototypeOf(left),
+      b = Object.getPrototypeOf(right);
+    if (a !== b || (a !== null && a !== Object.prototype)) return false;
+  }
+  const leftKeys = Reflect.ownKeys(left),
+    rightKeys = Reflect.ownKeys(right);
+  if (
+    leftKeys.length !== rightKeys.length ||
+    leftKeys.length > budget.remaining
+  )
+    return false;
+  const rightKeySet = new Set(rightKeys);
+  for (const key of leftKeys) {
+    if (--budget.remaining < 0 || !rightKeySet.has(key)) return false;
+    const a = Object.getOwnPropertyDescriptor(left, key),
+      b = Object.getOwnPropertyDescriptor(right, key);
+    if (
+      !a ||
+      !b ||
+      !("value" in a) ||
+      !("value" in b) ||
+      !sameSpanStateValue(a.value, b.value, budget, depth + 1)
+    )
+      return false;
+  }
+  return true;
+}
 const EMPTY_ROW_IDS: readonly string[] = Object.freeze([]);
 const ROW_DRAG_MIME = "application/x-opengrid-managed-row";
 const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
@@ -184,7 +247,16 @@ export function DataGrid<T>({
   const hasColumnSpans = allColumns.some(
     (column) => column.colSpan !== undefined,
   );
-  const effectiveCellSelection = cellSelection && !hasColumnSpans;
+  const hasRowSpans = allColumns.some(
+    (column) =>
+      column.spanRows === true || typeof column.spanRows === "function",
+  );
+  if (hasColumnSpans && hasRowSpans)
+    throw new TypeError(
+      "Combined row and column spanning is not supported in one grid",
+    );
+  const effectiveCellSelection =
+    cellSelection && !hasColumnSpans && !hasRowSpans;
   const visibleOf = (column: Column<T>) =>
     Object.hasOwn(state.columnVisibility, column.id)
       ? state.columnVisibility[column.id]
@@ -308,6 +380,7 @@ export function DataGrid<T>({
   const headerHeight = headerRows * 38;
   const viewport = useRef<HTMLDivElement>(null);
   const pendingFocus = useRef(false);
+  const pendingRowSpanEditMove = useRef<CellPosition | null>(null);
   const cells = useRef(new Map<string, HTMLDivElement>());
   const fullWidthCells = useRef(new Map<string, HTMLDivElement>());
   const ownsCellFocus = useRef(false);
@@ -486,6 +559,101 @@ export function DataGrid<T>({
     JSON.stringify(detailIds),
   ]);
   const pinnedTopHeight = rowGeometry.layouts.top.totalHeight;
+  const rowSpanCache = useRef<{
+    model: GridModel<T>;
+    state: ReturnType<GridModel<T>["getState"]>;
+    columns: { id: string; spanRows: Column<T>["spanRows"] }[];
+    rows: RowSpanRow<T>[];
+    plan: RowSpanPlan;
+  } | null>(null);
+  const rowSpanColumns = columns.filter(
+    (column) =>
+      column.spanRows === true || typeof column.spanRows === "function",
+  );
+  let rowSpanPlan: RowSpanPlan | undefined;
+  if (hasRowSpans) {
+    if (rows.length > 100000 || rowSpanColumns.length > 8)
+      throw new RangeError(
+        "Row spanning supports at most 100000 visible rows and 8 active columns",
+      );
+    const cached = rowSpanCache.current;
+    // Reuse only unchanged snapshots or recognized cosmetic updates. Any other
+    // notification (including an identical-field expiry or setRows refresh) may
+    // refresh external inputs used by a pure getter or adjacent-row predicate.
+    const changedFields =
+      cached && cached.state !== state
+        ? (Object.keys(state) as (keyof typeof state)[]).filter(
+            (key) => !sameSpanStateValue(cached.state[key], state[key]),
+          )
+        : [];
+    const cosmeticState =
+      cached &&
+      (cached.state === state ||
+        (Object.keys(cached.state).length === Object.keys(state).length &&
+          changedFields.length > 0 &&
+          changedFields.every(
+            (key) => key === "selected" || key === "columnWidths",
+          )));
+    const reusable =
+      cached?.model === model &&
+      cosmeticState &&
+      cached.columns.length === rowSpanColumns.length &&
+      cached.columns.every(
+        (column, index) =>
+          column.id === rowSpanColumns[index].id &&
+          column.spanRows === rowSpanColumns[index].spanRows,
+      ) &&
+      cached.rows.length === rows.length &&
+      cached.rows.every((old, index) => {
+        const node = rows[index],
+          entry = projection.rows[index];
+        return (
+          old.id === node.id &&
+          old.data === node.data &&
+          old.kind === node.kind &&
+          old.leaf === !node.children?.length &&
+          old.depth === node.depth &&
+          old.fullWidth === entry.fullWidth &&
+          old.region === entry.region &&
+          old.top === rowGeometry.offset(index) &&
+          old.height === rowGeometry.baseHeights[index] &&
+          old.detailHeight === rowGeometry.detailHeights[index]
+        );
+      });
+    if (reusable) {
+      rowSpanPlan = cached.plan;
+      cached.state = state;
+    } else {
+      const spanRows: RowSpanRow<T>[] = rows.map((node, index) => ({
+        id: node.id,
+        kind: node.kind,
+        data: node.data,
+        leaf: !node.children?.length,
+        depth: node.depth,
+        fullWidth: projection.rows[index].fullWidth,
+        region: projection.rows[index].region,
+        top: rowGeometry.offset(index),
+        height: rowGeometry.baseHeights[index],
+        detailHeight: rowGeometry.detailHeights[index],
+      }));
+      rowSpanPlan = createRowSpanPlan(spanRows, rowSpanColumns, {
+        getValue: (row, columnId) => model.getValue(row, columnId),
+      });
+      rowSpanCache.current = {
+        model,
+        state,
+        columns: rowSpanColumns.map((column) => ({
+          id: column.id,
+          spanRows: column.spanRows,
+        })),
+        rows: spanRows,
+        plan: rowSpanPlan,
+      };
+    }
+  } else rowSpanCache.current = null;
+  function ownerRowAt(row: number, columnId: string) {
+    return rowSpanPlan?.ownerAt(row, columnId)?.ownerIndex ?? row;
+  }
   const pinnedBottomHeight = rowGeometry.layouts.bottom.totalHeight;
   const safeHeight = Math.max(
     requestedHeight,
@@ -501,6 +669,27 @@ export function DataGrid<T>({
   const renderedRowIndices = projection.body
     .slice(first, last)
     .map((entry) => entry.visualIndex);
+  const rowSpanAnchorCells = new Map<number, Set<string>>();
+  if (rowSpanPlan && last > first) {
+    const firstRow = projection.body[first].visualIndex;
+    const lastRow = projection.body[last - 1].visualIndex + 1;
+    const renderedColumns = columnEntries.flatMap((entry) =>
+      entry.kind === "column" ? [columns[entry.index].id] : [],
+    );
+    for (const run of rowSpanPlan.intersecting(
+      firstRow,
+      lastRow,
+      renderedColumns,
+    )) {
+      if (run.ownerIndex >= firstRow) continue;
+      const retained =
+        rowSpanAnchorCells.get(run.ownerIndex) ?? new Set<string>();
+      retained.add(run.columnId);
+      rowSpanAnchorCells.set(run.ownerIndex, retained);
+      if (!renderedRowIndices.includes(run.ownerIndex))
+        renderedRowIndices.push(run.ownerIndex);
+    }
+  }
   for (const retained of [
     focusRow,
     editing ? rows.findIndex((node) => node.id === editing.rowId) : -1,
@@ -527,27 +716,29 @@ export function DataGrid<T>({
         };
   const rowMoveReason = !rowDragging
     ? "Row moving is not enabled"
-    : !coreReorder.allowed
-      ? coreReorder.message
-      : !columns.length
-        ? "Show a data column before moving rows"
-        : editing || rowEditing || noteEditing
-          ? "Finish or cancel editing before moving rows"
-          : projection.top.length || projection.bottom.length
-            ? "Remove pinned rows from this view before moving rows"
-            : projection.rows.some((entry) => entry.fullWidth)
-              ? "Turn off full-width rows in this view before moving rows"
-              : rowGeometry.detailCount
-                ? "Close detail panels before moving rows"
-                : rows.some(
-                      (node) =>
-                        node.kind !== "row" ||
-                        node.data === undefined ||
-                        node.depth !== 0 ||
-                        node.children?.length,
-                    )
-                  ? "Managed row moves require ordinary flat rows"
-                  : undefined;
+    : hasRowSpans
+      ? "Turn off row spanning before moving rows"
+      : !coreReorder.allowed
+        ? coreReorder.message
+        : !columns.length
+          ? "Show a data column before moving rows"
+          : editing || rowEditing || noteEditing
+            ? "Finish or cancel editing before moving rows"
+            : projection.top.length || projection.bottom.length
+              ? "Remove pinned rows from this view before moving rows"
+              : projection.rows.some((entry) => entry.fullWidth)
+                ? "Turn off full-width rows in this view before moving rows"
+                : rowGeometry.detailCount
+                  ? "Close detail panels before moving rows"
+                  : rows.some(
+                        (node) =>
+                          node.kind !== "row" ||
+                          node.data === undefined ||
+                          node.depth !== 0 ||
+                          node.children?.length,
+                      )
+                    ? "Managed row moves require ordinary flat rows"
+                    : undefined;
   const rowViewSignature = JSON.stringify([
     state.page,
     rows.map((node) => node.id),
@@ -586,7 +777,9 @@ export function DataGrid<T>({
   const finder = useFind(model, dataRowIds, (position) => {
     const row = projection.indexOf(position.rowId);
     return (
-      row >= 0 && ownerColumnId(row, position.columnId) === position.columnId
+      row >= 0 &&
+      ownerColumnId(row, position.columnId) === position.columnId &&
+      ownerRowAt(row, position.columnId) === row
     );
   });
   const findMatches = useMemo(
@@ -740,16 +933,16 @@ export function DataGrid<T>({
     pinnedBottomHeight,
   ]);
   useEffect(() => {
-    setFocus((current) => ({
-      rowId: rows.some((node) => node.id === current.rowId)
-        ? current.rowId
-        : (rows[0]?.id ?? ""),
-      columnId: ownerColumnId(
-        Math.max(0, projection.indexOf(current.rowId)),
-        current.columnId,
-      ),
-    }));
-  }, [projection, spanPlanFor]);
+    setFocus((current) => {
+      const row = Math.max(0, projection.indexOf(current.rowId));
+      const columnId = ownerColumnId(row, current.columnId);
+      const owner = ownerRowAt(row, columnId);
+      const rowId = rows[owner]?.id ?? "";
+      return current.rowId === rowId && current.columnId === columnId
+        ? current
+        : { rowId, columnId };
+    });
+  }, [projection, spanPlanFor, rowSpanPlan]);
   useLayoutEffect(() => {
     const current = editingRef.current;
     if (!current) return;
@@ -757,17 +950,18 @@ export function DataGrid<T>({
     if (
       row < 0 ||
       !columns.some((column) => column.id === current.columnId) ||
-      ownerColumnId(row, current.columnId) !== current.columnId
+      ownerColumnId(row, current.columnId) !== current.columnId ||
+      ownerRowAt(row, current.columnId) !== row
     ) {
       cancelEdit();
       setAnnouncement(
         "Editing cancelled because the cell is no longer visible",
       );
     }
-  }, [spanPlanFor, projection]);
+  }, [spanPlanFor, projection, rowSpanPlan]);
   useLayoutEffect(() => {
     if (!ownsCellFocus.current || editing || rowEditing || noteEditing) return;
-    const row = projection.indexOf(focus.rowId);
+    const row = ownerRowAt(projection.indexOf(focus.rowId), focus.columnId);
     if (row < 0) return;
     const element = projection.rows[row].fullWidth
       ? fullWidthCells.current.get(focus.rowId)
@@ -780,13 +974,24 @@ export function DataGrid<T>({
         !document.activeElement.isConnected)
     )
       element.focus({ preventScroll: true });
-  }, [projection, spanPlanFor, editing, rowEditing, noteEditing, focus]);
+  }, [
+    projection,
+    spanPlanFor,
+    rowSpanPlan,
+    editing,
+    rowEditing,
+    noteEditing,
+    focus,
+  ]);
   useLayoutEffect(() => {
     if (pendingFocus.current) {
       const cell = projection.rows[focusRow]?.fullWidth
         ? fullWidthCells.current.get(rows[focusRow].id)
         : cells.current.get(
-            keyOf(focusRow, ownerColumnId(focusRow, focus.columnId)),
+            keyOf(
+              ownerRowAt(focusRow, focus.columnId),
+              ownerColumnId(focusRow, focus.columnId),
+            ),
           );
       if (cell) {
         cell.focus({ preventScroll: true });
@@ -794,6 +999,20 @@ export function DataGrid<T>({
       }
     }
   });
+  useLayoutEffect(() => {
+    const pending = pendingRowSpanEditMove.current;
+    if (!pending || editing) return;
+    pendingRowSpanEditMove.current = null;
+    const row = projection.indexOf(pending.rowId);
+    const column = columns.findIndex(
+      (column) => column.id === pending.columnId,
+    );
+    if (row >= 0 && column >= 0)
+      focusAt(
+        rowSpanPlan?.ownerAt(row, pending.columnId)?.end ?? row + 1,
+        column,
+      );
+  }, [editing, rowSpanPlan, projection]);
   useLayoutEffect(() => {
     const requested = movedFocus.current;
     if (!requested) return;
@@ -849,6 +1068,7 @@ export function DataGrid<T>({
     if (!columns.length && !projection.rows[row].fullWidth) return;
     column = clamp(column, 0, columns.length - 1);
     column = ownerAt(row, column)?.start ?? column;
+    row = ownerRowAt(row, columns[column]?.id ?? "");
     if (extend && !ranges.controller?.getSnapshot().range) {
       if (anchor) ranges.select(anchor);
       else if (rows[focusRow]?.kind === "row")
@@ -1089,7 +1309,7 @@ export function DataGrid<T>({
       const row = projection.indexOf(target.rowId);
       if (row >= 0)
         setNoteEditing({
-          ...target,
+          rowId: rows[ownerRowAt(row, target.columnId)].id,
           columnId: ownerColumnId(row, target.columnId),
         });
     }
@@ -1109,6 +1329,7 @@ export function DataGrid<T>({
       });
       return;
     }
+    node = rows[ownerRowAt(projection.indexOf(node.id), column.id)];
     if (!column.editable || !node.data || node.kind !== "row") return;
     const next = {
       rowId: node.id,
@@ -1196,7 +1417,15 @@ export function DataGrid<T>({
         ) {
           event.preventDefault();
           event.stopPropagation();
-          if (commitEdit()) focusAt(Math.min(rows.length - 1, row + 1), index);
+          if (commitEdit()) {
+            if (hasRowSpans) {
+              pendingRowSpanEditMove.current = {
+                rowId: node.id,
+                columnId: column.id,
+              };
+              setFocus((current) => ({ ...current }));
+            } else focusAt(Math.min(rows.length - 1, row + 1), index);
+          }
         }
         if (event.key === "Tab") {
           if (commitEdit()) {
@@ -1325,7 +1554,7 @@ export function DataGrid<T>({
     }
     switch (event.key) {
       case "ArrowDown":
-        targetRow++;
+        targetRow = rowSpanPlan?.ownerAt(row, column.id)?.end ?? row + 1;
         break;
       case "ArrowUp":
         targetRow--;
@@ -1744,6 +1973,7 @@ export function DataGrid<T>({
     return indices.map((row) => {
       const node = rows[row];
       const entry = projection.rows[row];
+      const anchorOnly = rowSpanAnchorCells.get(row);
       const presentationDepth = entry.region === "body" ? node.depth : 0;
       const isSelected = selected.has(node.id);
       return (
@@ -1757,6 +1987,7 @@ export function DataGrid<T>({
             }}
             data-row-region={entry.region}
             data-row-key={node.id}
+            data-row-span-anchor-only={anchorOnly ? "true" : undefined}
             data-row-dragging={draggingRowId === node.id || undefined}
             data-row-drop-position={
               rowDropTarget?.rowId === node.id
@@ -1853,7 +2084,14 @@ export function DataGrid<T>({
               </div>
             ) : (
               <>
-                {selectionWidth > 0 && (
+                {anchorOnly &&
+                  selectionWidth > 0 &&
+                  columnGap({
+                    kind: "spacer",
+                    key: "row-controls-gap",
+                    width: selectionWidth,
+                  })}
+                {!anchorOnly && selectionWidth > 0 && (
                   <div
                     role="gridcell"
                     aria-colindex={1}
@@ -1956,6 +2194,16 @@ export function DataGrid<T>({
                   const span = entry.cell,
                     index = span.start,
                     column = columns[index];
+                  const rowSpan = rowSpanPlan?.ownerAt(row, column.id);
+                  if (
+                    (rowSpan && rowSpan.ownerIndex !== row) ||
+                    (anchorOnly && !anchorOnly.has(column.id))
+                  )
+                    return columnGap({
+                      kind: "spacer",
+                      key: `row-span-gap-${column.id}`,
+                      width: span.width,
+                    });
                   const value = node.data
                     ? model.getValue(node.data, column.id)
                     : node.aggregates &&
@@ -1976,6 +2224,7 @@ export function DataGrid<T>({
                       role="gridcell"
                       aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                       aria-colspan={span.span > 1 ? span.span : undefined}
+                      aria-rowspan={rowSpan?.span}
                       aria-readonly={!column.editable || node.kind !== "row"}
                       aria-keyshortcuts={
                         rowDragging ? "Alt+ArrowUp Alt+ArrowDown" : undefined
@@ -1998,8 +2247,23 @@ export function DataGrid<T>({
                       }}
                       data-row-id={node.id}
                       data-column-id={column.id}
-                      className={`og-cell ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
-                      style={cellStyle(column, span)}
+                      className={`og-cell ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
+                      style={{
+                        ...cellStyle(column, span),
+                        ...(rowSpan
+                          ? {
+                              height: rowSpan.height,
+                              zIndex: pinOf(column) ? 2 : 1,
+                              alignItems: "flex-start",
+                              paddingTop: isEditing
+                                ? 4
+                                : Math.max(
+                                    0,
+                                    (rowGeometry.baseHeights[row] - 20) / 2,
+                                  ),
+                            }
+                          : {}),
+                      }}
                       title={display}
                       onFocus={(event) => {
                         if (event.target === event.currentTarget) {
@@ -2043,7 +2307,21 @@ export function DataGrid<T>({
                       onKeyDown={(event) => onCellKey(event, node, column, row)}
                     >
                       {isEditing ? (
-                        renderEditorControl(node, column, row, index)
+                        rowSpan ? (
+                          <div
+                            style={{
+                              height: Math.max(
+                                20,
+                                rowGeometry.baseHeights[row] - 8,
+                              ),
+                              width: "100%",
+                            }}
+                          >
+                            {renderEditorControl(node, column, row, index)}
+                          </div>
+                        ) : (
+                          renderEditorControl(node, column, row, index)
+                        )
                       ) : (
                         <>
                           {notes !== false &&
@@ -2156,7 +2434,7 @@ export function DataGrid<T>({
               </>
             )}
           </div>
-          {rowGeometry.detailHeights[row] > 0 && node.data && (
+          {!anchorOnly && rowGeometry.detailHeights[row] > 0 && node.data && (
             <div
               id={`${helpId}-detail-${encodeURIComponent(node.id)}`}
               role="row"
@@ -2199,10 +2477,11 @@ export function DataGrid<T>({
 
   return (
     <section className={`og-root ${className}`}>
-      {hasColumnSpans && (
+      {(hasColumnSpans || hasRowSpans) && (
         <p className="og-span-help" role="status">
-          Column spanning is configured. Cell ranges, grid clipboard and fill
-          are unavailable; row selection and cell editing remain available.
+          {hasRowSpans ? "Row" : "Column"} spanning is configured. Cell ranges,
+          grid clipboard and fill are unavailable; row selection and cell
+          editing remain available.
         </p>
       )}
       <p id={helpId} className="og-sr-only">

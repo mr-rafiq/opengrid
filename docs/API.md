@@ -349,3 +349,11 @@ Enable `DataGrid.rowDragging` for single-row native handles, before/after indica
 `Column.colSpan` accepts a positive safe integer or pure `(row) => number` callback. Client `DataGrid` clips spans to their pin region and renders only the owner, while preserving logical header/filter positions and ARIA column indices. Navigation, editing, notes and Find resolve owners; hidden/covered drafts cancel. Rectangular range, grid clipboard and fill operations are disabled visibly whenever span metadata is configured. Row selection, native editor text clipboard and separate full-row form fields remain available.
 
 The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getColumnSpanWindow` for bounded immutable geometry. Row spans, remote adapter layout and merged exports are unsupported. See [column spans](COLUMN_SPANS.md) for callback behavior, budgets, cache and focus semantics.
+
+## Row spans
+
+`Column.spanRows` accepts `true` for raw `Object.is` equality or a pure `(previousRow,nextRow) => boolean` predicate. Client DataGrid merges eligible adjacent leaf cells within the current projected page/pin region. Synthetic, nonleaf, full-width and expanded-detail rows, depth changes and geometry gaps break runs. Owners retain original IDs and logical ARIA positions; covered cells are absent. Offscreen anchors render only intersecting merged cells.
+
+Owner editing changes only the source owner row. Enter resolves the next logical row against the new run plan; Down skips a merged run. Find and notes target owners, row selection remains per source row, and the separate row form retains all visible fields. Configured row spans disable rectangular grid clipboard/fill and managed row movement. Combined active row/column spans throw explicitly.
+
+`createRowSpanPlan` exports compact immutable runs with binary `ownerAt`/`intersecting` lookups. Limits are 100,000 rows, eight active span columns, one million work units and 1000 rows per run; limits can be tightened. Auto-measured heights, merged exports and remote adapters remain unsupported. See [row spans](ROW_SPANS.md).
