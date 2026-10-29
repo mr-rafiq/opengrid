@@ -577,3 +577,45 @@
   box-shadow: 0 4px 14px #213e4e20;
   color: var(--og-text);
 }
+.og-root .og-row-controls-cell {
+  gap: 6px;
+}
+.og-root .og-row-drag-handle {
+  flex: 0 0 22px;
+  padding: 1px;
+  width: 22px;
+  border: 0;
+  background: transparent;
+  color: var(--og-muted);
+  cursor: grab;
+  touch-action: none;
+}
+.og-root .og-row-drag-handle:active {
+  cursor: grabbing;
+}
+.og-root .og-row[data-row-dragging="true"] {
+  opacity: 0.65;
+}
+.og-root .og-row-drop-indicator {
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--og-accent);
+}
+.og-root .og-row-drop-before {
+  top: 0;
+}
+.og-root .og-row-drop-after {
+  bottom: 0;
+}
+.og-root .og-row-move-help {
+  margin: 0;
+  padding: 7px 16px;
+  color: var(--og-muted);
+  background: var(--og-surface);
+  border-bottom: 1px solid var(--og-border);
+  font-size: 12px;
+}

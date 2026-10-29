@@ -96,6 +96,17 @@ export interface Transaction<T> {
   update?: T[];
   remove?: string[];
 }
+export type RowReorderBlockReason =
+  | "sorting"
+  | "filtering"
+  | "grouping"
+  | "tree-data"
+  | "external-filter"
+  | "read-only";
+export type RowReorderStatus = Readonly<
+  | { allowed: true }
+  | { allowed: false; reason: RowReorderBlockReason; message: string }
+>;
 export interface GridModel<T> {
   getState(): GridState;
   setState(state: Partial<GridState>): void;
@@ -103,6 +114,12 @@ export interface GridModel<T> {
   getRows(): T[];
   getRow(rowId: RowId): T | undefined;
   setRows(rows: T[]): void;
+  getRowReorderStatus(): RowReorderStatus;
+  moveRows(
+    ids: readonly RowId[],
+    targetId: RowId,
+    position: "before" | "after",
+  ): string | undefined;
   getColumns(): Column<T>[];
   getValue(row: T, columnId: string): unknown;
   expireValueCache(): void;

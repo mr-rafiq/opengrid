@@ -1,5 +1,13 @@
 # Verification record
 
+## Managed row moving
+
+`npm run check` passed strict TypeScript, **751 tests in 38 files** (72.33 seconds), all three package builds and the production demo. New coverage includes 18 core reorder/history cases, an explicit server-facade guard and 23 React drag/control cases. A built-ESM smoke verified move/undo/redo, original row identity and transformed-view rejection. Move entries retain only moved IDs and original positions rather than two full-dataset snapshots.
+
+The complete Chromium suite passed **40 scenarios in 45.0 seconds**. Actual native drag/drop, one-step undo/redo (including Ctrl+Y), keyboard and toolbar cell focus, selection retention, logical ARIA indices, transformed/pinned guards, body-edge scrolling, outside-grid cancellation and an automated serious/critical axe scan passed. Browser checks caught and corrected focus-policy and accessible-label defects before publication. No touch-device or manual screen-reader claim is made.
+
+The production Pages build passed with 34 documentation routes, and **9 local site scenarios passed in 7.9 seconds**. The reference ledger now records 4 Implemented, 50 Partial and 4 Missing broad categories; these counts do not indicate percentage completion. Multi-row UI gestures, external/cross-grid drops, transformed-view reparenting and touch-specific dragging remain unsupported.
+
 ## Calculated columns and custom filters
 
 `npm run check` passed strict TypeScript, **709 tests in 35 files** (20.52 seconds), three package builds and the production example. This includes 31 calculated-grid integration cases, two per-column generic-cache cases, 18 custom-filter cases and all 46 existing formula-engine regressions after the shared-language refactor. Built-ESM smoke verified calculated values, edit recalculation, CSV output and the legacy formula API without import-cycle errors.
@@ -70,4 +78,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, row dragging, multi/custom filter-component lifecycles, localization/touch coverage, AI/MCP and additional framework UI adapters. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include spans, localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

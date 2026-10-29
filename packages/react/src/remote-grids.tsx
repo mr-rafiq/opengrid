@@ -217,6 +217,15 @@ export function ServerDataGrid<T>({
         "Server data is read only; persist edits through your provider",
       batchEdit: () =>
         "Server data is read only; persist edits through your provider",
+      getRowReorderStatus: () =>
+        Object.freeze({
+          allowed: false,
+          reason: "read-only",
+          message:
+            "Server row order is provider-authoritative; managed reordering is unavailable",
+        }),
+      moveRows: () =>
+        "Server row order is provider-authoritative; managed reordering is unavailable",
       undo: () => false,
       redo: () => false,
       applyTransaction() {

@@ -337,3 +337,9 @@ Schemas remain fixed per instance. Applying edited definitions recreates a model
 `DataGrid.filterComponents` maps column IDs to React component types accepting `ColumnFilterProps<T>`. The grid supplies the column, controlled filter, accessible label and bound `onFilterChange`/`onClear` callbacks. Components use normal React lifecycle; persisted filters survive hiding/unmounting and focused native/custom filter columns stay mounted through horizontal virtualization. The native input remains the default.
 
 `NumberRangeFilter` provides inclusive number, exact BigInt-string and ISO-date/timestamp bounds. Invalid or reversed drafts keep the last valid applied filter and show an associated error; external filter changes resynchronize the controls. Multiple independent component instances and AND/OR multi-filter panels are not implemented by this registry. See [custom filters](CUSTOM_FILTERS.md).
+
+## Managed row moving
+
+`model.moveRows(ids, targetId, "before" | "after")` moves resident rows in canonical order as one undo step. It returns an error string for invalid requests or disabled views, and `undefined` for success or a validated no-op. `getRowReorderStatus()` exposes an immutable allowed result or a precise reason without running user predicates. Selection and original row objects are preserved; `setRows` and transactions retain their existing history-reset semantics. See [history and validation](ROW_REORDER.md).
+
+Enable `DataGrid.rowDragging` for single-row native handles, before/after indicators, body-edge scrolling, Alt+Up/Down and accessible toolbar controls. Moves stay in the current page; sorting/filtering/grouping/tree/read-only models and incompatible active layouts disable movement visibly. `onRowMove` receives accepted non-noop operations. Foreign/stale/cancelled drags never write. See [React interaction and limits](ROW_DRAGGING_UI.md).

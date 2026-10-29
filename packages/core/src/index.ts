@@ -14,6 +14,8 @@ export * from "./value-transforms.js";
 export * from "./aligned-columns.js";
 export * from "./calculated-grid.js";
 import { aggregateValues } from "./analytics.js";
+import { planRowMove, replayRowMove } from "./row-order.js";
+import type { RowMoveDelta } from "./row-order.js";
 import {
   prepareAdvancedFilter,
   evaluateFilterExpression,
@@ -26,6 +28,7 @@ import type {
   GridOptions,
   GridState,
   RowNode,
+  RowReorderStatus,
   Transaction,
 } from "./types.js";
 
@@ -176,8 +179,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   assertRows(rows);
   let state: GridState;
   const listeners = new Set<() => void>();
-  const undoStack: T[][] = [],
-    redoStack: T[][] = [];
+  type HistoryEntry = { kind: "snapshot"; rows: T[] } | RowMoveDelta;
+  const undoStack: HistoryEntry[] = [],
+    redoStack: HistoryEntry[] = [];
+  function recordHistory(entry: HistoryEntry) {
+    undoStack.push(entry);
+    if (undoStack.length > (options.historyLimit ?? 100)) undoStack.shift();
+    redoStack.length = 0;
+  }
   const objectKeys = new Map<unknown, number>();
   let rowIdCache: Set<string> | undefined;
   let filteredCache: T[] | undefined, modelCache: RowNode<T>[] | undefined;
@@ -605,9 +614,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       });
     });
     if (!changed) return;
-    undoStack.push(rows);
-    if (undoStack.length > (options.historyLimit ?? 100)) undoStack.shift();
-    redoStack.length = 0;
+    recordHistory({ kind: "snapshot", rows });
     rows = rows.map((row) => pending.get(idOf(row))!);
     emit();
   }
@@ -633,6 +640,43 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       ...ordered.filter((column) => column.pinned === "right"),
     ];
   }
+  function getRowReorderStatus(): RowReorderStatus {
+    if (options.getTreePath)
+      return Object.freeze({
+        allowed: false,
+        reason: "tree-data",
+        message: "Row reordering is unavailable for tree data",
+      });
+    if (state.groupBy.length)
+      return Object.freeze({
+        allowed: false,
+        reason: "grouping",
+        message: "Clear grouping before reordering rows",
+      });
+    if (state.sorting.length)
+      return Object.freeze({
+        allowed: false,
+        reason: "sorting",
+        message: "Clear sorting before reordering rows",
+      });
+    if (
+      Object.keys(state.filters).length ||
+      String(state.quickFilter).trim() ||
+      state.advancedFilter != null
+    )
+      return Object.freeze({
+        allowed: false,
+        reason: "filtering",
+        message: "Clear filters before reordering rows",
+      });
+    if (externalFilter)
+      return Object.freeze({
+        allowed: false,
+        reason: "external-filter",
+        message: "Clear the external filter before reordering rows",
+      });
+    return Object.freeze({ allowed: true });
+  }
   state = freezeSnapshot(state);
   return {
     getState: () => state,
@@ -645,6 +689,17 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     },
     getRows: () => [...rows],
     getRow,
+    getRowReorderStatus,
+    moveRows(ids, targetId, position) {
+      const status = getRowReorderStatus();
+      if (!status.allowed) return status.message;
+      const plan = planRowMove(rows, ids, targetId, position, idOf);
+      if (plan.error) return plan.error;
+      if (!plan.delta) return;
+      recordHistory(plan.delta);
+      rows = plan.next;
+      emit();
+    },
     setRows(next) {
       assertRows(next);
       rows = [...next];
@@ -756,18 +811,32 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       editBatch([{ rowId, columnId, value }]),
     batchEdit: editBatch,
     undo() {
-      const previous = undoStack.pop();
+      const previous = undoStack.at(-1);
       if (!previous) return false;
-      redoStack.push(rows);
-      rows = previous;
+      const nextRows =
+        previous.kind === "snapshot"
+          ? previous.rows
+          : replayRowMove(rows, previous, "undo", idOf);
+      undoStack.pop();
+      redoStack.push(
+        previous.kind === "snapshot" ? { kind: "snapshot", rows } : previous,
+      );
+      rows = nextRows;
       emit();
       return true;
     },
     redo() {
-      const next = redoStack.pop();
+      const next = redoStack.at(-1);
       if (!next) return false;
-      undoStack.push(rows);
-      rows = next;
+      const nextRows =
+        next.kind === "snapshot"
+          ? next.rows
+          : replayRowMove(rows, next, "redo", idOf);
+      redoStack.pop();
+      undoStack.push(
+        next.kind === "snapshot" ? { kind: "snapshot", rows } : next,
+      );
+      rows = nextRows;
       emit();
       return true;
     },

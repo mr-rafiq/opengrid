@@ -13,6 +13,7 @@ import type {
   KeyboardEvent,
   ReactNode,
   ComponentType,
+  DragEvent,
 } from "react";
 import type {
   Column,
@@ -80,6 +81,12 @@ export interface DataGridProps<T> {
   editMode?: "cell" | "row";
   rowConflictPolicy?: "reject" | "overwrite";
   onRowEdit?: (context: { rowId: string }) => void;
+  rowDragging?: boolean;
+  onRowMove?: (context: {
+    rowIds: readonly string[];
+    targetRowId: string;
+    position: "before" | "after";
+  }) => void;
   ariaLabel?: string;
   toolbar?: boolean;
   advancedFiltering?: boolean;
@@ -112,6 +119,7 @@ const text = (value: unknown) => (value == null ? "" : String(value));
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
 const EMPTY_ROW_IDS: readonly string[] = Object.freeze([]);
+const ROW_DRAG_MIME = "application/x-opengrid-managed-row";
 const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
   <div
     key={entry.key}
@@ -149,6 +157,8 @@ export function DataGrid<T>({
   editMode = "cell",
   rowConflictPolicy = "reject",
   onRowEdit,
+  rowDragging = false,
+  onRowMove,
   ariaLabel = "Data grid",
   toolbar = true,
   advancedFiltering = true,
@@ -220,7 +230,8 @@ export function DataGrid<T>({
     [projection],
   );
   const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
-  const selectionWidth = selectionMode === "none" ? 0 : 44;
+  const selectionWidth =
+    (selectionMode === "none" ? 0 : 44) + (rowDragging ? 32 : 0);
   const widthOf = (column: Column<T>) =>
     Object.hasOwn(state.columnWidths, column.id)
       ? state.columnWidths[column.id]
@@ -245,6 +256,32 @@ export function DataGrid<T>({
   const fullWidthCells = useRef(new Map<string, HTMLDivElement>());
   const ownsCellFocus = useRef(false);
   const dragCleanup = useRef<(() => void) | undefined>(undefined);
+  const rowElements = useRef(new Map<string, HTMLDivElement>());
+  const rowHandles = useRef(new Map<string, HTMLButtonElement>());
+  const managedDrag = useRef<{
+    model: GridModel<T>;
+    rowId: string;
+    signature: string;
+    payload: string;
+    columnId: string;
+    x: number;
+    y: number;
+    owned: boolean;
+  } | null>(null);
+  const rowDragFrame = useRef(0);
+  const rowDragSequence = useRef(0);
+  const rowDragOwner = useId();
+  const rowMoveHelpId = useId();
+  const [draggingRowId, setDraggingRowId] = useState<string | null>(null);
+  const [rowDropTarget, setRowDropTarget] = useState<{
+    rowId: string;
+    position: "before" | "after";
+  } | null>(null);
+  const movedFocus = useRef<{
+    rowId: string;
+    columnId: string;
+    origin: "cell" | "handle" | "none";
+  } | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(1024);
@@ -425,6 +462,54 @@ export function DataGrid<T>({
   const keyOf = (row: number, id: string) =>
     JSON.stringify([rows[row]?.id ?? "", id]);
   const pageCount = model.getPageCount();
+  const coreReorder =
+    typeof model.getRowReorderStatus === "function"
+      ? model.getRowReorderStatus()
+      : {
+          allowed: false as const,
+          message: "This data source does not support managed row moves",
+        };
+  const rowMoveReason = !rowDragging
+    ? "Row moving is not enabled"
+    : !coreReorder.allowed
+      ? coreReorder.message
+      : !columns.length
+        ? "Show a data column before moving rows"
+        : editing || rowEditing || noteEditing
+          ? "Finish or cancel editing before moving rows"
+          : projection.top.length || projection.bottom.length
+            ? "Remove pinned rows from this view before moving rows"
+            : projection.rows.some((entry) => entry.fullWidth)
+              ? "Turn off full-width rows in this view before moving rows"
+              : rowGeometry.detailCount
+                ? "Close detail panels before moving rows"
+                : rows.some(
+                      (node) =>
+                        node.kind !== "row" ||
+                        node.data === undefined ||
+                        node.depth !== 0 ||
+                        node.children?.length,
+                    )
+                  ? "Managed row moves require ordinary flat rows"
+                  : undefined;
+  const rowViewSignature = JSON.stringify([
+    state.page,
+    rows.map((node) => node.id),
+  ]);
+  const liveRowMove = useRef({
+    model,
+    reason: rowMoveReason,
+    signature: rowViewSignature,
+    topInset: headerHeight + pinnedTopHeight,
+    bottomInset: pinnedBottomHeight,
+  });
+  liveRowMove.current = {
+    model,
+    reason: rowMoveReason,
+    signature: rowViewSignature,
+    topInset: headerHeight + pinnedTopHeight,
+    bottomInset: pinnedBottomHeight,
+  };
   const ranges = useCellRanges({
     model,
     rowIds: dataRowIds,
@@ -461,6 +546,52 @@ export function DataGrid<T>({
   }, [onCellRangeChange, ranges.range]);
 
   useEffect(() => () => dragCleanup.current?.(), []);
+  useEffect(() => () => stopManagedDrag(), [model, rowDragging]);
+  useEffect(() => {
+    if (
+      managedDrag.current &&
+      (managedDrag.current.signature !== rowViewSignature || rowMoveReason)
+    )
+      stopManagedDrag("The row view changed. Start the move again.");
+  }, [rowViewSignature, rowMoveReason]);
+  useEffect(() => {
+    const cancel = () => stopManagedDrag();
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape" && managedDrag.current) {
+        event.preventDefault();
+        stopManagedDrag("Row move cancelled");
+      }
+    };
+    const track = (event: globalThis.DragEvent) => {
+      const source = managedDrag.current;
+      if (!source) return;
+      source.x = event.clientX;
+      source.y = event.clientY;
+      source.owned = ownedDragTarget(event.target);
+      if (!source.owned && rowDragFrame.current) {
+        window.cancelAnimationFrame(rowDragFrame.current);
+        rowDragFrame.current = 0;
+      }
+      const candidate =
+        event.target instanceof Element
+          ? event.target.closest<HTMLElement>(".og-row[data-row-key]")
+          : null;
+      if (
+        !source.owned ||
+        !candidate ||
+        rowElements.current.get(candidate.dataset.rowKey!) !== candidate
+      )
+        setRowDropTarget(null);
+    };
+    window.addEventListener("blur", cancel);
+    window.addEventListener("keydown", escape);
+    window.addEventListener("dragover", track, true);
+    return () => {
+      window.removeEventListener("blur", cancel);
+      window.removeEventListener("keydown", escape);
+      window.removeEventListener("dragover", track, true);
+    };
+  }, []);
   useEffect(() => {
     if (
       focusedFilterColumnId &&
@@ -584,6 +715,39 @@ export function DataGrid<T>({
       }
     }
   });
+  useLayoutEffect(() => {
+    const requested = movedFocus.current;
+    if (!requested) return;
+    const index = projection.indexOf(requested.rowId),
+      container = viewport.current;
+    if (index < 0 || !container) {
+      movedFocus.current = null;
+      return;
+    }
+    const top = rowGeometry.offset(index),
+      visible = Math.max(
+        safeRowHeight,
+        (container.clientHeight || safeHeight) -
+          headerHeight -
+          pinnedTopHeight -
+          pinnedBottomHeight,
+      );
+    if (top < container.scrollTop) container.scrollTop = top;
+    else if (
+      top + rowGeometry.baseHeights[index] >
+      container.scrollTop + visible
+    )
+      container.scrollTop = top + rowGeometry.baseHeights[index] - visible;
+    setScrollTop(container.scrollTop);
+    const element =
+      requested.origin === "handle"
+        ? rowHandles.current.get(requested.rowId)
+        : requested.origin === "cell"
+          ? cells.current.get(keyOf(index, requested.columnId))
+          : undefined;
+    movedFocus.current = null;
+    element?.focus({ preventScroll: true });
+  }, [projection, focus]);
 
   function focusAt(
     row: number,
@@ -984,6 +1148,16 @@ export function DataGrid<T>({
     row: number,
   ) {
     if (event.target !== event.currentTarget) return;
+    if (
+      rowDragging &&
+      event.altKey &&
+      (event.key === "ArrowUp" || event.key === "ArrowDown")
+    ) {
+      event.preventDefault();
+      event.stopPropagation();
+      moveAdjacentRow(node.id, event.key === "ArrowUp" ? -1 : 1, "cell");
+      return;
+    }
     const col = columns.indexOf(column);
     let targetRow = row;
     let targetCol = col;
@@ -1034,14 +1208,18 @@ export function DataGrid<T>({
       ranges.clear();
       return;
     }
-    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+    if (
+      (event.ctrlKey || event.metaKey) &&
+      ["z", "y"].includes(event.key.toLowerCase())
+    ) {
       event.preventDefault();
-      const changed = event.shiftKey ? model.redo() : model.undo();
+      const redo = event.key.toLowerCase() === "y" || event.shiftKey;
+      const changed = redo ? model.redo() : model.undo();
       setAnnouncement(
         changed
-          ? event.shiftKey
-            ? "Edit redone"
-            : "Edit undone"
+          ? redo
+            ? "Change redone"
+            : "Change undone"
           : "No edits to restore",
       );
       return;
@@ -1118,6 +1296,232 @@ export function DataGrid<T>({
       rowId: node.id,
       columnId: column.id,
     });
+  }
+
+  function ownedDragTarget(target: EventTarget | null) {
+    return (
+      target instanceof Element &&
+      target.closest('[role="grid"],[role="treegrid"]') === viewport.current
+    );
+  }
+  function stopManagedDrag(message?: string) {
+    const active = managedDrag.current !== null;
+    managedDrag.current = null;
+    if (rowDragFrame.current) {
+      window.cancelAnimationFrame(rowDragFrame.current);
+      rowDragFrame.current = 0;
+    }
+    setDraggingRowId(null);
+    setRowDropTarget(null);
+    if (active && message) setAnnouncement(message);
+  }
+  function performRowMove(
+    rowId: string,
+    targetRowId: string,
+    position: "before" | "after",
+    origin: "cell" | "handle" | "none",
+    expectedSignature = rowViewSignature,
+  ) {
+    const status = model.getRowReorderStatus();
+    const actualRows = pagination ? model.getPageRows() : model.getRowModel();
+    const signature = JSON.stringify([
+      model.getState().page,
+      actualRows.map((node) => node.id),
+    ]);
+    const message =
+      rowMoveReason ??
+      (!status.allowed ? status.message : undefined) ??
+      (signature !== expectedSignature
+        ? "The row view changed. Start the move again."
+        : !actualRows.some((node) => node.id === rowId) ||
+            !actualRows.some((node) => node.id === targetRowId)
+          ? "Moves must stay within the current page"
+          : undefined);
+    if (message) {
+      setError(message);
+      setAnnouncement(message);
+      return false;
+    }
+    const before = model.getState();
+    let failure: string | undefined;
+    try {
+      failure = model.moveRows([rowId], targetRowId, position);
+    } catch (reason) {
+      failure =
+        reason instanceof Error ? reason.message : "Unable to move this row";
+    }
+    if (failure) {
+      setError(failure);
+      setAnnouncement(failure);
+      return false;
+    }
+    if (model.getState() === before) return false;
+    movedFocus.current = {
+      rowId,
+      columnId: focus.columnId || columns[0]?.id || "",
+      origin,
+    };
+    setFocus((current) => ({ ...current, rowId }));
+    setError("");
+    const updatedPage = pagination ? model.getPageRows() : model.getRowModel();
+    setAnnouncement(
+      `Row ${rowId} moved to position ${updatedPage.findIndex((node) => node.id === rowId) + 1} on this page`,
+    );
+    onRowMove?.({ rowIds: Object.freeze([rowId]), targetRowId, position });
+    return true;
+  }
+  function moveAdjacentRow(
+    rowId: string,
+    direction: -1 | 1,
+    origin: "cell" | "handle" | "none",
+  ) {
+    if (rowMoveReason) {
+      setAnnouncement(rowMoveReason);
+      return;
+    }
+    const index = rows.findIndex((node) => node.id === rowId),
+      target = rows[index + direction];
+    if (!target) {
+      setAnnouncement(
+        direction < 0
+          ? "Row is already first on this page"
+          : "Row is already last on this page",
+      );
+      return;
+    }
+    performRowMove(
+      rowId,
+      target.id,
+      direction < 0 ? "before" : "after",
+      origin,
+    );
+  }
+  function setManagedDrop(rowId: string, clientY: number) {
+    const row = rowElements.current.get(rowId),
+      source = managedDrag.current;
+    if (!row || !source) return;
+    if (source.rowId === rowId) {
+      setRowDropTarget(null);
+      return;
+    }
+    const bounds = row.getBoundingClientRect();
+    const position =
+      clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+    setRowDropTarget((current) =>
+      current?.rowId === rowId && current.position === position
+        ? current
+        : { rowId, position },
+    );
+  }
+  function managedAutoScroll() {
+    rowDragFrame.current = 0;
+    const source = managedDrag.current,
+      container = viewport.current;
+    if (!source || !container) return;
+    const context = liveRowMove.current;
+    if (
+      context.model !== source.model ||
+      context.signature !== source.signature ||
+      context.reason
+    ) {
+      stopManagedDrag("The row view changed. Start the move again.");
+      return;
+    }
+    if (!source.owned) return;
+    const bounds = container.getBoundingClientRect();
+    const top = bounds.top + context.topInset,
+      bottom = bounds.top + container.clientHeight - context.bottomInset;
+    if (
+      source.owned &&
+      source.x >= bounds.left &&
+      source.x <= bounds.right &&
+      source.y >= top &&
+      source.y <= bottom
+    ) {
+      const delta = source.y < top + 25 ? -16 : source.y > bottom - 25 ? 16 : 0;
+      if (delta) container.scrollTop += delta;
+      const element = document.elementFromPoint?.(source.x, source.y);
+      const candidate = element?.closest<HTMLElement>(".og-row[data-row-key]");
+      if (
+        candidate &&
+        ownedDragTarget(element) &&
+        rowElements.current.get(candidate.dataset.rowKey!) === candidate
+      )
+        setManagedDrop(candidate.dataset.rowKey!, source.y);
+    }
+    rowDragFrame.current = window.requestAnimationFrame(managedAutoScroll);
+  }
+  function beginManagedDrag(
+    event: DragEvent<HTMLButtonElement>,
+    rowId: string,
+  ) {
+    if (rowMoveReason || !ownedDragTarget(event.target)) {
+      event.preventDefault();
+      if (rowMoveReason) setAnnouncement(rowMoveReason);
+      return;
+    }
+    stopManagedDrag();
+    const payload = JSON.stringify({
+      owner: rowDragOwner,
+      nonce: ++rowDragSequence.current,
+      rowId,
+    });
+    managedDrag.current = {
+      model,
+      rowId,
+      signature: rowViewSignature,
+      payload,
+      columnId: focus.columnId || columns[0]?.id || "",
+      x: event.clientX,
+      y: event.clientY,
+      owned: true,
+    };
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData(ROW_DRAG_MIME, payload);
+    setDraggingRowId(rowId);
+    setFocus((current) => ({ ...current, rowId }));
+    setAnnouncement(
+      `Moving row ${rowId}. Drop before or after another row on this page.`,
+    );
+  }
+  function overManagedRow(event: DragEvent<HTMLDivElement>, rowId: string) {
+    const source = managedDrag.current;
+    if (!source || !ownedDragTarget(event.target) || rowMoveReason) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "move";
+    source.x = event.clientX;
+    source.y = event.clientY;
+    source.owned = true;
+    setManagedDrop(rowId, event.clientY);
+    if (!rowDragFrame.current)
+      rowDragFrame.current = window.requestAnimationFrame(managedAutoScroll);
+  }
+  function dropManagedRow(
+    event: DragEvent<HTMLDivElement>,
+    targetRowId: string,
+  ) {
+    const source = managedDrag.current;
+    if (!source || !ownedDragTarget(event.target)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const matches =
+      event.dataTransfer.getData(ROW_DRAG_MIME) === source.payload;
+    const bounds = event.currentTarget.getBoundingClientRect(),
+      position =
+        event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
+    stopManagedDrag();
+    if (!matches || source.model !== model) {
+      setAnnouncement("Only a row dragged from this grid can be moved here");
+      return;
+    }
+    performRowMove(
+      source.rowId,
+      targetRowId,
+      position,
+      "cell",
+      source.signature,
+    );
   }
 
   function pageTarget(row: number, direction: 1 | -1) {
@@ -1248,8 +1652,28 @@ export function DataGrid<T>({
           <div
             role="row"
             key={node.id}
+            ref={(element) => {
+              if (element) rowElements.current.set(node.id, element);
+              else rowElements.current.delete(node.id);
+            }}
             data-row-region={entry.region}
             data-row-key={node.id}
+            data-row-dragging={draggingRowId === node.id || undefined}
+            data-row-drop-position={
+              rowDropTarget?.rowId === node.id
+                ? rowDropTarget.position
+                : undefined
+            }
+            onDragOver={
+              rowDragging
+                ? (event) => overManagedRow(event, node.id)
+                : undefined
+            }
+            onDrop={
+              rowDragging
+                ? (event) => dropManagedRow(event, node.id)
+                : undefined
+            }
             data-full-width={entry.fullWidth || undefined}
             aria-rowindex={row + rowGeometry.before[row] + headerRows + 1}
             aria-selected={selectionMode === "none" ? undefined : isSelected}
@@ -1268,6 +1692,12 @@ export function DataGrid<T>({
               width: "100%",
             }}
           >
+            {rowDropTarget?.rowId === node.id && (
+              <div
+                aria-hidden="true"
+                className={`og-row-drop-indicator og-row-drop-${rowDropTarget.position}`}
+              />
+            )}
             {entry.fullWidth ? (
               <div
                 role="gridcell"
@@ -1328,13 +1758,61 @@ export function DataGrid<T>({
                   <div
                     role="gridcell"
                     aria-colindex={1}
-                    className="og-selection og-cell"
+                    className={`og-selection og-cell ${rowDragging ? "og-row-controls-cell" : ""}`}
                     style={{
                       width: selectionWidth,
                       minWidth: selectionWidth,
                     }}
                   >
-                    {node.kind === "row" && (
+                    {rowDragging && node.kind === "row" && (
+                      <button
+                        ref={(element) => {
+                          if (element) rowHandles.current.set(node.id, element);
+                          else rowHandles.current.delete(node.id);
+                        }}
+                        type="button"
+                        className="og-row-drag-handle"
+                        tabIndex={-1}
+                        draggable={!rowMoveReason}
+                        disabled={Boolean(rowMoveReason)}
+                        aria-label={`Drag row ${node.id}`}
+                        aria-describedby={rowMoveHelpId}
+                        aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
+                        title={
+                          rowMoveReason ??
+                          "Drag to move; Alt+Up or Alt+Down moves one row"
+                        }
+                        onFocus={() => {
+                          ownsCellFocus.current = false;
+                          setFocus((current) => ({
+                            ...current,
+                            rowId: node.id,
+                          }));
+                        }}
+                        onDragStart={(event) =>
+                          beginManagedDrag(event, node.id)
+                        }
+                        onDragEnd={() => stopManagedDrag()}
+                        onKeyDown={(event) => {
+                          if (
+                            event.altKey &&
+                            (event.key === "ArrowUp" ||
+                              event.key === "ArrowDown")
+                          ) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            moveAdjacentRow(
+                              node.id,
+                              event.key === "ArrowUp" ? -1 : 1,
+                              "handle",
+                            );
+                          }
+                        }}
+                      >
+                        {"\u2195"}
+                      </button>
+                    )}
+                    {node.kind === "row" && selectionMode !== "none" && (
                       <input
                         type="checkbox"
                         tabIndex={-1}
@@ -1374,6 +1852,9 @@ export function DataGrid<T>({
                       role="gridcell"
                       aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                       aria-readonly={!column.editable || node.kind !== "row"}
+                      aria-keyshortcuts={
+                        rowDragging ? "Alt+ArrowUp Alt+ArrowDown" : undefined
+                      }
                       aria-selected={
                         cellSelection
                           ? ranges.contains(node.id, column.id)
@@ -1613,6 +2094,12 @@ export function DataGrid<T>({
         {renderDetail && (
           <> Alt Enter expands or collapses the current row detail.</>
         )}
+        {rowDragging && (
+          <>
+            {" "}
+            Alt+Up and Alt+Down move an eligible row within the current page.
+          </>
+        )}
       </p>
       {toolbar && (
         <div
@@ -1635,6 +2122,30 @@ export function DataGrid<T>({
             />
           </label>
           <div className="og-toolbar-actions">
+            {rowDragging && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Move focused row up"
+                  aria-describedby={rowMoveHelpId}
+                  disabled={Boolean(rowMoveReason) || focusRow <= 0}
+                  onClick={() => moveAdjacentRow(focus.rowId, -1, "cell")}
+                >
+                  Move focused row up
+                </button>
+                <button
+                  type="button"
+                  aria-label="Move focused row down"
+                  aria-describedby={rowMoveHelpId}
+                  disabled={
+                    Boolean(rowMoveReason) || focusRow >= rows.length - 1
+                  }
+                  onClick={() => moveAdjacentRow(focus.rowId, 1, "cell")}
+                >
+                  Move focused row down
+                </button>
+              </>
+            )}
             {editMode === "row" && (
               <button
                 type="button"
@@ -1794,6 +2305,12 @@ export function DataGrid<T>({
           </div>
         </div>
       )}
+      {rowDragging && (
+        <p className="og-row-move-help" id={rowMoveHelpId} role="status">
+          {rowMoveReason ??
+            "Drag a row handle or press Alt+Up or Alt+Down on a cell. Moves stay within this page."}
+        </p>
+      )}
       {findOpen && (
         <div
           className="og-findbar"
@@ -1928,6 +2445,7 @@ export function DataGrid<T>({
                 <div
                   role="columnheader"
                   aria-colindex={1}
+                  aria-label="Row controls"
                   className="og-selection og-header-cell"
                   style={{ width: selectionWidth, minWidth: selectionWidth }}
                 >

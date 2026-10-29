@@ -182,6 +182,7 @@ function App() {
   const [pinnedRows, setPinnedRows] = useState(false);
   const [fullWidthRows, setFullWidthRows] = useState(false);
   const [customFilters, setCustomFilters] = useState(false);
+  const [rowDragging, setRowDragging] = useState(false);
   const [calculatedOpen, setCalculatedOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
@@ -340,11 +341,11 @@ function App() {
       </aside>
       <main>
         <nav>
-          <a href="https://github.com/mr-rafiq/opengrid" className="wordmark">
+          <a href="https://mr-rafiq.github.io/opengrid/" className="wordmark">
             OpenGrid <span>LAB</span>
           </a>
           <div className="nav-actions">
-            <a href="https://github.com/mr-rafiq/opengrid/blob/main/docs/FEATURE_PARITY.md">
+            <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
               Feature roadmap ↗
             </a>
             <a href="https://github.com/mr-rafiq/opengrid">GitHub ↗</a>
@@ -463,6 +464,12 @@ function App() {
               >
                 Custom filters
               </button>
+              <button
+                aria-pressed={rowDragging}
+                onClick={() => setRowDragging(!rowDragging)}
+              >
+                Row dragging
+              </button>
               <label>
                 Rows{" "}
                 <select
@@ -506,6 +513,7 @@ function App() {
           </div>
           <DataGrid
             model={model}
+            rowDragging={rowDragging}
             filterComponents={customFilters ? rangeFilterComponents : undefined}
             pinnedTopRowIds={pinnedRows ? topHoldingPins : undefined}
             pinnedBottomRowIds={pinnedRows ? bottomHoldingPins : undefined}
@@ -726,7 +734,7 @@ function App() {
           <span>Built for developers who want control.</span>
           <span>
             Early preview ·{" "}
-            <a href="https://github.com/mr-rafiq/opengrid/blob/main/docs/FEATURE_PARITY.md">
+            <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
               See implemented features and remaining work
             </a>
           </span>
