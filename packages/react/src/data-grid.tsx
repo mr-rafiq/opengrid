@@ -89,6 +89,7 @@ import {
 } from "./column-spans.js";
 import type { ColumnSpanCell } from "./column-spans.js";
 import { createRowSpanPlan } from "./row-spans.js";
+import { createCombinedRowSpanPlan } from "./combined-spans.js";
 import type { RowSpanPlan, RowSpanRow } from "./row-spans.js";
 
 export interface CellContext<T> {
@@ -323,10 +324,6 @@ export function DataGrid<T>({
     (column) =>
       column.spanRows === true || typeof column.spanRows === "function",
   );
-  if (hasColumnSpans && hasRowSpans)
-    throw new TypeError(
-      "Combined row and column spanning is not supported in one grid",
-    );
   const effectiveCellSelection =
     cellSelection && !hasColumnSpans && !hasRowSpans;
   const visibleOf = (column: Column<T>) =>
@@ -516,6 +513,27 @@ export function DataGrid<T>({
       columns[0]?.id ??
       ""
     );
+  }
+  function spanWindowFor(row: number) {
+    const node = rows[row];
+    return getColumnSpanWindow(spanPlanFor(row), {
+      direction,
+      scrollLeft,
+      viewportWidth,
+      leadingWidth: selectionWidth,
+      overscan: Number.isFinite(columnOverscan)
+        ? Math.max(0, columnOverscan)
+        : 200,
+      enabled: virtualizeColumns,
+      retainIndices: [
+        ...(focus.rowId === node?.id
+          ? [columns.findIndex((column) => column.id === focus.columnId)]
+          : []),
+        ...(editing?.rowId === node?.id
+          ? [columns.findIndex((column) => column.id === editing?.columnId)]
+          : []),
+      ],
+    });
   }
   const groupedColumns = columns.map((column) => ({
     id: column.id,
@@ -737,6 +755,13 @@ export function DataGrid<T>({
     model: GridModel<T>;
     state: ReturnType<GridModel<T>["getState"]>;
     columns: { id: string; spanRows: Column<T>["spanRows"] }[];
+    combined: boolean;
+    direction: GridDirection;
+    footprints: {
+      id: string;
+      colSpan: Column<T>["colSpan"];
+      pinned: Column<T>["pinned"];
+    }[];
     rows: RowSpanRow<T>[];
     plan: RowSpanPlan;
   } | null>(null);
@@ -744,6 +769,16 @@ export function DataGrid<T>({
     (column) =>
       column.spanRows === true || typeof column.spanRows === "function",
   );
+  const combinedSpans =
+    rowSpanColumns.length > 0 &&
+    columns.some((column) => column.colSpan !== undefined);
+  const spanFootprints = combinedSpans
+    ? columns.map((column) => ({
+        id: column.id,
+        colSpan: column.colSpan,
+        pinned: pinOf(column),
+      }))
+    : [];
   let rowSpanPlan: RowSpanPlan | undefined;
   if (hasRowSpans) {
     if (rows.length > 100000 || rowSpanColumns.length > 8)
@@ -771,6 +806,15 @@ export function DataGrid<T>({
     const reusable =
       cached?.model === model &&
       cosmeticState &&
+      cached.combined === combinedSpans &&
+      (!combinedSpans || cached.direction === direction) &&
+      cached.footprints.length === spanFootprints.length &&
+      cached.footprints.every(
+        (column, index) =>
+          column.id === spanFootprints[index].id &&
+          column.colSpan === spanFootprints[index].colSpan &&
+          column.pinned === spanFootprints[index].pinned,
+      ) &&
       cached.columns.length === rowSpanColumns.length &&
       cached.columns.every(
         (column, index) =>
@@ -810,9 +854,23 @@ export function DataGrid<T>({
         height: rowGeometry.baseHeights[index],
         detailHeight: rowGeometry.detailHeights[index],
       }));
-      rowSpanPlan = createRowSpanPlan(spanRows, rowSpanColumns, {
-        getValue: (row, columnId) => model.getValue(row, columnId),
-      });
+      rowSpanPlan = combinedSpans
+        ? createCombinedRowSpanPlan(
+            spanRows,
+            columns.map((column) => ({
+              id: column.id,
+              colSpan: column.colSpan,
+              spanRows: column.spanRows,
+              pinned: pinOf(column),
+            })),
+            {
+              getValue: (row, columnId) => model.getValue(row, columnId),
+              direction,
+            },
+          )
+        : createRowSpanPlan(spanRows, rowSpanColumns, {
+            getValue: (row, columnId) => model.getValue(row, columnId),
+          });
       rowSpanCache.current = {
         model,
         state,
@@ -820,13 +878,21 @@ export function DataGrid<T>({
           id: column.id,
           spanRows: column.spanRows,
         })),
+        combined: combinedSpans,
+        direction,
+        footprints: spanFootprints,
         rows: spanRows,
         plan: rowSpanPlan,
       };
     }
   } else rowSpanCache.current = null;
   function ownerRowAt(row: number, columnId: string) {
-    return rowSpanPlan?.ownerAt(row, columnId)?.ownerIndex ?? row;
+    return (
+      rowSpanPlan?.ownerAt(
+        row,
+        combinedSpans ? ownerColumnId(row, columnId) : columnId,
+      )?.ownerIndex ?? row
+    );
   }
   const pinnedBottomHeight = rowGeometry.layouts.bottom.totalHeight;
   const safeHeight = Math.max(
@@ -853,9 +919,17 @@ export function DataGrid<T>({
     for (const run of rowSpanPlan.intersecting(
       firstRow,
       lastRow,
-      renderedColumns,
+      combinedSpans ? undefined : renderedColumns,
     )) {
       if (run.ownerIndex >= firstRow) continue;
+      if (
+        combinedSpans &&
+        !spanWindowFor(run.ownerIndex).some(
+          (entry) =>
+            entry.kind === "cell" && entry.cell.columnId === run.columnId,
+        )
+      )
+        continue;
       const retained =
         rowSpanAnchorCells.get(run.ownerIndex) ?? new Set<string>();
       retained.add(run.columnId);
@@ -2587,32 +2661,7 @@ export function DataGrid<T>({
                     )}
                   </div>
                 )}
-                {getColumnSpanWindow(spanPlanFor(row), {
-                  direction,
-                  scrollLeft,
-                  viewportWidth,
-                  leadingWidth: selectionWidth,
-                  overscan: Number.isFinite(columnOverscan)
-                    ? Math.max(0, columnOverscan)
-                    : 200,
-                  enabled: virtualizeColumns,
-                  retainIndices: [
-                    ...(focus.rowId === node.id
-                      ? [
-                          columns.findIndex(
-                            (column) => column.id === focus.columnId,
-                          ),
-                        ]
-                      : []),
-                    ...(editing?.rowId === node.id
-                      ? [
-                          columns.findIndex(
-                            (column) => column.id === editing.columnId,
-                          ),
-                        ]
-                      : []),
-                  ],
-                }).map((entry) => {
+                {spanWindowFor(row).map((entry) => {
                   if (entry.kind === "spacer") return columnGap(entry);
                   const span = entry.cell,
                     index = span.start,
@@ -3337,7 +3386,7 @@ export function DataGrid<T>({
               }
             }}
           />
-          <span role="status">
+          <span role="status" dir="auto">
             {finder.snapshot.matches.length
               ? t("find.position", {
                   position: finder.snapshot.activeIndex + 1,

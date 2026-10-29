@@ -27,6 +27,7 @@ import { HoldingSummary } from "./holding-summary";
 import { CalculatedLab } from "./calculated-lab";
 import { SpanLab } from "./span-lab";
 import { RowSpanLab } from "./row-span-lab";
+import { CombinedSpanLab } from "./combined-span-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
@@ -194,6 +195,7 @@ function App() {
   const [calculatedOpen, setCalculatedOpen] = useState(false);
   const [spansOpen, setSpansOpen] = useState(false);
   const [rowSpansOpen, setRowSpansOpen] = useState(false);
+  const [combinedSpansOpen, setCombinedSpansOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
@@ -736,6 +738,15 @@ function App() {
             Row spans lab
           </button>
           {rowSpansOpen && <RowSpanLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setCombinedSpansOpen(!combinedSpansOpen)}
+            aria-expanded={combinedSpansOpen}
+          >
+            Combined spans lab
+          </button>
+          {combinedSpansOpen && <CombinedSpanLab />}
         </section>
         <section className="pivot-panel">
           <button

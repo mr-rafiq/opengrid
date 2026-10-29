@@ -30,7 +30,7 @@ viewport.scrollLeft = denormalizeScrollLeft(inline + 100, maximum, "rtl");
 
 ## Scope and verification
 
-The implementation targets client-grid layout and the existing read-only server/live React bindings. Direction is inherited by built-in child controls; application renderers, custom editors and nested grids own their own explicit direction decisions. It does not add Arabic/Hebrew catalogs, locale-aware parsers, bidirectional export layout or chart-axis mirroring. Touch behavior is a separate [documented workflow](TOUCH.md). Independent horizontal/vertical spans retain their documented limits; combined two-dimensional spans and merged clipboard operations remain unsupported.
+The implementation targets client-grid layout and the existing read-only server/live React bindings. Direction is inherited by built-in child controls; application renderers, custom editors and nested grids own their own explicit direction decisions. It does not add Arabic/Hebrew catalogs, locale-aware parsers, bidirectional export layout or chart-axis mirroring. Touch behavior is a separate [documented workflow](TOUCH.md). Independent and [combined horizontal/vertical spans](COMBINED_SPANS.md) retain their documented limits and physical pin semantics. Merged clipboard operations remain unsupported.
 
 The [verification record](VERIFICATION.md) records executed checks. Browser automation does not establish physical-device, manual screen-reader or cross-browser conformance. The feature ledger remains Partial for the broader localization/RTL/touch family.
 

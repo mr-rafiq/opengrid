@@ -1,6 +1,6 @@
 # Row spans
 
-Client DataGrid merges adjacent eligible leaf cells vertically, with compact run geometry and owner-aware virtualization, editing, navigation and Find. Vertical spans and column spans use separate geometry; combining active row spans with any column-span definitions throws an explicit adapter error. This is a bounded original OpenGrid contract, not full reference API parity.
+Client DataGrid merges adjacent eligible leaf cells vertically, with compact run geometry and owner-aware virtualization, editing, navigation and Find. Independent vertical runs use compact geometry; combining active row spans with column-span definitions now uses the bounded [rectangular ownership planner](COMBINED_SPANS.md). This is a bounded original OpenGrid contract, not full reference API parity.
 
 `Column.spanRows?: boolean | ((previous: T, next: T) => boolean)` selects adjacent current-view leaf rows. `true` compares raw `model.getValue` results using `Object.is`: no formatting, string/number coercion or deep equality. BigInt stays exact; NaN equals NaN; positive/negative zero differ; different Date or object instances differ. Supply a pure adjacent-row predicate for custom equality. A custom predicate bypasses the value getter and joins only when its result is strictly `true`; false, nonboolean and missing results split. Application getter/predicate errors propagate unchanged, without a partial published plan or failed-result cache.
 
@@ -38,6 +38,6 @@ Row selection remains independent per source row; the separate full-row edit for
 
 Run geometry reuses its index for unchanged snapshots and selection/column-width-only changes. Other model notifications rebuild it, including `expireValueCache()` and `setRows()` with the same resident row references. Use explicit refresh when pure getter/predicate closure dependencies change. State comparison is bounded and handles Date/BigInt operands without JSON serialization; unsupported or excessive state shapes conservatively rebuild rather than risking stale runs.
 
-Automatic content-driven row height, row/column span combinations, merged CSV/XLSX/PDF output, remote server/viewport row-span binding and multi-row edits are outside this slice. A future two-dimensional planner would need to validate nonoverlapping rectangular footprints across both axes and preserve them through both virtual windows; independently composing the current planners can produce conflicting ownership and is not supported.
+Automatic content-driven row height, merged CSV/XLSX/PDF output, remote server/viewport row-span binding and merged multi-row edits remain open. The separate [combined-span contract](COMBINED_SPANS.md) validates matching horizontal footprints before vertical joins and has a stricter 100,000 projected-cell budget.
 
 The public [AG Grid 36.2 row-spanning specification](https://www.ag-grid.com/react-data-grid/row-spanning/) describes adjacent equal-value rows, custom adjacent predicates and automatic-height integration. OpenGrid's bounded planner and API are original code, and automatic-height integration remains a documented gap.

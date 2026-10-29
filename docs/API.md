@@ -360,7 +360,7 @@ The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getC
 
 `Column.spanRows` accepts `true` for raw `Object.is` equality or a pure `(previousRow,nextRow) => boolean` predicate. Client DataGrid merges eligible adjacent leaf cells within the current projected page/pin region. Synthetic, nonleaf, full-width and expanded-detail rows, depth changes and geometry gaps break runs. Owners retain original IDs and logical ARIA positions; covered cells are absent. Offscreen anchors render only intersecting merged cells.
 
-Owner editing changes only the source owner row. Enter resolves the next logical row against the new run plan; Down skips a merged run. Find and notes target owners, row selection remains per source row, and the separate row form retains all visible fields. Configured row spans disable rectangular grid clipboard/fill and managed row movement. Combined active row/column spans throw explicitly.
+Owner editing changes only the source owner row. Enter resolves the next logical row against the new run plan; Down skips a merged run. Find and notes target owners, row selection remains per source row, and the separate row form retains all visible fields. Configured row spans disable rectangular grid clipboard/fill and managed row movement. Combined active row/column spans use the separate bounded rectangular-ownership contract.
 
 `createRowSpanPlan` exports compact immutable runs with binary `ownerAt`/`intersecting` lookups. Limits are 100,000 rows, eight active span columns, one million work units and 1000 rows per run; limits can be tightened. Auto-measured heights, merged exports and remote adapters remain unsupported. See [row spans](ROW_SPANS.md).
 
@@ -381,6 +381,10 @@ The React package exports `normalizeScrollLeft(native, maximum, direction)`, `de
 Ordinary touch cell backgrounds retain native pan/pinch behavior. Completed taps focus/select; guarded double-tap or the Edit cell action opens the configured editor. Extend range retains a valid current anchor and lets users scroll before tapping an endpoint. Fill mode chooses copy or numeric series for the dedicated fill grip; release uses the existing atomic validation/history pipeline.
 
 Pointer resizing previews local geometry and commits a changed width once on release, for mouse, pen and touch. Captured gestures track their owning primary pointer and cancel on interruption, stale model/view state or unmount. Touch header/group/row drag-and-drop and physical-device coverage remain open. See [touch interaction](TOUCH.md).
+
+## Rectangular merged cells
+
+Client DataGrid combines colSpan and spanRows through matching horizontal footprints before joining vertical runs. React exports createCombinedRowSpanPlan, CombinedSpanColumn, CombinedSpanOptions and COMBINED_SPAN_LIMITS. Combined mode has a 100,000 projected-cell budget. See [rectangular merged cells](COMBINED_SPANS.md) for ownership, virtualization, interaction and remaining limits.
 
 ## Column sizing
 

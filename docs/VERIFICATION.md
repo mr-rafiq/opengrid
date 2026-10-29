@@ -1,5 +1,19 @@
 # Verification record
 
+## Combined rectangular spans
+
+The complete `npm run check` passed strict TypeScript, **1,359 tests in 76 files in 137.07 seconds**, all three ESM/declaration package builds and the production demo with one worker. Focused independent/combined span checks passed **130 cases in six files in 12.51 seconds**. Coverage includes matching and changing horizontal footprints, covered predicate/getter suppression, raw equality, physical pin/band/depth/detail/full-width/gap boundaries, frozen compact runs, callback recovery and bounded preflight. React cases verify both ARIA spans, width/height, source-preserving editing/undo, horizontal-before-vertical navigation in both directions, Find, covered-draft cancellation, width-only topology reuse and anchors outside both virtual windows.
+
+Three initial Chromium scenarios passed in **9.6 seconds**, exercising real owner editing/undo and navigation, hit-testing a retained rectangle tail after scrolling both axes, pinning/RTL/Find and changing-footprint draft cancellation. A hit-test setup was corrected to put its sample point inside the browser viewport. Visual review then found an existing English Find-counter ordering problem under RTL. A painted text-coordinate regression reproduced it; explicit content direction corrects the status without changing grid direction.
+
+After that correction, **14 focused React/Find cases in three files passed in 7.26 seconds**, strict TypeScript passed again, and the final React ESM/declaration build passed. Built-package ESM/SSR checks verified the public planner, matching footprints, suppressed covered reads, callback-free budget rejection, frozen run indexes, retained offscreen owners, both ARIA spans and summed dimensions, RTL, preserved source fields and silent rendering.
+
+The final complete Chromium suite passed **77 scenarios with one worker in 3.2 minutes**, including the new rectangle flows and painted RTL counter-order assertion, plus the existing formula, filter, export, sizing, range, remote, independent-span and touch regressions. Composed axe found no serious/critical violations in the combined-span flow.
+
+The production Pages build generated **45 documentation routes**, landing, demo and genuine 404. All **nine production site checks passed in 11.3 seconds**, including generated/deep links, mobile navigation, search/copy and composed accessibility checks. The corrected RTL screenshot was visually inspected: rectangle geometry/pin clipping and English counter reading order are consistent.
+
+Combined mode requires identical horizontal owner intervals before vertical joins and caps projected row-column work at 100,000 cells. Merged ranges/clipboard/fill/export, automatic content height, arbitrary overlapping shapes and remote merged layout remain open. The merged-layout family remains Partial; browser/axe checks do not certify manual assistive technology or physical devices.
+
 ## Explicit proportional size-to-fit
 
 The complete `npm run check` passed strict TypeScript, **1,326 tests in 74 files in 134.39 seconds**, all three ESM/declaration package builds and the production demo. All runners used one worker. Focused allocation/controller/React tests passed **73 cases in four files in 4.78 seconds**. This includes immutable original widths through restored/manual layout state, configured ratios independent of flex weights, exclusions, leading controls, hidden-state preservation, fractional min/max redistribution, overflow/unused space, bounded rejection, special IDs and generated constrained allocation checks. React cases verify one publication, repeat/no-op behavior, pending text-command ownership, stale-plan guards, data undo/redo preservation, actual pin/selection geometry in both directions and reset to flex.
@@ -9,6 +23,8 @@ The model now exposes frozen configured-width defaults because `getColumns()` de
 Built ESM and SSR checks passed immutable defaults, manual-independent ratios, leading controls, preserved edit history, invalid-input rejection, RTL markup and controller exports. The complete Chromium suite passed **73 scenarios in 3.0 minutes**. An additional same-event browser regression then reproduced an older cancelled text request replacing a newer demo fit report; report sequence ownership corrected that demo-only race. Afterward, all **six sizing browser scenarios passed in 14.6 seconds**, including the new supersession regression. The RTL/reset screenshot was visually inspected and its displayed widths match layout.
 
 After the demo correction, strict TypeScript passed again, the production Pages artifact generated **44 documentation routes** plus landing/demo/404, and all **nine production site checks passed in 10.9 seconds**. These checks cover generated links, deep routes, mobile navigation, search/copy and serious/critical axe findings.
+
+Published commit `656f5bc5c7091063b702fbe6493264ba6c344ab3` passed [CI run 40925889756](https://github.com/mr-rafiq/opengrid/actions/runs/40925889756) and [Pages run 40925889788](https://github.com/mr-rafiq/opengrid/actions/runs/40925889788), including deployment. The live guide returned HTTP 200. Public Chromium checks passed newest-report ownership, configured ratios, deterministic refitting after manual resize, RTL, fixed exclusions, persistent manual ownership, explicit refitting, reset to flex and inclusion of unmounted visible columns. Composed axe found no serious/critical violations and no runtime errors occurred. The deployed RTL screenshot was visually inspected.
 
 ## Typed column conditions and stable modal filters
 

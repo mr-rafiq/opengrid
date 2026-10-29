@@ -391,7 +391,7 @@ describe("row-spanning grid integration", () => {
     expect(notes.get({ rowId: "r0", columnId: "desk" })).toBe("Owner note");
     expect(notes.get({ rowId: "r1", columnId: "desk" })).toBe("Covered note");
   });
-  it("allows inactive spanRows false with colSpan but explicitly rejects active two-dimensional spans", () => {
+  it("allows inactive row spans and active vertical spans with a constant one-column footprint", () => {
     const inactive = make([
       { id: "desk", field: "desk", spanRows: false, colSpan: 2 },
       { id: "amount", field: "amount" },
@@ -399,13 +399,11 @@ describe("row-spanning grid integration", () => {
     const view = render(<DataGrid model={inactive} />);
     expect(cell("r0")?.getAttribute("aria-colspan")).toBe("2");
     view.unmount();
-    const error = vi.spyOn(console, "error").mockImplementation(() => {});
     const active = make([
       { id: "desk", field: "desk", spanRows: true, colSpan: 1 },
     ]);
-    expect(() => render(<DataGrid model={active} />)).toThrow(
-      /Combined row and column spanning/,
-    );
-    error.mockRestore();
+    render(<DataGrid model={active} />);
+    expect(cell("r0")?.getAttribute("aria-rowspan")).toBe("3");
+    expect(cell("r0")?.hasAttribute("aria-colspan")).toBe(false);
   });
 });

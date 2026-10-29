@@ -99,11 +99,12 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Native touch panning, guarded tap editing, explicit range extension and captured fill/resize gestures with cancellation.
 - Adjacent-value/custom-predicate row spans with compact indexes, offscreen owner retention, keyboard editing and hard layout boundaries.
 - Conditional column spans with pin-boundary clipping, owner-aware keyboard editing/Find and bounded horizontal virtualization.
+- Bounded rectangular row/column merges with matching footprints, two-axis offscreen anchors and shared owner navigation/editing.
 - Compiled read-only calculated columns feeding real sort/filter/group/export pipelines, with same-row dependencies and an add/edit authoring example.
 - Controlled custom React filter components and inclusive number/BigInt/ISO-date bounds, preserving valid model filters through invalid drafts and virtualization.
 - Searchable resident set-list panels with bounded paged checkboxes, exact typed membership, staged Apply/Cancel and incoming data/filter reconciliation.
 
-The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, combined two-dimensional spans and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
+The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, merged range/clipboard/export semantics and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 
 Detailed guides: [ranges/API](docs/API.md), [remote bindings](docs/REMOTE_GRIDS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [row editing](docs/ROW_EDITOR_UI.md), [advanced filters](docs/FILTER_BUILDER.md), [Find/notes](docs/FIND_NOTES.md), [column groups](docs/COLUMN_GROUPS.md), [charts](docs/CHARTS.md), [exports](docs/EXPORTS.md), [import](docs/IMPORT.md), [value transforms](docs/SHOW_VALUES_AS.md), [printing](docs/PRINTING.md), and [aligned columns](docs/ALIGNED_COLUMNS.md).
 
@@ -111,7 +112,7 @@ Use the [localization provider](docs/LOCALIZATION.md) for built-in language swit
 
 Read the [remaining-gap inventory](docs/GAP_INVENTORY.md) for completed bounded contracts and substantive partial/missing families. The [row span guide](docs/ROW_SPANS.md) explains vertical ownership, budgets and supported interactions.
 
-Read the [column span guide](docs/COLUMN_SPANS.md) for merged cell behavior, the rectangle-operation boundary and pure geometry helpers.
+Read the [column span guide](docs/COLUMN_SPANS.md) and [rectangular merge guide](docs/COMBINED_SPANS.md) for owner geometry, interaction budgets and the remaining bulk-operation boundary.
 
 Use [managed row moving](docs/ROW_DRAGGING_UI.md) for pointer and keyboard interaction and the [core reorder API](docs/ROW_REORDER.md) for multi-ID operations.
 
