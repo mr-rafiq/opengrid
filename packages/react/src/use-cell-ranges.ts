@@ -26,7 +26,9 @@ const emptySnapshot = () => EMPTY;
 const interactive = (target: EventTarget | null) =>
   target instanceof Element &&
   Boolean(
-    target.closest('input,textarea,select,button,a,[contenteditable="true"]'),
+    target.closest(
+      'dialog,[role="dialog"],input,textarea,select,button,a,[contenteditable="true"]',
+    ),
   );
 const pointerId = (event: { pointerId?: number }) =>
   Number.isFinite(event.pointerId) ? event.pointerId! : 1;

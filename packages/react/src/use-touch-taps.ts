@@ -5,7 +5,7 @@ import type { CellPosition } from "@opengrid/core";
 const key = (position: CellPosition) =>
   JSON.stringify([position.rowId, position.columnId]);
 const interactive =
-  'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]';
+  'dialog,[role="dialog"],button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]';
 /** Recognizes completed touch clicks without capturing or cancelling native pan/pinch. */
 export function useTouchTaps({
   viewport,

@@ -100,13 +100,33 @@ export function SetFilterLab() {
     }, 2500);
   }
   return (
-    <div className="set-filter-lab">
+    <div
+      className="set-filter-lab"
+      onKeyDownCapture={(event) => {
+        if (
+          !(event.ctrlKey || event.metaKey) ||
+          !event.shiftKey ||
+          event.altKey
+        )
+          return;
+        const key = event.key.toLowerCase();
+        if (key !== "d" && key !== "l") return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (key === "d") setRtl((value) => !value);
+        else setSpanish((value) => !value);
+      }}
+    >
       <h2>Resident set-list filters</h2>
       <p>
         Open a column's Values panel. Search and select a draft, then Apply.
         Office and office share a text key; identical Budget labels still
         represent two exact integers. Date blanks and invalid dates share the
         existing comparison bucket.
+      </p>
+      <p>
+        Inside an open panel, Ctrl/⌘+Shift+D changes direction and
+        Ctrl/⌘+Shift+L changes language.
       </p>
       <div className="explorer-controls">
         <button type="button" onClick={() => setSpanish(!spanish)}>

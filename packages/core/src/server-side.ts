@@ -1,4 +1,5 @@
 import type { Filter, Sort } from "./types.js";
+import { prepareColumnFilters } from "./column-filter-model.js";
 
 export interface ServerValueColumn {
   columnId: string;
@@ -185,7 +186,11 @@ export class ServerSideRowModel<T> {
     if (this.disposed) throw new Error("Server-side model is disposed");
   }
   private normalizeQuery(query: ServerQuery): ServerQuery {
-    const copy = structuredClone(query);
+    const copy = structuredClone({
+      ...query,
+      filters: prepareColumnFilters(query.filters),
+    });
+    copy.filters = prepareColumnFilters(copy.filters);
     for (const ids of [copy.rowGroupColumns, copy.pivotColumns]) {
       if (
         !Array.isArray(ids) ||

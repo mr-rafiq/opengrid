@@ -144,3 +144,5 @@ GitHub Actions runs these checks on push and pull requests. See [verification ev
 [MIT](LICENSE). OpenGrid is independent of AG Grid Ltd and has no AG Grid runtime dependency. Its implementation was written from public feature documentation, without copying enterprise source or removing license controls. AG Grid and its product names belong to their respective owners. Repository name availability was checked under `mr-rafiq` only; no claim of globally unique branding or npm name availability is made. Third-party runtime and development dependencies retain their own licenses; see [notices](THIRD_PARTY_NOTICES.md).
 
 [Column sizing](docs/COLUMN_SIZING.md): constrained flex allocation and explicit rendered-text autosizing, cancellation reports and manual-width reset. Try the Column sizing lab in the live demo.
+
+[Typed column conditions](docs/COLUMN_FILTERS.md): staged operators and flat AND/OR groups with exact integer/date inputs, source-conflict handling and stable native modal hosting.

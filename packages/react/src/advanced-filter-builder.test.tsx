@@ -376,6 +376,7 @@ describe("AdvancedFilterBuilder typed operands", () => {
       "name",
       [
         "contains",
+        "notContains",
         "equals",
         "notEqual",
         "startsWith",

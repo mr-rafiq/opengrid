@@ -1,4 +1,4 @@
-import type { Column, Filter, FilterExpression } from "./types.js";
+import type { Column, ScalarFilter, FilterExpression } from "./types.js";
 
 export interface AdvancedFilterLimits {
   maxDepth?: number;
@@ -55,7 +55,12 @@ function record(
   return Object.fromEntries(keys.map((key) => [key, descriptors[key].value]));
 }
 
-const textOperators = new Set(["contains", "startsWith", "endsWith"]);
+const textOperators = new Set([
+  "contains",
+  "notContains",
+  "startsWith",
+  "endsWith",
+]);
 const comparisonOperators = new Set([
   "equals",
   "notEqual",
@@ -181,7 +186,11 @@ export function prepareAdvancedFilter<T>(
       return fail("VALUE", path, "Ordered operands must be strings or numbers");
     return value;
   }
-  function filter(value: unknown, column: Column<T>, path: string): Filter {
+  function filter(
+    value: unknown,
+    column: Column<T>,
+    path: string,
+  ): ScalarFilter {
     const input = record(value, path, ["op", "value", "to"]),
       op = input.op;
     if (
@@ -210,7 +219,10 @@ export function prepareAdvancedFilter<T>(
           `${path}.to`,
           "This operator does not accept an upper operand",
         );
-      return Object.freeze({ op: op as Filter["op"], value: input.value });
+      return Object.freeze({
+        op: op as ScalarFilter["op"],
+        value: input.value,
+      });
     }
     if (op === "in") {
       if (!Array.isArray(input.value))
@@ -245,7 +257,7 @@ export function prepareAdvancedFilter<T>(
         `${path}.to`,
         "This operator does not accept an upper operand",
       );
-    return Object.freeze({ op: op as Filter["op"], value: first });
+    return Object.freeze({ op: op as ScalarFilter["op"], value: first });
   }
   function visit(
     value: unknown,
@@ -329,7 +341,7 @@ export function prepareAdvancedFilter<T>(
 /** Evaluate a prepared tree using the grid's existing typed condition matcher. */
 export function evaluateFilterExpression(
   expression: FilterExpression | null | undefined,
-  matchCondition: (columnId: string, filter: Filter) => boolean,
+  matchCondition: (columnId: string, filter: ScalarFilter) => boolean,
 ): boolean {
   if (!expression) return true;
   if (expression.kind === "condition")

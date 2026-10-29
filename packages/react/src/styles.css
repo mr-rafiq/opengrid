@@ -661,17 +661,45 @@
   align-items: center;
   gap: 5px;
 }
-.og-set-list-filter {
+.og-set-list-filter,
+.og-condition-filter {
   width: 100%;
 }
-.og-set-list-filter > button {
+.og-set-list-filter > button,
+.og-condition-filter > button {
   width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.og-set-list-dialog::backdrop {
+.og-set-list-dialog::backdrop,
+.og-condition-dialog::backdrop {
   background: #102b3d55;
+}
+.og-condition-dialog {
+  border: 1px solid var(--og-border);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--og-bg);
+  color: var(--og-text);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.og-condition-dialog label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+.og-condition-dialog input,
+.og-condition-dialog select,
+.og-condition-dialog button {
+  min-height: 32px;
+  max-width: 100%;
+}
+.og-condition-row {
+  border: 1px solid var(--og-border);
+  border-radius: 8px;
+  padding: 12px;
 }
 .og-set-list-dialog label > span {
   min-width: 0;

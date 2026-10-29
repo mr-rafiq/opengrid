@@ -66,6 +66,7 @@ const labels = {
   "set-filters": "Set-list filters",
   "formula-grid": "Editable formula grids",
   "column-sizing": "Column sizing",
+  "column-filters": "Typed column conditions",
   "calculated-columns": "Calculated columns",
 };
 const order = [
@@ -88,6 +89,7 @@ const order = [
   "advanced-filters",
   "filter-builder",
   "custom-filters",
+  "column-filters",
   "set-filters",
   "find-notes",
   "notes-ui",

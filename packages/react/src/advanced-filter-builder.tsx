@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { Column, Filter, FilterExpression } from "@opengrid/core";
+import type { Column, ScalarFilter, FilterExpression } from "@opengrid/core";
 import { gridMessage, useGridLocale } from "./locale.js";
 import type { GridMessage } from "./locale.js";
 
@@ -14,7 +14,7 @@ type Draft =
   | {
       kind: "condition";
       columnId: string;
-      op: Filter["op"];
+      op: ScalarFilter["op"];
       value: string;
       to: string;
     }
@@ -33,6 +33,7 @@ class BuilderMessageError extends Error {
 const maximumDepth = 8;
 const operatorKeys = {
   contains: "filter.contains",
+  notContains: "filter.notContains",
   equals: "filter.equals",
   notEqual: "filter.notEqual",
   startsWith: "filter.startsWith",
@@ -46,7 +47,7 @@ const operatorKeys = {
   blank: "filter.blank",
   notBlank: "filter.notBlank",
 } as const;
-function operators<T>(column: Column<T> | undefined): Filter["op"][] {
+function operators<T>(column: Column<T> | undefined): ScalarFilter["op"][] {
   if (column?.type === "boolean")
     return ["equals", "notEqual", "in", "blank", "notBlank"];
   if (
@@ -68,6 +69,7 @@ function operators<T>(column: Column<T> | undefined): Filter["op"][] {
     ];
   return [
     "contains",
+    "notContains",
     "equals",
     "notEqual",
     "startsWith",
@@ -175,7 +177,9 @@ export function AdvancedFilterBuilder<T>({
 }: AdvancedFilterBuilderProps<T>) {
   const { t, resolveMessage, locale } = useGridLocale();
   const operatorText = (op: string) =>
-    Object.hasOwn(operatorKeys, op) ? t(operatorKeys[op as Filter["op"]]) : op;
+    Object.hasOwn(operatorKeys, op)
+      ? t(operatorKeys[op as ScalarFilter["op"]])
+      : op;
   const [{ draft, error: sourceError }, setDraft] = useState<DraftState>(() =>
     readExpression(value),
   );
@@ -288,7 +292,7 @@ export function AdvancedFilterBuilder<T>({
           column: column.header ?? column.id,
         }),
       );
-    const filter: Filter = { op: current.op };
+    const filter: ScalarFilter = { op: current.op };
     if (current.op === "blank" || current.op === "notBlank")
       return { kind: "condition", columnId: current.columnId, filter };
     if (current.op === "in")
@@ -459,7 +463,7 @@ export function AdvancedFilterBuilder<T>({
                 onChange={(event) =>
                   replace(path, {
                     ...current,
-                    op: event.target.value as Filter["op"],
+                    op: event.target.value as ScalarFilter["op"],
                   })
                 }
               >

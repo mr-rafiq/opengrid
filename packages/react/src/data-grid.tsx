@@ -58,6 +58,8 @@ import {
 } from "./direction.js";
 import type { GridDirection } from "./direction.js";
 import { AdvancedFilterBuilder } from "./advanced-filter-builder.js";
+import { ColumnConditionFilter } from "./column-condition-filter.js";
+import { GridPopupHostContext, ownsFilterPopup } from "./filter-popup.js";
 import { CellNoteDialog } from "./cell-note-dialog.js";
 import { RowEditDialog } from "./row-edit-dialog.js";
 import {
@@ -98,6 +100,8 @@ export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
   sizingRef?: Ref<DataGridSizingController>;
+  /** Latest applied filter for guarded popups; rendered state remains model-owned. */
+  getColumnFilter?: (columnId: string) => Filter | undefined;
   /** Registered formula models are detected automatically. A supplied controller must own this model. */
   formulas?: FormulaGridController<T>;
   direction?: GridDirection;
@@ -240,6 +244,7 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 export function DataGrid<T>({
   model,
   sizingRef,
+  getColumnFilter,
   formulas: suppliedFormulas,
   direction = "ltr",
   height = 480,
@@ -288,6 +293,29 @@ export function DataGrid<T>({
     model.getState,
   );
   const allColumns = model.getColumns();
+  const groupedFilterIds = allColumns
+    .filter((column) => {
+      const filter = Object.hasOwn(state.filters, column.id)
+        ? state.filters[column.id]
+        : undefined;
+      return filter?.op === "and" || filter?.op === "or";
+    })
+    .map((column) => column.id);
+  const [conditionPanels, setConditionPanels] = useState(() => ({
+    model,
+    ids: new Set(groupedFilterIds),
+  }));
+  let conditionPanelIds =
+    conditionPanels.model === model ? conditionPanels.ids : new Set<string>();
+  if (
+    conditionPanels.model !== model ||
+    groupedFilterIds.some((id) => !conditionPanelIds.has(id))
+  ) {
+    conditionPanelIds = new Set([...conditionPanelIds, ...groupedFilterIds]);
+    // Retain the editor after Clear so its focused launcher is not replaced by a
+    // plain text input. Own-render state adjustment also survives suspended views.
+    setConditionPanels({ model, ids: conditionPanelIds });
+  }
   const hasColumnSpans = allColumns.some(
     (column) => column.colSpan !== undefined,
   );
@@ -500,6 +528,7 @@ export function DataGrid<T>({
   const headerRows = groupDepth + 2;
   const headerHeight = headerRows * 38;
   const viewport = useRef<HTMLDivElement>(null);
+  const [popupHost, setPopupHost] = useState<HTMLElement | null>(null);
   const pendingFocus = useRef(false);
   const pendingRowSpanEditMove = useRef<CellPosition | null>(null);
   const cells = useRef(new Map<string, HTMLDivElement>());
@@ -1509,7 +1538,9 @@ export function DataGrid<T>({
     const Component =
       filterComponents && Object.hasOwn(filterComponents, column.id)
         ? filterComponents[column.id]
-        : undefined;
+        : conditionPanelIds.has(column.id)
+          ? ColumnConditionFilter
+          : undefined;
     const label = t("grid.filterColumn", {
       column: column.header ?? column.id,
     });
@@ -1520,6 +1551,13 @@ export function DataGrid<T>({
             column={column}
             model={model}
             filter={filter}
+            getFilter={() => {
+              if (getColumnFilter) return getColumnFilter(column.id);
+              const filters = model.getState().filters;
+              return Object.hasOwn(filters, column.id)
+                ? filters[column.id]
+                : undefined;
+            }}
             label={label}
             onFilterChange={(filter) => applyColumnFilter(column.id, filter)}
             onClear={() => applyColumnFilter(column.id)}
@@ -2002,6 +2040,7 @@ export function DataGrid<T>({
   function ownedDragTarget(target: EventTarget | null) {
     return (
       target instanceof Element &&
+      !target.closest('dialog,[role="dialog"]') &&
       target.closest('[role="grid"],[role="treegrid"]') === viewport.current
     );
   }
@@ -2693,7 +2732,7 @@ export function DataGrid<T>({
                             '[role="grid"],[role="treegrid"]',
                           ) !== viewport.current ||
                             event.target.closest(
-                              'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
+                              'dialog,[role="dialog"],button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
                             ))
                         )
                           return;
@@ -2716,7 +2755,7 @@ export function DataGrid<T>({
                         if (
                           event.target instanceof Element &&
                           event.target.closest(
-                            'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
+                            'dialog,[role="dialog"],button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
                           )
                         )
                           return;
@@ -2925,8 +2964,9 @@ export function DataGrid<T>({
     });
   }
 
-  return (
+  const content = (
     <section
+      ref={setPopupHost}
       className={`og-root ${className}`}
       lang={locale}
       dir={direction}
@@ -3563,15 +3603,21 @@ export function DataGrid<T>({
                     onFocusCapture={(event) => {
                       if (
                         event.target instanceof Element &&
-                        event.target.closest(
-                          '[role="grid"],[role="treegrid"]',
-                        ) === viewport.current
+                        (ownsFilterPopup(event.target, popupHost, column.id) ||
+                          event.target.closest(
+                            '[role="grid"],[role="treegrid"]',
+                          ) === viewport.current)
                       )
                         setFocusedFilterColumnId(column.id);
                     }}
                     onBlurCapture={(event) => {
                       if (
                         event.relatedTarget instanceof Node &&
+                        !ownsFilterPopup(
+                          event.relatedTarget,
+                          popupHost,
+                          column.id,
+                        ) &&
                         !event.currentTarget.contains(event.relatedTarget)
                       )
                         setFocusedFilterColumnId((current) =>
@@ -3758,6 +3804,11 @@ export function DataGrid<T>({
         {resolveMessage(announcement)}
       </span>
     </section>
+  );
+  return (
+    <GridPopupHostContext.Provider value={popupHost}>
+      {content}
+    </GridPopupHostContext.Provider>
   );
 }
 

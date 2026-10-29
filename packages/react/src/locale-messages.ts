@@ -86,6 +86,7 @@ export interface GridMessageParams {
   "move.externalFilter": undefined;
   "filter.all": undefined;
   "filter.contains": undefined;
+  "filter.notContains": undefined;
   "filter.equals": undefined;
   "filter.notEqual": undefined;
   "filter.startsWith": undefined;
@@ -105,6 +106,7 @@ export interface GridMessageParams {
   "filter.chooseBoolean": undefined;
   "filter.invalidDate": undefined;
   "rangeFilter.notRange": undefined;
+  "rangeFilter.compound": undefined;
   "rangeFilter.boundLimit": undefined;
   "rangeFilter.integer": undefined;
   "rangeFilter.iso": undefined;
@@ -386,6 +388,30 @@ export interface GridMessageParams {
   "setList.typeBoolean": undefined;
   "setList.typeText": undefined;
   "setList.typeDate": undefined;
+  "conditionFilter.title": { column: string };
+  "conditionFilter.help": undefined;
+  "conditionFilter.logic": undefined;
+  "conditionFilter.and": undefined;
+  "conditionFilter.or": undefined;
+  "conditionFilter.condition": { index: number };
+  "conditionFilter.operator": { index: number };
+  "conditionFilter.value": { index: number };
+  "conditionFilter.upper": { index: number };
+  "conditionFilter.calendar": { index: number };
+  "conditionFilter.dateHelp": undefined;
+  "conditionFilter.membershipHelp": undefined;
+  "conditionFilter.add": undefined;
+  "conditionFilter.remove": { index: number };
+  "conditionFilter.apply": undefined;
+  "conditionFilter.reload": undefined;
+  "conditionFilter.replace": undefined;
+  "conditionFilter.conflict": undefined;
+  "conditionFilter.unsupported": undefined;
+  "conditionFilter.invalid": undefined;
+  "conditionFilter.limit": undefined;
+  "conditionFilter.membership": undefined;
+  "conditionFilter.required": undefined;
+  "conditionFilter.failed": undefined;
   "formula.mode": undefined;
   "formula.literal": undefined;
   "formula.formula": undefined;
@@ -514,6 +540,7 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "move.externalFilter": {},
   "filter.all": {},
   "filter.contains": {},
+  "filter.notContains": {},
   "filter.equals": {},
   "filter.notEqual": {},
   "filter.startsWith": {},
@@ -533,6 +560,7 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "filter.chooseBoolean": {},
   "filter.invalidDate": {},
   "rangeFilter.notRange": {},
+  "rangeFilter.compound": {},
   "rangeFilter.boundLimit": {},
   "rangeFilter.integer": {},
   "rangeFilter.iso": {},
@@ -996,6 +1024,30 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "setList.typeBoolean": {},
   "setList.typeText": {},
   "setList.typeDate": {},
+  "conditionFilter.title": { column: "string" },
+  "conditionFilter.help": {},
+  "conditionFilter.logic": {},
+  "conditionFilter.and": {},
+  "conditionFilter.or": {},
+  "conditionFilter.condition": { index: "number" },
+  "conditionFilter.operator": { index: "number" },
+  "conditionFilter.value": { index: "number" },
+  "conditionFilter.upper": { index: "number" },
+  "conditionFilter.calendar": { index: "number" },
+  "conditionFilter.dateHelp": {},
+  "conditionFilter.membershipHelp": {},
+  "conditionFilter.add": {},
+  "conditionFilter.remove": { index: "number" },
+  "conditionFilter.apply": {},
+  "conditionFilter.reload": {},
+  "conditionFilter.replace": {},
+  "conditionFilter.conflict": {},
+  "conditionFilter.unsupported": {},
+  "conditionFilter.invalid": {},
+  "conditionFilter.limit": {},
+  "conditionFilter.membership": {},
+  "conditionFilter.required": {},
+  "conditionFilter.failed": {},
   "formula.mode": {},
   "formula.literal": {},
   "formula.formula": {},

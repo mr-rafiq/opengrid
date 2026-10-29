@@ -31,9 +31,10 @@ export interface Sort {
   columnId: string;
   direction: "asc" | "desc";
 }
-export type Filter = {
+export type ScalarFilter = {
   op:
     | "contains"
+    | "notContains"
     | "equals"
     | "notEqual"
     | "startsWith"
@@ -48,9 +49,17 @@ export type Filter = {
     | "notBlank";
   value?: unknown;
   to?: unknown;
+  conditions?: never;
 };
+export interface CompoundFilter {
+  op: "and" | "or";
+  conditions: readonly ScalarFilter[];
+  value?: never;
+  to?: never;
+}
+export type Filter = ScalarFilter | CompoundFilter;
 export type FilterExpression =
-  | { kind: "condition"; columnId: string; filter: Filter }
+  | { kind: "condition"; columnId: string; filter: ScalarFilter }
   | { kind: "and" | "or"; children: FilterExpression[] }
   | { kind: "not"; child: FilterExpression };
 export interface GridState {

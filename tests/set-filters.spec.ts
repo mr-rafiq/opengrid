@@ -172,6 +172,17 @@ test.describe("native touch set-list dialog", () => {
     });
     await expect(search).toBeFocused();
     const original = await search.elementHandle();
+    await search.press("Control+Shift+D");
+    await expect(grid).toHaveAttribute("dir", "ltr");
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(
+      true,
+    );
+    await expect(search).toBeFocused();
+    await search.press("Control+Shift+D");
+    await expect(grid).toHaveAttribute("dir", "rtl");
+    expect(await dialog.evaluate((element) => element.matches(":modal"))).toBe(
+      true,
+    );
     await grid.evaluate((element) => {
       element.scrollLeft = -1300;
     });

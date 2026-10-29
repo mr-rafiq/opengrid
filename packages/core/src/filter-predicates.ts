@@ -1,4 +1,8 @@
 import type { Column, Filter } from "./types.js";
+import {
+  assertColumnFilterOperator,
+  prepareCompoundFilter,
+} from "./column-filter-model.js";
 
 export const isFilterBlank = (value: unknown) =>
   value === null || value === undefined || value === "";
@@ -38,10 +42,23 @@ export function matchesFilter<T>(
   filter: Filter,
   column?: Column<T>,
 ): boolean {
+  assertColumnFilterOperator(filter);
+  if (filter.op === "and" || filter.op === "or") {
+    const group = prepareCompoundFilter(filter);
+    return group.op === "and"
+      ? group.conditions.every((condition) =>
+          matchesFilter(value, condition, column),
+        )
+      : group.conditions.some((condition) =>
+          matchesFilter(value, condition, column),
+        );
+  }
   if (filter.op === "blank") return isFilterBlank(value);
   if (filter.op === "notBlank") return !isFilterBlank(value);
   if (filter.op === "contains")
     return filterText(value).includes(filterText(filter.value));
+  if (filter.op === "notContains")
+    return !filterText(value).includes(filterText(filter.value));
   if (filter.op === "startsWith")
     return filterText(value).startsWith(filterText(filter.value));
   if (filter.op === "endsWith")
@@ -83,18 +100,35 @@ export function compileFilterPredicate<T>(
   filter: Filter,
   column?: Column<T>,
 ): FilterPredicate {
+  assertColumnFilterOperator(filter);
+  if (filter.op === "and" || filter.op === "or") {
+    const group = prepareCompoundFilter(filter),
+      children = group.conditions.map((condition) =>
+        compileFilterPredicate(condition, column),
+      );
+    return group.op === "and"
+      ? (value) => children.every((child) => child(value))
+      : (value) => children.some((child) => child(value));
+  }
   const op = filter.op,
     type = column?.type;
   if (op === "blank") return isFilterBlank;
   if (op === "notBlank") return (value) => !isFilterBlank(value);
-  if (op === "contains" || op === "startsWith" || op === "endsWith") {
+  if (
+    op === "contains" ||
+    op === "notContains" ||
+    op === "startsWith" ||
+    op === "endsWith"
+  ) {
     const needle = filterText(filter.value);
     return (value) =>
       op === "contains"
         ? filterText(value).includes(needle)
-        : op === "startsWith"
-          ? filterText(value).startsWith(needle)
-          : filterText(value).endsWith(needle);
+        : op === "notContains"
+          ? !filterText(value).includes(needle)
+          : op === "startsWith"
+            ? filterText(value).startsWith(needle)
+            : filterText(value).endsWith(needle);
   }
   if (op === "in") {
     if (!Array.isArray(filter.value)) return () => false;

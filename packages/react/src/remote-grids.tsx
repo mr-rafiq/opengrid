@@ -374,6 +374,12 @@ export function ServerDataGrid<T>({
       <DataGrid
         direction={direction}
         model={facade}
+        getColumnFilter={(columnId) => {
+          const filters = model.getQuery().filters;
+          return Object.hasOwn(filters, columnId)
+            ? filters[columnId]
+            : undefined;
+        }}
         height={height}
         ariaLabel={ariaLabel}
         toolbar={false}

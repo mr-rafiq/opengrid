@@ -1,4 +1,5 @@
 import type { Filter, Sort } from "./types.js";
+import { prepareColumnFilters } from "./column-filter-model.js";
 export interface DataRequest {
   startRow: number;
   endRow: number;
@@ -46,9 +47,13 @@ export class InfiniteDataSource<T> {
       );
   }
   setQuery(sorting: Sort[], filters: Record<string, Filter>) {
+    const nextSorting = structuredClone(sorting);
+    const nextFilters = prepareColumnFilters(
+      structuredClone(prepareColumnFilters(filters)),
+    );
     this.invalidate();
-    this.sorting = structuredClone(sorting);
-    this.filters = structuredClone(filters);
+    this.sorting = nextSorting;
+    this.filters = nextFilters;
   }
   invalidate() {
     this.revision++;

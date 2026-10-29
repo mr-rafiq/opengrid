@@ -17,6 +17,8 @@ import {
 } from "../../core/src/index";
 import { SetListFilter } from "./set-list-filter";
 import { GridLocaleProvider, enUS, esES } from "./locale";
+import { DataGrid } from "./data-grid";
+import type { ColumnFilterProps } from "./filter-components";
 
 type Row = { id: string; value: unknown; visible: boolean };
 const source: Row[] = [
@@ -92,6 +94,164 @@ afterEach(() => {
 });
 
 describe("staged resident SetListFilter", () => {
+  it("fences fresh getter changes even when controlled props lag and Reload uses that getter", () => {
+    const grid = make(),
+      applied = vi.fn(),
+      controlled: Filter = { op: "in", value: ["Alpha"] };
+    let latest: Filter = controlled;
+    render(
+      <SetListFilter
+        model={grid}
+        column={column}
+        filter={controlled}
+        getFilter={() => latest}
+        label="Application value filter"
+        onFilterChange={applied}
+        onClear={() => {}}
+      />,
+    );
+    open();
+    fireEvent.click(choice("Beta"));
+    latest = { op: "in", value: ["Gamma"] };
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Apply" }).matches(":disabled"),
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reload applied filter" }),
+    );
+    expect(choice("Gamma").checked).toBe(true);
+    expect(choice("Alpha").checked).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied).toHaveBeenCalledExactlyOnceWith({
+      op: "in",
+      value: ["gamma"],
+    });
+  });
+  it("preserves dirty choices as the controlled mirror catches up to its unchanged getter", () => {
+    const grid = make(),
+      applied = vi.fn(),
+      stale: Filter = { op: "in", value: ["Alpha"] },
+      fresh: Filter = { op: "in", value: ["Beta"] };
+    const getFilter = () => fresh;
+    const panel = (filter: Filter) => (
+      <SetListFilter
+        model={grid}
+        column={column}
+        filter={filter}
+        getFilter={getFilter}
+        label="Application value filter"
+        onFilterChange={applied}
+        onClear={() => {}}
+      />
+    );
+    const view = render(panel(stale));
+    open();
+    fireEvent.click(choice("Gamma"));
+    view.rerender(panel({ op: "in", value: ["BETA"] }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(choice("Beta").checked).toBe(true);
+    expect(choice("Gamma").checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied).toHaveBeenCalledExactlyOnceWith({
+      op: "in",
+      value: ["beta", "gamma"],
+    });
+  });
+  it("holds choices and blocks writes when its getter throws, with explicit Reload recovery", () => {
+    const grid = make(),
+      applied = vi.fn(),
+      cleared = vi.fn();
+    let fails = false;
+    const getFilter = (): Filter => {
+      if (fails) throw Error("Cannot read source");
+      return { op: "in", value: ["Alpha"] };
+    };
+    render(
+      <SetListFilter
+        model={grid}
+        column={column}
+        getFilter={getFilter}
+        label="Application value filter"
+        onFilterChange={applied}
+        onClear={cleared}
+      />,
+    );
+    open();
+    fireEvent.click(choice("Beta"));
+    fails = true;
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Cannot read source",
+    );
+    expect(choice("Alpha").checked).toBe(true);
+    expect(choice("Beta").checked).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+    expect(applied).not.toHaveBeenCalled();
+    expect(cleared).not.toHaveBeenCalled();
+    fails = false;
+    fireEvent.click(
+      screen.getByRole("button", { name: "Reload applied filter" }),
+    );
+    expect(choice("Alpha").checked).toBe(true);
+    expect(choice("Beta").checked).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    fails = true;
+    open();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Cannot read source",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+  it("keeps a no-getter standalone filter controlled when its model is only the resident row source", () => {
+    const grid = make(source, column, { op: "in", value: ["Gamma"] }),
+      applied = vi.fn();
+    render(
+      <SetListFilter
+        model={grid}
+        column={column}
+        filter={{ op: "in", value: ["Alpha"] }}
+        label="Application value filter"
+        onFilterChange={applied}
+        onClear={() => {}}
+      />,
+    );
+    open();
+    expect(choice("Alpha").checked).toBe(true);
+    expect(choice("Gamma").checked).toBe(false);
+    fireEvent.click(choice("Beta"));
+    act(() => grid.setFilter("value", { op: "in", value: ["Gamma", "Beta"] }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(applied).toHaveBeenCalledExactlyOnceWith({
+      op: "in",
+      value: ["alpha", "beta"],
+    });
+  });
+  it("sets Spanish on a nested-locale dialog portaled into an English DataGrid root", () => {
+    const grid = make();
+    function SpanishFilter(props: ColumnFilterProps<Row>) {
+      return (
+        <GridLocaleProvider locale={esES}>
+          <SetListFilter {...props} />
+        </GridLocaleProvider>
+      );
+    }
+    render(
+      <GridLocaleProvider locale={enUS}>
+        <DataGrid model={grid} filterComponents={{ value: SpanishFilter }} />
+      </GridLocaleProvider>,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Filter Application values" }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.getAttribute("lang")).toBe("es-ES");
+    expect(dialog.closest(".og-root")?.getAttribute("lang")).toBe("en-US");
+    expect(dialog.closest(".og-set-list-filter")).toBeNull();
+  });
   it("does not mutate the model until Apply and Cancel discards checkbox drafts", () => {
     const grid = make(),
       applied = vi.fn();

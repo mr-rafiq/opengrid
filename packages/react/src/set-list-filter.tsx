@@ -14,6 +14,8 @@ import {
   type SetFilterIndex,
 } from "@opengrid/core";
 import type { ColumnFilterProps } from "./filter-components.js";
+import { FilterPopup } from "./filter-popup.js";
+import { columnFilterFingerprint } from "./column-condition-draft.js";
 import { gridMessage, useGridLocale, type GridMessage } from "./locale.js";
 
 export interface SetListFilterProps<T> extends ColumnFilterProps<T> {
@@ -28,8 +30,23 @@ interface Draft {
   keys: Set<string>;
   baselineSelection: string;
   baselineFilter: string;
+  baselineFence: AppliedFence;
   conflict: boolean;
   removed: number;
+}
+interface AppliedFence {
+  source: string;
+  controlled: string;
+  sourceSemantic: string;
+  controlledSemantic: string;
+  key: string;
+}
+function sameAppliedFence(current: AppliedFence, baseline: AppliedFence) {
+  return (
+    current.sourceSemantic === baseline.sourceSemantic &&
+    (current.controlledSemantic === baseline.controlledSemantic ||
+      current.controlledSemantic === current.sourceSemantic)
+  );
 }
 const emptySubscribe = () => () => {};
 const emptySnapshot = () => null;
@@ -37,47 +54,11 @@ const selectionKey = (mode: Mode, keys: ReadonlySet<string>) =>
   mode === "explicit" ? `in:${JSON.stringify([...keys].sort())}` : mode;
 class FilterReadError extends Error {}
 
-/** Bounded structural fingerprint for unsupported filters; never stringify BigInt or invoke accessors. */
-function stable(
-  value: unknown,
-  budget = { nodes: 20000, text: 4000000 },
-  depth = 0,
-): string {
-  if (--budget.nodes < 0 || depth > 32) throw new FilterReadError();
-  if (value === null) return "null";
-  if (value === undefined) return "undefined";
-  if (typeof value === "bigint") return `bigint:${value.toString()}`;
-  if (typeof value === "number")
-    return `number:${Object.is(value, -0) ? "-0" : String(value)}`;
-  if (typeof value === "boolean") return value ? "true" : "false";
-  if (typeof value === "string") {
-    budget.text -= value.length;
-    if (budget.text < 0) throw new FilterReadError();
-    return `string:${JSON.stringify(value)}`;
-  }
-  if (value instanceof Date)
-    return `date:${Date.prototype.getTime.call(value)}`;
-  if (typeof value !== "object") throw new FilterReadError();
-  const prototype = Object.getPrototypeOf(value);
-  if (
-    !Array.isArray(value) &&
-    prototype !== null &&
-    prototype !== Object.prototype
-  )
-    throw new FilterReadError();
-  const keys = Reflect.ownKeys(value);
-  if (keys.length > budget.nodes || keys.some((key) => typeof key !== "string"))
-    throw new FilterReadError();
-  const ordered = (keys as string[]).sort();
-  return `${Array.isArray(value) ? "array" : "record"}:{${ordered
-    .map((key) => {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (!descriptor || !("value" in descriptor)) throw new FilterReadError();
-      return `${stable(key, budget, depth + 1)}:${stable(descriptor.value, budget, depth + 1)}`;
-    })
-    .join(",")}}`;
-}
-function currentFilter(filter: Filter | undefined, index: SetFilterIndex) {
+function currentFilter(
+  filter: Filter | undefined,
+  index: SetFilterIndex,
+  rawKey = columnFilterFingerprint(filter),
+) {
   if (!filter)
     return {
       mode: "all" as const,
@@ -89,7 +70,7 @@ function currentFilter(filter: Filter | undefined, index: SetFilterIndex) {
     return {
       mode: "unsupported" as const,
       keys: new Set<string>(),
-      fingerprint: `other:${stable(filter)}`,
+      fingerprint: `other:${rawKey}`,
       removed: 0,
     };
   if (filter.value.length > 10000) throw new FilterReadError();
@@ -109,15 +90,15 @@ function currentFilter(filter: Filter | undefined, index: SetFilterIndex) {
   };
 }
 function initialDraft(
-  filter: Filter | undefined,
-  index: SetFilterIndex,
+  value: ReturnType<typeof currentFilter>,
+  fence: AppliedFence,
 ): Draft {
-  const value = currentFilter(filter, index);
   return {
     mode: value.mode,
     keys: value.keys,
     baselineSelection: selectionKey(value.mode, value.keys),
     baselineFilter: value.fingerprint,
+    baselineFence: fence,
     conflict: false,
     removed: value.removed,
   };
@@ -128,6 +109,7 @@ export function SetListFilter<T>({
   model,
   column,
   filter,
+  getFilter,
   label,
   onFilterChange,
   onClear,
@@ -176,17 +158,42 @@ export function SetListFilter<T>({
     }
   }, [open, model, column.id, state]);
   const index = result.index;
-  const parsed = useMemo<{
+  function readApplied(index: SetFilterIndex) {
+    // A resident model supplies choices; only an explicit getter opts this panel
+    // into fresh applied-filter reads. Standalone controlled integrations stay controlled.
+    const source = getFilter ? getFilter() : filter;
+    const sourceKey = columnFilterFingerprint(source);
+    const controlledKey =
+      source === filter ? sourceKey : columnFilterFingerprint(filter);
+    const value = currentFilter(source, index, sourceKey);
+    const controlled =
+      source === filter ? value : currentFilter(filter, index, controlledKey);
+    const fence: AppliedFence = {
+      source: sourceKey,
+      controlled: controlledKey,
+      sourceSemantic: value.fingerprint,
+      controlledSemantic: controlled.fingerprint,
+      key: `${sourceKey.length}:${sourceKey}${controlledKey.length}:${controlledKey}`,
+    };
+    return { value, fence };
+  }
+  const parsed: {
     value?: ReturnType<typeof currentFilter>;
+    fence?: AppliedFence;
     error?: GridMessage | string;
-  }>(() => {
-    if (!index) return {};
+  } = (() => {
+    if (!open || !index) return {};
     try {
-      return { value: currentFilter(filter, index) };
-    } catch {
-      return { error: gridMessage("setList.readFailed") };
+      return readApplied(index);
+    } catch (reason) {
+      return {
+        error:
+          reason instanceof Error && reason.message
+            ? reason.message
+            : gridMessage("setList.readFailed"),
+      };
     }
-  }, [index, filter]);
+  })();
   const error = result.error ?? parsed.error ?? notice;
   function close() {
     if (!openRef.current) return;
@@ -221,14 +228,16 @@ export function SetListFilter<T>({
     };
   }, [open]);
   useLayoutEffect(() => {
-    if (!open || !index || !parsed.value) return;
+    if (!open || !index || !parsed.value || !parsed.fence) return;
     setDraft((previous) => {
-      if (!previous) return initialDraft(filter, index);
+      if (!previous) return initialDraft(parsed.value!, parsed.fence!);
       const dirty =
         selectionKey(previous.mode, previous.keys) !==
         previous.baselineSelection;
-      if (parsed.value!.fingerprint !== previous.baselineFilter) {
-        if (!dirty && !previous.conflict) return initialDraft(filter, index);
+      const matches = sameAppliedFence(parsed.fence!, previous.baselineFence);
+      if (!matches) {
+        if (!dirty && !previous.conflict)
+          return initialDraft(parsed.value!, parsed.fence!);
       }
       const available = new Set(index.entries.map((entry) => entry.key));
       const keys = new Set(
@@ -236,18 +245,20 @@ export function SetListFilter<T>({
       );
       const removed =
         previous.mode === "explicit" ? previous.keys.size - keys.size : 0;
-      const conflict =
-        previous.conflict ||
-        (dirty && parsed.value!.fingerprint !== previous.baselineFilter);
-      if (!removed && conflict === previous.conflict) return previous;
+      const conflict = previous.conflict || (dirty && !matches);
+      const fenceChanged =
+        matches && parsed.fence!.key !== previous.baselineFence.key;
+      if (!removed && conflict === previous.conflict && !fenceChanged)
+        return previous;
       return {
         ...previous,
         keys,
         removed: previous.removed + removed,
         conflict,
+        baselineFence: fenceChanged ? parsed.fence! : previous.baselineFence,
       };
     });
-  }, [open, index, parsed.value?.fingerprint]);
+  }, [open, index, parsed.fence?.key]);
   const choices = useMemo(() => {
     const needle = query.toLocaleLowerCase(locale);
     return (
@@ -313,10 +324,33 @@ export function SetListFilter<T>({
   function reload() {
     if (!index) return;
     try {
-      setDraft(initialDraft(filter, index));
+      const latest = readApplied(index);
+      setDraft(initialDraft(latest.value, latest.fence));
       setNotice("");
-    } catch {
-      setNotice(gridMessage("setList.readFailed"));
+    } catch (reason) {
+      setNotice(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : gridMessage("setList.readFailed"),
+      );
+    }
+  }
+  function clearDraft() {
+    if (!index) return;
+    try {
+      const latest = readApplied(index);
+      setDraft({
+        ...initialDraft(latest.value, latest.fence),
+        mode: "all",
+        keys: new Set(),
+      });
+      setNotice("");
+    } catch (reason) {
+      setNotice(
+        reason instanceof Error && reason.message
+          ? reason.message
+          : gridMessage("setList.readFailed"),
+      );
     }
   }
   function apply() {
@@ -331,7 +365,7 @@ export function SetListFilter<T>({
       return;
     try {
       // Fence an external update even if the reconciliation effect has not run yet.
-      if (currentFilter(filter, index).fingerprint !== draft.baselineFilter) {
+      if (!sameAppliedFence(readApplied(index).fence, draft.baselineFence)) {
         setDraft({ ...draft, conflict: true });
         return;
       }
@@ -369,123 +403,95 @@ export function SetListFilter<T>({
         {label}
       </button>
       {open && (
-        <dialog
-          ref={dialog}
-          className="og-set-list-dialog"
-          aria-labelledby={titleId}
-          aria-describedby={`${helpId}${error ? ` ${errorId}` : ""}`}
-          aria-modal="true"
-          onCancel={(event) => {
-            event.preventDefault();
-            close();
-          }}
-          onClose={(event) => {
-            if (!lifecycleClose.current && !event.currentTarget.open) close();
-          }}
-          style={{
-            maxWidth: "min(460px, calc(100vw - 24px))",
-            maxHeight: "min(640px, calc(100dvh - 24px))",
-            width: 420,
-            overflow: "auto",
-            whiteSpace: "normal",
-            overflowWrap: "anywhere",
-            border: "1px solid var(--og-border)",
-            borderRadius: 10,
-            padding: 16,
-            background: "var(--og-bg)",
-            color: "var(--og-text)",
-          }}
-        >
-          <h2 dir="auto" id={titleId}>
-            {t("setList.title", { column: column.header ?? column.id })}
-          </h2>
-          <p dir="auto" id={helpId}>
-            {t("setList.help")}
-          </p>
-          {error && (
-            <p dir="auto" id={errorId} role="alert">
-              {resolveMessage(error)}
-            </p>
-          )}
-          {draft?.conflict && (
-            <p dir="auto" role="alert">
-              {t("setList.conflict")}
-            </p>
-          )}
-          {draft?.mode === "unsupported" && (
-            <p dir="auto" role="status">
-              {t("setList.unsupported")}
-            </p>
-          )}
-          {!!draft?.removed && (
-            <p dir="auto" role="status">
-              {t("setList.removed", { count: draft.removed })}
-            </p>
-          )}
-          <label>
-            {t("setList.search")}{" "}
-            <input
-              type="text"
-              ref={search}
-              dir="auto"
-              aria-label={t("setList.search")}
-              value={query}
-              maxLength={256}
-              disabled={!index}
-              onChange={(event) => {
-                if (event.target.value.length > 256) {
-                  setNotice(gridMessage("setList.searchLimit"));
-                  return;
-                }
-                setQuery(event.target.value);
-                setPage(0);
-                setNotice("");
-              }}
-            />
-          </label>
-          <fieldset
-            disabled={
-              !draft ||
-              !index ||
-              draft.mode === "unsupported" ||
-              !!draft.conflict
-            }
-            style={{ border: 0, padding: 0 }}
+        <FilterPopup>
+          <dialog
+            lang={locale}
+            data-og-filter-column={column.id}
+            ref={dialog}
+            className="og-set-list-dialog"
+            aria-labelledby={titleId}
+            aria-describedby={`${helpId}${error ? ` ${errorId}` : ""}`}
+            aria-modal="true"
+            onCancel={(event) => {
+              event.preventDefault();
+              close();
+            }}
+            onClose={(event) => {
+              if (!lifecycleClose.current && !event.currentTarget.open) close();
+            }}
+            style={{
+              maxWidth: "min(460px, calc(100vw - 24px))",
+              maxHeight: "min(640px, calc(100dvh - 24px))",
+              width: 420,
+              overflow: "auto",
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
+              border: "1px solid var(--og-border)",
+              borderRadius: 10,
+              padding: 16,
+              background: "var(--og-bg)",
+              color: "var(--og-text)",
+            }}
           >
-            <legend>{t("setList.choices")}</legend>
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                minHeight: 32,
-              }}
-            >
+            <h2 dir="auto" id={titleId}>
+              {t("setList.title", { column: column.header ?? column.id })}
+            </h2>
+            <p dir="auto" id={helpId}>
+              {t("setList.help")}
+            </p>
+            {error && (
+              <p dir="auto" id={errorId} role="alert">
+                {resolveMessage(error)}
+              </p>
+            )}
+            {draft?.conflict && (
+              <p dir="auto" role="alert">
+                {t("setList.conflict")}
+              </p>
+            )}
+            {draft?.mode === "unsupported" && (
+              <p dir="auto" role="status">
+                {t("setList.unsupported")}
+              </p>
+            )}
+            {!!draft?.removed && (
+              <p dir="auto" role="status">
+                {t("setList.removed", { count: draft.removed })}
+              </p>
+            )}
+            <label>
+              {t("setList.search")}{" "}
               <input
-                type="checkbox"
-                aria-label={t("setList.selectMatches")}
-                disabled={!choices.length}
-                checked={!!choices.length && selectedMatches === choices.length}
-                ref={(node) => {
-                  if (node)
-                    node.indeterminate =
-                      selectedMatches > 0 && selectedMatches < choices.length;
-                }}
+                type="text"
+                ref={search}
+                dir="auto"
+                aria-label={t("setList.search")}
+                value={query}
+                maxLength={256}
+                disabled={!index}
                 onChange={(event) => {
-                  const checked = event.target.checked;
-                  updateKeys((keys) => {
-                    for (const entry of choices)
-                      if (checked) keys.add(entry.key);
-                      else keys.delete(entry.key);
-                  });
+                  if (event.target.value.length > 256) {
+                    setNotice(gridMessage("setList.searchLimit"));
+                    return;
+                  }
+                  setQuery(event.target.value);
+                  setPage(0);
+                  setNotice("");
                 }}
               />
-              {t("setList.selectMatches")}
             </label>
-            {visible.map((entry) => (
+            <fieldset
+              disabled={
+                !draft ||
+                !index ||
+                !!parsed.error ||
+                draft.mode === "unsupported" ||
+                !!draft.conflict
+              }
+              style={{ border: 0, padding: 0 }}
+            >
+              <legend>{t("setList.choices")}</legend>
               <label
-                key={entry.key}
-                data-set-filter-key={entry.key}
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -495,113 +501,155 @@ export function SetListFilter<T>({
               >
                 <input
                   type="checkbox"
-                  aria-label={[
-                    entry.blank ? t("setList.blank") : entry.label,
-                    t("setList.entryCount", { count: entry.count }),
-                    identityHint(entry),
-                    entry.invalidCount > 0
-                      ? t("setList.invalidHint", { count: entry.invalidCount })
-                      : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  checked={selected(entry.key)}
+                  aria-label={t("setList.selectMatches")}
+                  disabled={!choices.length}
+                  checked={
+                    !!choices.length && selectedMatches === choices.length
+                  }
+                  ref={(node) => {
+                    if (node)
+                      node.indeterminate =
+                        selectedMatches > 0 && selectedMatches < choices.length;
+                  }}
                   onChange={(event) => {
                     const checked = event.target.checked;
                     updateKeys((keys) => {
-                      if (checked) keys.add(entry.key);
-                      else keys.delete(entry.key);
+                      for (const entry of choices)
+                        if (checked) keys.add(entry.key);
+                        else keys.delete(entry.key);
                     });
                   }}
                 />
-                <span dir="auto">
-                  {entry.blank ? t("setList.blank") : entry.label}
-                </span>
-                <span dir="auto">
-                  {t("setList.entryCount", { count: entry.count })}
-                </span>
-                {identityHint(entry) && (
-                  <span dir="auto">{identityHint(entry)}</span>
-                )}
-                {entry.invalidCount > 0 && (
-                  <span dir="auto">
-                    {t("setList.invalidHint", { count: entry.invalidCount })}
-                  </span>
-                )}
+                {t("setList.selectMatches")}
               </label>
-            ))}
-          </fieldset>
-          {index && !choices.length && (
-            <p dir="auto" role="status">
-              {t("setList.empty")}
-            </p>
-          )}
-          {index && (
-            <p dir="auto" role="status">
-              {t("setList.summary", {
-                selected: selectedCount,
-                total: index.entries.length,
-                rows: index.rowCount,
-              })}
-            </p>
-          )}
-          <nav
-            aria-label={t("setList.pages")}
-            style={{ display: "flex", alignItems: "center", gap: 8 }}
-          >
-            <button
-              type="button"
-              disabled={currentPage <= 0}
-              onClick={() => setPage(currentPage - 1)}
+              {visible.map((entry) => (
+                <label
+                  key={entry.key}
+                  data-set-filter-key={entry.key}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    minHeight: 32,
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    aria-label={[
+                      entry.blank ? t("setList.blank") : entry.label,
+                      t("setList.entryCount", { count: entry.count }),
+                      identityHint(entry),
+                      entry.invalidCount > 0
+                        ? t("setList.invalidHint", {
+                            count: entry.invalidCount,
+                          })
+                        : "",
+                    ]
+                      .filter(Boolean)
+                      .join(" ")}
+                    checked={selected(entry.key)}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      updateKeys((keys) => {
+                        if (checked) keys.add(entry.key);
+                        else keys.delete(entry.key);
+                      });
+                    }}
+                  />
+                  <span dir="auto">
+                    {entry.blank ? t("setList.blank") : entry.label}
+                  </span>
+                  <span dir="auto">
+                    {t("setList.entryCount", { count: entry.count })}
+                  </span>
+                  {identityHint(entry) && (
+                    <span dir="auto">{identityHint(entry)}</span>
+                  )}
+                  {entry.invalidCount > 0 && (
+                    <span dir="auto">
+                      {t("setList.invalidHint", { count: entry.invalidCount })}
+                    </span>
+                  )}
+                </label>
+              ))}
+            </fieldset>
+            {index && !choices.length && (
+              <p dir="auto" role="status">
+                {t("setList.empty")}
+              </p>
+            )}
+            {index && (
+              <p dir="auto" role="status">
+                {t("setList.summary", {
+                  selected: selectedCount,
+                  total: index.entries.length,
+                  rows: index.rowCount,
+                })}
+              </p>
+            )}
+            <nav
+              aria-label={t("setList.pages")}
+              style={{ display: "flex", alignItems: "center", gap: 8 }}
             >
-              {t("common.previous")}
-            </button>
-            <span dir="auto">
-              {t("setList.page", { page: pages ? currentPage + 1 : 0, pages })}
-            </span>
-            <button
-              type="button"
-              disabled={currentPage >= pages - 1}
-              onClick={() => setPage(currentPage + 1)}
-            >
-              {t("common.next")}
-            </button>
-          </nav>
-          <div
-            style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}
-          >
-            <button type="button" disabled={!index} onClick={reload}>
-              {t("setList.reload")}
-            </button>
-            <button
-              type="button"
-              disabled={!draft || !index}
-              onClick={() => {
-                if (draft) setDraft({ ...draft, mode: "all", keys: new Set() });
-                setNotice("");
+              <button
+                type="button"
+                disabled={currentPage <= 0}
+                onClick={() => setPage(currentPage - 1)}
+              >
+                {t("common.previous")}
+              </button>
+              <span dir="auto">
+                {t("setList.page", {
+                  page: pages ? currentPage + 1 : 0,
+                  pages,
+                })}
+              </span>
+              <button
+                type="button"
+                disabled={currentPage >= pages - 1}
+                onClick={() => setPage(currentPage + 1)}
+              >
+                {t("common.next")}
+              </button>
+            </nav>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginTop: 12,
               }}
             >
-              {t("common.clear")}
-            </button>
-            <button type="button" onClick={close}>
-              {t("common.cancel")}
-            </button>
-            <button
-              type="button"
-              disabled={
-                !draft ||
-                !index ||
-                !!result.error ||
-                !!parsed.error ||
-                draft.mode === "unsupported" ||
-                draft.conflict
-              }
-              onClick={apply}
-            >
-              {t("setList.apply")}
-            </button>
-          </div>
-        </dialog>
+              <button type="button" disabled={!index} onClick={reload}>
+                {t("setList.reload")}
+              </button>
+              <button
+                type="button"
+                disabled={!index || !!parsed.error}
+                onClick={clearDraft}
+              >
+                {t("common.clear")}
+              </button>
+              <button type="button" onClick={close}>
+                {t("common.cancel")}
+              </button>
+              <button
+                type="button"
+                disabled={
+                  !draft ||
+                  !index ||
+                  !!result.error ||
+                  !!parsed.error ||
+                  draft.mode === "unsupported" ||
+                  draft.conflict
+                }
+                onClick={apply}
+              >
+                {t("setList.apply")}
+              </button>
+            </div>
+          </dialog>
+        </FilterPopup>
       )}
     </div>
   );

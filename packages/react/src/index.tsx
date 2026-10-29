@@ -25,6 +25,8 @@ export type {
   FormulaEditMode,
 } from "./formula-cell-editor.js";
 export { createColumnSizingController } from "./column-sizing.js";
+export { ColumnConditionFilter } from "./column-condition-filter.js";
+export type { ColumnConditionFilterProps } from "./column-condition-filter.js";
 export type {
   DataGridSizingController,
   ColumnSizingSnapshot,

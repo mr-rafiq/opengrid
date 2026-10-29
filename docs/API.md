@@ -385,3 +385,9 @@ Pointer resizing previews local geometry and commits a changed width once on rel
 ## Column sizing
 
 DataGrid accepts sizingRef for explicit rendered-text sizing, resolved-width snapshots and manual-override reset. Column.flex enables constrained measured-container allocation. See [column sizing](COLUMN_SIZING.md) for exact signatures, reports, budgets and limitations.
+
+## Column condition filters
+
+ScalarFilter contains the scalar operators, including notContains. CompoundFilter joins 1–16 scalar conditions with op and/or; Filter is their union. Advanced AST condition leaves remain ScalarFilter. Core preparation helpers own and validate new groups before client/remote state mutation.
+
+ColumnConditionFilter registers through filterComponents and defaults to four staged conditions (configurable to 16). ColumnFilterProps.getFilter optionally reads the latest authoritative applied filter for conflict fencing. DataGrid supplies it from current model state; DataGridProps.getColumnFilter can override that read for an adapter, and ServerDataGrid uses the provider query. The getter guards popups and does not replace rendered model state. See [typed column conditions](COLUMN_FILTERS.md).

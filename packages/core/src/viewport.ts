@@ -1,4 +1,5 @@
 import type { Filter, Sort } from "./types.js";
+import { prepareColumnFilters } from "./column-filter-model.js";
 
 export interface ViewportRow<T> {
   index: number;
@@ -100,7 +101,11 @@ export class LiveViewportRowModel<T> {
     if (this.disposed) throw new Error("Viewport model is disposed");
   }
   private normalizeQuery(query: ViewportQuery) {
-    const next = structuredClone(query);
+    const next = structuredClone({
+      ...query,
+      filters: prepareColumnFilters(query.filters),
+    });
+    next.filters = prepareColumnFilters(next.filters);
     if (
       !Array.isArray(next.sorting) ||
       next.sorting.some(

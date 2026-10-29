@@ -16,6 +16,18 @@ export * from "./calculated-grid.js";
 export * from "./set-filter-index.js";
 export * from "./formula-grid.js";
 export * from "./column-widths.js";
+export {
+  COLUMN_FILTER_LIMITS,
+  ColumnFilterValidationError,
+  prepareColumnFilter,
+  prepareColumnFilters,
+  prepareCompoundFilter,
+} from "./column-filter-model.js";
+export type { ColumnFilterErrorCode } from "./column-filter-model.js";
+import {
+  ColumnFilterValidationError,
+  prepareColumnFilter,
+} from "./column-filter-model.js";
 import {
   clampColumnWidth,
   getColumnWidthConstraints,
@@ -221,20 +233,23 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         )
         .map((sort) => ({ ...sort })),
       filters: Object.fromEntries(
-        Object.entries(next.filters)
+        Object.keys(next.filters)
           .filter(
-            ([id]) =>
-              byColumn.has(id) && requireColumn(id).filterable !== false,
+            (id) => byColumn.has(id) && requireColumn(id).filterable !== false,
           )
-          .map(([id, filter]) => [
-            id,
-            {
-              ...filter,
-              value: Array.isArray(filter.value)
-                ? [...filter.value]
-                : filter.value,
-            },
-          ]),
+          .map((id) => {
+            const descriptor = Object.getOwnPropertyDescriptor(
+              next.filters,
+              id,
+            )!;
+            if (!("value" in descriptor))
+              throw new ColumnFilterValidationError(
+                "SHAPE",
+                `filters[${JSON.stringify(id)}]`,
+                "Filter accessors are not supported",
+              );
+            return [id, prepareColumnFilter(descriptor.value)];
+          }),
       ),
       selected: [...new Set(next.selected.filter((id) => ids.has(id)))],
       columnOrder: order,

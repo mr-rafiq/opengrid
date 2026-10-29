@@ -91,6 +91,7 @@ export const enMessages = Object.freeze({
   "move.externalFilter": "Clear the external filter before reordering rows",
   "filter.all": "All",
   "filter.contains": "Contains",
+  "filter.notContains": "Does not contain",
   "filter.equals": "Equals",
   "filter.notEqual": "Does not equal",
   "filter.startsWith": "Starts with",
@@ -464,6 +465,47 @@ export const enMessages = Object.freeze({
   "setList.typeBoolean": "Boolean",
   "setList.typeText": "Text",
   "setList.typeDate": "Date",
+  "conditionFilter.title": (params, _format) =>
+    `Conditions for ${params.column}`,
+  "conditionFilter.help":
+    "Set one or more conditions for this column. Changes apply together when you choose Apply.",
+  "conditionFilter.logic": "Match conditions",
+  "rangeFilter.compound":
+    "This column has grouped conditions. Clear them before entering a range.",
+  "conditionFilter.and": "All conditions (AND)",
+  "conditionFilter.or": "Any condition (OR)",
+  "conditionFilter.condition": (params, format) =>
+    `Condition ${format.number(params.index)}`,
+  "conditionFilter.operator": (params, format) =>
+    `Operator for condition ${format.number(params.index)}`,
+  "conditionFilter.value": (params, format) =>
+    `Value for condition ${format.number(params.index)}`,
+  "conditionFilter.upper": (params, format) =>
+    `Upper value for condition ${format.number(params.index)}`,
+  "conditionFilter.calendar": (params, format) =>
+    `Choose UTC date for condition ${format.number(params.index)}`,
+  "conditionFilter.dateHelp":
+    "Calendar choices use midnight UTC. ISO timestamps preserve their time and offset. Comparisons use instants.",
+  "conditionFilter.membershipHelp":
+    "Enter a JSON array of values. Quote large integers for BigInt columns; null selects blank values.",
+  "conditionFilter.add": "Add condition",
+  "conditionFilter.remove": (params, format) =>
+    `Remove condition ${format.number(params.index)}`,
+  "conditionFilter.apply": "Apply conditions",
+  "conditionFilter.reload": "Reload current filter",
+  "conditionFilter.replace": "Replace with new conditions",
+  "conditionFilter.conflict":
+    "The column filter changed. Reload it or replace it explicitly before applying your draft.",
+  "conditionFilter.unsupported":
+    "This filter cannot be edited here. Keep it, reload it, or choose Replace or Clear explicitly.",
+  "conditionFilter.invalid":
+    "Enter a supported operator and valid values for each condition.",
+  "conditionFilter.limit":
+    "Conditions are limited to 16 rows, 10,000 list values and 256,000 operand characters.",
+  "conditionFilter.membership":
+    "Enter a JSON array of primitive values. Large BigInt values must be quoted integers.",
+  "conditionFilter.required": "Enter a value for this condition.",
+  "conditionFilter.failed": "Unable to apply these conditions.",
   "formula.mode": "Cell input mode",
   "formula.literal": "Literal",
   "formula.formula": "Formula",

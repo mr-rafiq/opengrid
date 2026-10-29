@@ -8,7 +8,7 @@ import {
 } from "./index";
 import type {
   Column,
-  Filter,
+  ScalarFilter,
   FilterExpression,
   GridOptions,
   GridState,
@@ -82,7 +82,10 @@ const columns: Column<Row>[] = [
   { id: "enabled", field: "enabled", type: "boolean" },
   { id: "locked", valueGetter: (row) => row.name, filterable: false },
 ];
-const condition = (columnId: string, filter: Filter): FilterExpression => ({
+const condition = (
+  columnId: string,
+  filter: ScalarFilter,
+): FilterExpression => ({
   kind: "condition",
   columnId,
   filter,
@@ -154,7 +157,7 @@ describe("boolean filter pipeline", () => {
     expect(ids(model)).toEqual(["a", "c"]);
   });
   it("uses identical condition semantics to matchesFilter for every operator", () => {
-    const cases: [string, Filter][] = [
+    const cases: [string, ScalarFilter][] = [
       ["name", { op: "contains", value: "a" }],
       ["name", { op: "startsWith", value: "a" }],
       ["name", { op: "endsWith", value: "e" }],

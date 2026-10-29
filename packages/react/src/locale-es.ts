@@ -94,6 +94,7 @@ export const esMessages = Object.freeze({
   "move.externalFilter": "Quite el filtro externo antes de reorganizar filas",
   "filter.all": "Todos",
   "filter.contains": "Contiene",
+  "filter.notContains": "No contiene",
   "filter.equals": "Es igual a",
   "filter.notEqual": "No es igual a",
   "filter.startsWith": "Empieza por",
@@ -490,6 +491,47 @@ export const esMessages = Object.freeze({
   "setList.typeBoolean": "Booleano",
   "setList.typeText": "Texto",
   "setList.typeDate": "Fecha",
+  "conditionFilter.title": (params, _format) =>
+    `Condiciones para ${params.column}`,
+  "conditionFilter.help":
+    "Defina una o varias condiciones para esta columna. Los cambios se aplican juntos al elegir Aplicar.",
+  "conditionFilter.logic": "Combinar condiciones",
+  "rangeFilter.compound":
+    "Esta columna tiene condiciones agrupadas. Límpielas antes de introducir un intervalo.",
+  "conditionFilter.and": "Todas las condiciones (Y)",
+  "conditionFilter.or": "Cualquier condición (O)",
+  "conditionFilter.condition": (params, format) =>
+    `Condición ${format.number(params.index)}`,
+  "conditionFilter.operator": (params, format) =>
+    `Operador de la condición ${format.number(params.index)}`,
+  "conditionFilter.value": (params, format) =>
+    `Valor de la condición ${format.number(params.index)}`,
+  "conditionFilter.upper": (params, format) =>
+    `Valor superior de la condición ${format.number(params.index)}`,
+  "conditionFilter.calendar": (params, format) =>
+    `Elegir fecha UTC para la condición ${format.number(params.index)}`,
+  "conditionFilter.dateHelp":
+    "El calendario elige la medianoche UTC. Las marcas de tiempo ISO conservan su hora y desplazamiento. Se comparan instantes.",
+  "conditionFilter.membershipHelp":
+    "Introduzca una matriz JSON de valores. Escriba los enteros grandes de BigInt entre comillas; null selecciona valores en blanco.",
+  "conditionFilter.add": "Añadir condición",
+  "conditionFilter.remove": (params, format) =>
+    `Quitar condición ${format.number(params.index)}`,
+  "conditionFilter.apply": "Aplicar condiciones",
+  "conditionFilter.reload": "Recargar filtro actual",
+  "conditionFilter.replace": "Reemplazar con condiciones nuevas",
+  "conditionFilter.conflict":
+    "El filtro de columna cambió. Recárguelo o reemplácelo explícitamente antes de aplicar el borrador.",
+  "conditionFilter.unsupported":
+    "Este filtro no se puede editar aquí. Consérvelo, recárguelo o elija Reemplazar o Limpiar explícitamente.",
+  "conditionFilter.invalid":
+    "Introduzca un operador admitido y valores válidos para cada condición.",
+  "conditionFilter.limit":
+    "Las condiciones se limitan a 16 filas, 10.000 valores de lista y 256.000 caracteres de operandos.",
+  "conditionFilter.membership":
+    "Introduzca una matriz JSON de valores primitivos. Los valores BigInt grandes deben ser enteros entre comillas.",
+  "conditionFilter.required": "Introduzca un valor para esta condición.",
+  "conditionFilter.failed": "No se pudieron aplicar estas condiciones.",
   "formula.mode": "Modo de entrada de la celda",
   "formula.literal": "Literal",
   "formula.formula": "Fórmula",

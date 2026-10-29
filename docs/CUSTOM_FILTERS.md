@@ -4,7 +4,9 @@
 React component types, not renderer callbacks that are called as ordinary
 functions. Registry and persisted filter lookups use own properties, including
 for IDs such as `__proto__` and `constructor`. Nonfilterable columns do not mount
-a filter control. Columns without an own registry entry retain the native input.
+a filter control. Columns without an own registry entry retain the native input,
+except that externally installed compounds receive the built-in condition editor.
+That editor remains after Clear for the same model so its launcher/focus survives.
 
 Each component receives `ColumnFilterProps<T>`:
 
@@ -13,6 +15,7 @@ interface ColumnFilterProps<T> {
   column: Column<T>;
   model?: GridModel<T>;
   filter?: Filter;
+  getFilter?: () => Filter | undefined;
   label: string;
   onFilterChange: (filter?: Filter) => void;
   onClear: () => void;
@@ -22,6 +25,11 @@ interface ColumnFilterProps<T> {
 The grid binds the callbacks to that component's column and current model.
 It also supplies the optional resident `model` for data-dependent controls such
 as the [staged set-list filter](SET_FILTERS.md).
+The optional `getFilter` callback is a fresh authoritative read for staged editors;
+DataGrid supplies current model state, and remote adapters can override the read
+through `getColumnFilter`. Use it before publishing a long-lived draft rather than
+assuming a controlled mirror has caught up. Getter failures should preserve the
+draft without calling setters. See [typed conditions](COLUMN_FILTERS.md).
 Updates use `model.setFilter`, which resets pagination, and reset the vertical
 scroll position. Keep the component type stable between renders. Components
 mount and update through React and may use hooks with normal cleanup; changing
@@ -35,6 +43,10 @@ Custom components own their validation and their accessible control labels.
 Treat `filter` as controlled state and call `onFilterChange(undefined)` or
 `onClear()` to remove it. Do not mutate the filter object or use component-local
 state as an alternative source of truth for applied filtering.
+Scalar-only controls must explicitly preserve unsupported compound models until
+the user replaces or clears them; the built-in range control disables its bounds
+for compounds until Clear. Flat condition groups are distinct from independent
+MultiFilter instances.
 
 ## Inclusive range control
 
