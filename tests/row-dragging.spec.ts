@@ -84,6 +84,15 @@ test("native body-edge auto-scroll stops outside the grid and cancelled dragging
 }) => {
   const grid = page.getByRole("grid", { name: "Portfolio holdings" });
   await grid.scrollIntoViewIfNeeded();
+  // Keep the grid edge away from the browser edge: otherwise native document
+  // auto-scroll can compete with the grid's own drag-scroll loop on Linux.
+  await grid.evaluate((element) =>
+    element.scrollIntoView({
+      block: "center",
+      inline: "nearest",
+      behavior: "instant",
+    }),
+  );
   const source = (await grid
       .getByRole("button", { name: "Drag row 1", exact: true })
       .boundingBox())!,
@@ -91,6 +100,8 @@ test("native body-edge auto-scroll stops outside the grid and cancelled dragging
     height = await grid.evaluate((element) => element.clientHeight),
     x = bounds.x + 360,
     y = bounds.y + height - 10;
+  expect(await grid.evaluate((element) => element.scrollTop)).toBe(0);
+  expect(y).toBeLessThan(page.viewportSize()!.height - 30);
   await page.mouse.move(
     source.x + source.width / 2,
     source.y + source.height / 2,
@@ -101,11 +112,15 @@ test("native body-edge auto-scroll stops outside the grid and cancelled dragging
     source.y + source.height / 2 + 10,
     { steps: 3 },
   );
+  await expect(grid.locator('[data-row-dragging="true"]')).toHaveCount(1);
   await page.mouse.move(x, y, { steps: 10 });
+  // Native dragover is not guaranteed after a single move on every platform.
+  await page.mouse.move(x, y);
   await expect
     .poll(() => grid.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
   await page.mouse.move(1, 1, { steps: 5 });
+  await page.mouse.move(1, 1);
   await page.waitForTimeout(100);
   const stopped = await grid.evaluate((element) => element.scrollTop);
   await page.waitForTimeout(250);

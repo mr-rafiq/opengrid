@@ -1,5 +1,13 @@
 # Verification record
 
+## Native drag entry and CI portability follow-up
+
+The first touch checkpoint, `0c1ac399bb9cb3400435ee85284ae27f74f96e2f`, passed its local checks but failed the existing native row auto-scroll scenario on both Linux workflows. All five new native-touch scenarios passed there. Trace review located the drag target within ten pixels of the browser's lower edge. The scenario now centers the grid away from that edge and repeats the target and outside mouse movements to reliably deliver native `dragover`, following [Playwright's manual-drag guidance](https://playwright.dev/docs/input#dragging-manually). Its original positive-scroll, outside-stop, cancellation, unchanged-row-order and accessibility assertions remain in place.
+
+The grid also stops a managed row's pending auto-scroll on an outside `dragenter`, rather than continuing to use its last in-grid point while awaiting another `dragover`. Internal row transitions do not cancel scrolling, and re-entering resumes it. Focused verification passed 24 row-drag component cases and all nine repeated browser scenarios (three cases, three repetitions; 30.7 seconds), including re-entry and no-write cancellation. Strict typing, **1,075 tests in 59 files** (106.19 seconds), all package/declaration builds and the production demo passed with one worker.
+
+The complete Chromium regression suite then passed **58 scenarios with one worker in 2.2 minutes**, including all five native-touch flows and the original row auto-scroll/cancellation scenario. The production Pages build generated **40 documentation routes**, and all **nine site scenarios passed in 10.7 seconds** with one worker.
+
 ## Native touch input and captured gestures
 
 `npm run check` passed strict TypeScript, **1,074 tests in 59 files** (106.05 seconds), all three ESM/declaration package builds and the production demo, including 60 new touch grid/range/resize cases. The locale catalogs now contain 347 original English/Spanish UI keys. Coverage includes completed-tap selection, guarded double-tap and Edit cell actions, native-pan preservation, existing-anchor extension, pointer ownership, foreign contacts, capture failure/loss, stale view/model changes, blur recovery, unmount, copy/series fill, atomic undo and local-only resize previews. Built ESM/server-render checks passed for RTL geometry, view-ordered range/Find, 347 locale keys, Spanish UI and literal escaping.

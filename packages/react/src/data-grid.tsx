@@ -983,13 +983,20 @@ export function DataGrid<T>({
       )
         setRowDropTarget(null);
     };
+    // An outside entry may arrive before the next dragover. Stop using the
+    // previous in-grid point without cancelling the drag, so re-entry can resume.
+    const enter = (event: globalThis.DragEvent) => {
+      if (managedDrag.current && !ownedDragTarget(event.target)) track(event);
+    };
     window.addEventListener("blur", cancel);
     window.addEventListener("keydown", escape);
     window.addEventListener("dragover", track, true);
+    window.addEventListener("dragenter", enter, true);
     return () => {
       window.removeEventListener("blur", cancel);
       window.removeEventListener("keydown", escape);
       window.removeEventListener("dragover", track, true);
+      window.removeEventListener("dragenter", enter, true);
     };
   }, []);
   useEffect(() => {

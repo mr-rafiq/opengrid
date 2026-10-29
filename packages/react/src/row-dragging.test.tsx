@@ -466,32 +466,41 @@ describe("eligibility and ownership", () => {
     act(() => grid.undo());
     expect(grid.undo()).toBe(false);
   });
-  it("auto-scrolls only near owned body edges and cancels its animation frame on cleanup", () => {
-    const frames: FrameRequestCallback[] = [];
-    const cancel = vi
-      .spyOn(window, "cancelAnimationFrame")
-      .mockImplementation(() => {});
-    vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-      frames.push(callback);
-      return frames.length;
-    });
-    const grid = model();
-    const view = render(<DataGrid model={grid} rowDragging height={200} />);
-    const viewport = screen.getByRole("grid");
-    bounds(viewport, 0, 200);
-    Object.defineProperty(viewport, "clientHeight", {
-      value: 200,
-      configurable: true,
-    });
-    const gesture = drag("a", "d");
-    dispatchDrag(gesture.targetRow, "dragover", gesture.data, 195);
-    act(() => frames.shift()!(0));
-    expect(viewport.scrollTop).toBe(16);
-    dispatchDrag(document.body, "dragover", gesture.data, 195);
-    act(() => frames.shift()!(1));
-    expect(viewport.scrollTop).toBe(16);
-    expect(document.querySelector(".og-row-drop-indicator")).toBeNull();
-    view.unmount();
-    expect(cancel).toHaveBeenCalled();
-  });
+  it.each(["dragover", "dragenter"])(
+    "auto-scrolls only near owned body edges, stops on outside %s and resumes on re-entry",
+    (exitEvent) => {
+      const frames: FrameRequestCallback[] = [];
+      const cancel = vi
+        .spyOn(window, "cancelAnimationFrame")
+        .mockImplementation(() => {});
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation(
+        (callback) => {
+          frames.push(callback);
+          return frames.length;
+        },
+      );
+      const grid = model();
+      const view = render(<DataGrid model={grid} rowDragging height={200} />);
+      const viewport = screen.getByRole("grid");
+      bounds(viewport, 0, 200);
+      Object.defineProperty(viewport, "clientHeight", {
+        value: 200,
+        configurable: true,
+      });
+      const gesture = drag("a", "d");
+      dispatchDrag(gesture.targetRow, "dragover", gesture.data, 195);
+      act(() => frames.shift()!(0));
+      expect(viewport.scrollTop).toBe(16);
+      dispatchDrag(document.body, exitEvent, gesture.data, 195);
+      act(() => frames.shift()!(1));
+      expect(viewport.scrollTop).toBe(16);
+      expect(document.querySelector(".og-row-drop-indicator")).toBeNull();
+      dispatchDrag(gesture.targetRow, "dragover", gesture.data, 195);
+      act(() => frames.shift()!(2));
+      expect(viewport.scrollTop).toBe(32);
+      expect(grid.undo()).toBe(false);
+      view.unmount();
+      expect(cancel).toHaveBeenCalled();
+    },
+  );
 });
