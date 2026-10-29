@@ -14,6 +14,8 @@ export * from "./value-transforms.js";
 export * from "./aligned-columns.js";
 export * from "./calculated-grid.js";
 import { aggregateValues } from "./analytics.js";
+export { getBuiltinRowReorderReason } from "./row-reorder-status.js";
+import { createBuiltinRowReorderStatus } from "./row-reorder-status.js";
 import { planRowMove, replayRowMove } from "./row-order.js";
 import type { RowMoveDelta } from "./row-order.js";
 import {
@@ -658,39 +660,34 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   }
   function getRowReorderStatus(): RowReorderStatus {
     if (options.getTreePath)
-      return Object.freeze({
-        allowed: false,
-        reason: "tree-data",
-        message: "Row reordering is unavailable for tree data",
-      });
+      return createBuiltinRowReorderStatus(
+        "tree-data",
+        "Row reordering is unavailable for tree data",
+      );
     if (state.groupBy.length)
-      return Object.freeze({
-        allowed: false,
-        reason: "grouping",
-        message: "Clear grouping before reordering rows",
-      });
+      return createBuiltinRowReorderStatus(
+        "grouping",
+        "Clear grouping before reordering rows",
+      );
     if (state.sorting.length)
-      return Object.freeze({
-        allowed: false,
-        reason: "sorting",
-        message: "Clear sorting before reordering rows",
-      });
+      return createBuiltinRowReorderStatus(
+        "sorting",
+        "Clear sorting before reordering rows",
+      );
     if (
       Object.keys(state.filters).length ||
       String(state.quickFilter).trim() ||
       state.advancedFilter != null
     )
-      return Object.freeze({
-        allowed: false,
-        reason: "filtering",
-        message: "Clear filters before reordering rows",
-      });
+      return createBuiltinRowReorderStatus(
+        "filtering",
+        "Clear filters before reordering rows",
+      );
     if (externalFilter)
-      return Object.freeze({
-        allowed: false,
-        reason: "external-filter",
-        message: "Clear the external filter before reordering rows",
-      });
+      return createBuiltinRowReorderStatus(
+        "external-filter",
+        "Clear the external filter before reordering rows",
+      );
     return Object.freeze({ allowed: true });
   }
   state = freezeSnapshot(state);

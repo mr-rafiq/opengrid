@@ -7,6 +7,8 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { CellRange, Column, GridModel } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export type GridChartType = "bar" | "line" | "scatter";
 export type GridChartAggregation = "sum" | "avg";
@@ -50,10 +52,6 @@ const finiteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 const pointLimit = (value = 500) =>
   Number.isFinite(value) ? Math.max(1, Math.min(5000, Math.floor(value))) : 500;
-const displayNumber = (value: number) =>
-  Math.abs(value) >= 1e9 || (value !== 0 && Math.abs(value) < 0.001)
-    ? value.toExponential(3)
-    : value.toLocaleString("en-US", { maximumFractionDigits: 4 });
 const colorPalette = [
   "#0b7768",
   "#3159b5",
@@ -235,9 +233,30 @@ export function GridChart<T>({
   type = "bar",
   aggregation = "sum",
   height = 320,
-  ariaLabel = "Grid chart",
+  ariaLabel,
   maxPoints = 500,
 }: GridChartProps<T>) {
+  const locale = useGridLocale();
+  const chartLabel = ariaLabel ?? locale.t("chart.label");
+  const exactNumber = useMemo(
+    () =>
+      new Intl.NumberFormat(locale.locale, {
+        useGrouping: false,
+        maximumSignificantDigits: 21,
+      }),
+    [locale.locale],
+  );
+  const displayNumber = (value: number) =>
+    locale.number(
+      value,
+      Math.abs(value) >= 1e9 || (value !== 0 && Math.abs(value) < 0.001)
+        ? {
+            notation: "scientific",
+            minimumFractionDigits: 3,
+            maximumFractionDigits: 3,
+          }
+        : { maximumFractionDigits: 4 },
+    );
   const snapshot = useSyncExternalStore(
     model.subscribe,
     model.getState,
@@ -247,7 +266,7 @@ export function GridChart<T>({
     [xId, setXId] = useState(xColumnId ?? ""),
     [yIds, setYIds] = useState<string[] | undefined>(yColumnIds),
     [operation, setOperation] = useState(aggregation);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<GridMessage | undefined>();
   const svg = useRef<SVGSVGElement>(null),
     titleId = useId(),
     descriptionId = useId();
@@ -296,6 +315,13 @@ export function GridChart<T>({
   const safeHeight = Number.isFinite(height)
     ? Math.max(180, Math.min(1200, height))
     : 320;
+  const xLabel = resolvedX ? data.xLabel : locale.t("chart.category");
+  const pointLabel = (point: GridChartPoint) =>
+    point.key === "blank"
+      ? locale.t("chart.blank")
+      : (data.numericX || point.key.startsWith("number:")) && point.x !== null
+        ? exactNumber.format(point.x)
+        : point.label;
   const width = 800,
     left = 68,
     right = 22,
@@ -369,9 +395,9 @@ export function GridChart<T>({
       link.download = "opengrid-chart.svg";
       link.click();
       URL.revokeObjectURL(url);
-      setMessage("Chart SVG exported");
+      setMessage(gridMessage("chart.exported"));
     } catch {
-      setMessage("Chart export is unavailable in this browser");
+      setMessage(gridMessage("chart.unavailable"));
     }
   }
   const styles = {
@@ -388,7 +414,8 @@ export function GridChart<T>({
   return (
     <section
       className="og-chart"
-      aria-label={ariaLabel}
+      aria-label={chartLabel}
+      lang={locale.locale}
       style={{
         border: "1px solid #cbd5df",
         borderRadius: 8,
@@ -400,7 +427,7 @@ export function GridChart<T>({
     >
       <div
         role="group"
-        aria-label="Chart configuration"
+        aria-label={locale.t("chart.config")}
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -410,29 +437,31 @@ export function GridChart<T>({
         }}
       >
         <label style={styles.label}>
-          Chart type{" "}
+          {locale.t("chart.type")}{" "}
           <select
-            aria-label="Chart type"
+            aria-label={locale.t("chart.type")}
             style={styles.control}
             value={chartType}
             onChange={(event) =>
               setChartType(event.target.value as GridChartType)
             }
           >
-            <option value="bar">Bar</option>
-            <option value="line">Line</option>
-            <option value="scatter">Scatter</option>
+            <option value="bar">{locale.t("chart.bar")}</option>
+            <option value="line">{locale.t("chart.line")}</option>
+            <option value="scatter">{locale.t("chart.scatter")}</option>
           </select>
         </label>
         <label style={styles.label}>
-          X column{" "}
+          {locale.t("chart.xColumnLabel")}{" "}
           <select
-            aria-label="Chart X column"
+            aria-label={locale.t("chart.xColumn")}
             style={styles.control}
             value={resolvedX}
             onChange={(event) => setXId(event.target.value)}
           >
-            {!columns.length && <option value="">No columns</option>}
+            {!columns.length && (
+              <option value="">{locale.t("chart.noColumns")}</option>
+            )}
             {columns.map((column) => (
               <option key={column.id} value={column.id}>
                 {column.header ?? column.id}
@@ -441,9 +470,9 @@ export function GridChart<T>({
           </select>
         </label>
         <label style={styles.label}>
-          Aggregate{" "}
+          {locale.t("chart.aggregateLabel")}{" "}
           <select
-            aria-label="Chart aggregation"
+            aria-label={locale.t("chart.aggregation")}
             style={styles.control}
             value={operation}
             onChange={(event) =>
@@ -451,12 +480,14 @@ export function GridChart<T>({
             }
             disabled={chartType === "scatter"}
           >
-            <option value="sum">Sum</option>
-            <option value="avg">Average</option>
+            <option value="sum">{locale.t("chart.sum")}</option>
+            <option value="avg">{locale.t("chart.average")}</option>
           </select>
         </label>
         <details>
-          <summary>Y series ({data.series.length}/8)</summary>
+          <summary>
+            {locale.t("chart.ySeries", { count: data.series.length, limit: 8 })}
+          </summary>
           <fieldset
             style={{
               display: "flex",
@@ -466,14 +497,16 @@ export function GridChart<T>({
               padding: 10,
             }}
           >
-            <legend>Numeric series</legend>
+            <legend>{locale.t("chart.series")}</legend>
             {columns
               .filter((column) => column.id !== resolvedX)
               .map((column) => (
                 <label key={column.id} style={styles.label}>
                   <input
                     type="checkbox"
-                    aria-label={`Chart series ${column.header ?? column.id}`}
+                    aria-label={locale.t("chart.seriesLabel", {
+                      column: column.header ?? column.id,
+                    })}
                     checked={resolvedYs.includes(column.id)}
                     disabled={
                       !resolvedYs.includes(column.id) && resolvedYs.length >= 8
@@ -496,18 +529,29 @@ export function GridChart<T>({
           style={{ ...styles.control, cursor: "pointer" }}
           onClick={exportSvg}
         >
-          Export chart SVG
+          {locale.t("chart.export")}
         </button>
       </div>
       <p style={{ margin: "0 0 8px", color: "#4e6175" }}>
         {data.invalidRange
-          ? "The selected range is no longer visible."
-          : `${data.sourceRowCount.toLocaleString("en-US")} source rows. Showing ${data.points.length.toLocaleString("en-US")} of ${data.totalPoints.toLocaleString("en-US")} ${chartType === "scatter" ? "row points" : "categories"}.`}
-        {data.sampled &&
-          " Uniform sampling is active; intermediate extrema may be omitted."}{" "}
+          ? locale.t("chart.rangeGone")
+          : locale.t("chart.sourceSummary", {
+              count: data.sourceRowCount,
+              shown: data.points.length,
+              total: data.totalPoints,
+              kind:
+                chartType === "scatter"
+                  ? locale.t("chart.rowPoints", { count: data.totalPoints })
+                  : locale.t("chart.categories", { count: data.totalPoints }),
+            })}
+        {data.sampled && ` ${locale.t("chart.sampling")}`}{" "}
         {chartType === "scatter"
-          ? "Scatter uses numeric X values."
-          : `Repeated X values use ${operation === "avg" ? "average" : "sum"}.`}
+          ? locale.t("chart.scatterHelp")
+          : locale.t("chart.repeatHelp", {
+              operation: locale
+                .t(operation === "avg" ? "chart.average" : "chart.sum")
+                .toLocaleLowerCase(locale.locale),
+            })}
       </p>
       <svg
         ref={svg}
@@ -518,10 +562,23 @@ export function GridChart<T>({
         viewBox={`0 0 ${width} ${safeHeight}`}
         style={{ display: "block", maxHeight: safeHeight }}
       >
-        <title id={titleId}>{ariaLabel}</title>
-        <desc
-          id={descriptionId}
-        >{`${chartType} chart of ${data.series.map((series) => series.label).join(", ") || "no numeric series"} by ${data.xLabel}. ${data.points.length} displayed points. Exact displayed values follow in a data table.`}</desc>
+        <title id={titleId}>{chartLabel}</title>
+        <desc id={descriptionId}>
+          {locale.t("chart.description", {
+            type: locale.t(
+              chartType === "bar"
+                ? "chart.typeBar"
+                : chartType === "line"
+                  ? "chart.typeLine"
+                  : "chart.typeScatter",
+            ),
+            series:
+              data.series.map((series) => series.label).join(", ") ||
+              locale.t("chart.noSeries"),
+            x: xLabel,
+            count: data.points.length,
+          })}
+        </desc>
         {Array.from({ length: 5 }, (_, index) => {
           const fraction = index / 4,
             value = minimum * (1 - fraction) + maximum * fraction,
@@ -589,7 +646,7 @@ export function GridChart<T>({
                 const value = point.values[series.id];
                 if (value === null || !Number.isFinite(value)) return null;
                 const y = scaledY(value),
-                  title = `${point.label}; ${series.label}: ${String(value)}`;
+                  title = `${pointLabel(point)}; ${series.label}: ${exactNumber.format(value)}`;
                 return chartType === "scatter" ? (
                   <circle
                     key={point.key}
@@ -639,9 +696,9 @@ export function GridChart<T>({
                 fontSize="10"
                 fill="#475b70"
               >
-                {point.label.length > 15
-                  ? point.label.slice(0, 14) + "…"
-                  : point.label}
+                {pointLabel(point).length > 15
+                  ? pointLabel(point).slice(0, 14) + "…"
+                  : pointLabel(point)}
               </text>
             );
           })}
@@ -652,7 +709,7 @@ export function GridChart<T>({
           fontSize="11"
           fill="#203047"
         >
-          {data.xLabel}
+          {xLabel}
         </text>
         {!finiteValues && (
           <text
@@ -662,12 +719,12 @@ export function GridChart<T>({
             fontSize="14"
             fill="#475b70"
           >
-            No finite numeric values to chart
+            {locale.t("chart.empty")}
           </text>
         )}
       </svg>
       <ul
-        aria-label="Chart legend"
+        aria-label={locale.t("chart.legend")}
         style={{
           display: "flex",
           flexWrap: "wrap",
@@ -694,7 +751,9 @@ export function GridChart<T>({
         ))}
       </ul>
       <details>
-        <summary>Chart data table ({data.points.length} rows)</summary>
+        <summary>
+          {locale.t("chart.dataTable", { count: data.points.length })}
+        </summary>
         <div style={{ maxHeight: 280, overflow: "auto" }}>
           <table
             style={{
@@ -704,12 +763,14 @@ export function GridChart<T>({
             }}
           >
             <caption>
-              Displayed chart values{data.sampled ? " (uniformly sampled)" : ""}
+              {locale.t(
+                data.sampled ? "chart.captionSampled" : "chart.caption",
+              )}
             </caption>
             <thead>
               <tr>
                 <th scope="col" style={{ textAlign: "left" }}>
-                  {data.xLabel}
+                  {xLabel}
                 </th>
                 {data.series.map((series) => (
                   <th key={series.id} scope="col">
@@ -722,13 +783,13 @@ export function GridChart<T>({
               {data.points.map((point) => (
                 <tr key={point.key}>
                   <th scope="row" style={{ textAlign: "left" }}>
-                    {point.label}
+                    {pointLabel(point)}
                   </th>
                   {data.series.map((series) => (
                     <td key={series.id}>
                       {point.values[series.id] === null
                         ? "—"
-                        : String(point.values[series.id]!)}
+                        : exactNumber.format(point.values[series.id]!)}
                     </td>
                   ))}
                 </tr>
@@ -738,7 +799,7 @@ export function GridChart<T>({
         </div>
       </details>
       <span role="status" aria-live="polite">
-        {message}
+        {message === undefined ? "" : locale.resolveMessage(message)}
       </span>
     </section>
   );

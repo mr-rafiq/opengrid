@@ -1,5 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { GridModel, RowNode } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export type GridPrintScope = "filtered" | "view" | "page" | "selected" | "all";
 export interface GridPrintOptions {
@@ -16,6 +18,8 @@ export interface GridPrintRow {
   readonly kind: "row" | "group";
   readonly depth: number;
   readonly cells: readonly string[];
+  readonly groupLabel?: string;
+  readonly leafCount?: number;
 }
 export interface GridPrintSnapshot {
   readonly scope: GridPrintScope;
@@ -43,9 +47,35 @@ const scopeLabels: Record<GridPrintScope, string> = {
   selected: "Selected rows in current filtered results",
   all: "All source rows (input order)",
 };
+const scopeKeys = {
+  filtered: "print.filtered",
+  view: "print.view",
+  page: "print.page",
+  selected: "print.selected",
+  all: "print.all",
+} as const;
+class PrintSnapshotError extends Error {
+  constructor(
+    message: string,
+    readonly descriptor: GridMessage,
+  ) {
+    super(message);
+  }
+}
+class PrintSnapshotRangeError extends RangeError {
+  constructor(
+    message: string,
+    readonly descriptor: GridMessage,
+  ) {
+    super(message);
+  }
+}
 function validateLimit(value: number, name: string, hard: number) {
   if (!Number.isSafeInteger(value) || value < 1 || value > hard)
-    throw new RangeError(`${name} must be an integer from 1 through ${hard}`);
+    throw new PrintSnapshotRangeError(
+      `${name} must be an integer from 1 through ${hard}`,
+      gridMessage("print.invalidLimit", { name, limit: hard }),
+    );
 }
 const printable = (value: unknown) => (value == null ? "" : String(value));
 
@@ -59,7 +89,10 @@ export function buildGridPrintSnapshot<T>(
   }: GridPrintOptions = {},
 ): GridPrintSnapshot {
   if (!Object.hasOwn(scopeLabels, scope))
-    throw new Error("Unknown print scope");
+    throw new PrintSnapshotError(
+      "Unknown print scope",
+      gridMessage("print.invalidScope"),
+    );
   validateLimit(maxRows, "maxRows", 10000);
   validateLimit(maxCells, "maxCells", 1000000);
   const definitions = model.getColumns().filter((column) => !column.hidden);
@@ -91,13 +124,15 @@ export function buildGridPrintSnapshot<T>(
     }));
   }
   if (nodes.length > maxRows)
-    throw new RangeError(
+    throw new PrintSnapshotRangeError(
       `Print scope has ${nodes.length.toLocaleString("en-US")} rows, exceeding maxRows ${maxRows.toLocaleString("en-US")}. Choose a smaller scope or raise the explicit limit.`,
+      gridMessage("print.rowLimit", { count: nodes.length, limit: maxRows }),
     );
   const cellCount = (nodes.length + 1) * columns.length;
   if (cellCount > maxCells)
-    throw new RangeError(
+    throw new PrintSnapshotRangeError(
       `Print scope needs ${cellCount.toLocaleString("en-US")} table cells including headers, exceeding maxCells ${maxCells.toLocaleString("en-US")}.`,
+      gridMessage("print.cellLimit", { count: cellCount, limit: maxCells }),
     );
   const rows = nodes.map((node) => {
     const cells = definitions.map((column, index) => {
@@ -118,6 +153,12 @@ export function buildGridPrintSnapshot<T>(
       kind: node.kind,
       depth: node.depth,
       cells: Object.freeze(cells),
+      ...(node.kind === "group"
+        ? {
+            groupLabel: printable(node.label ?? node.id),
+            leafCount: node.leafCount,
+          }
+        : {}),
     });
   });
   return Object.freeze({
@@ -136,7 +177,7 @@ export function GridPrintView<T>({
   scope = "filtered",
   maxRows = 1000,
   maxCells = 100000,
-  title = "Grid print view",
+  title,
   caption,
   ariaLabel,
   showPrintButton = true,
@@ -145,9 +186,11 @@ export function GridPrintView<T>({
   pageSize = "auto",
   orientation = "portrait",
 }: GridPrintViewProps<T>) {
+  const locale = useGridLocale();
+  const resolvedTitle = title ?? locale.t("print.title");
   const [revision, setRevision] = useState(0),
     [stale, setStale] = useState(false),
-    [message, setMessage] = useState("");
+    [message, setMessage] = useState<GridMessage | undefined>();
   const cleanup = useRef<(() => void) | undefined>(undefined);
   const id = `og-print-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const headingId = `${id}-heading`,
@@ -165,9 +208,12 @@ export function GridPrintView<T>({
         snapshot: undefined,
         version,
         error:
-          error instanceof Error
-            ? error.message
-            : "Unable to build print snapshot",
+          error instanceof PrintSnapshotError ||
+          error instanceof PrintSnapshotRangeError
+            ? error.descriptor
+            : error instanceof Error
+              ? error.message
+              : gridMessage("print.buildFailed"),
       };
     }
   }, [model, scope, maxRows, maxCells, revision]);
@@ -246,27 +292,29 @@ export function GridPrintView<T>({
     window.addEventListener("afterprint", restore);
     try {
       window.print();
-      setMessage(
-        "Print dialog requested. Browser settings control the final output.",
-      );
+      setMessage(gridMessage("print.requested"));
     } catch {
       restore();
-      setMessage("Printing is unavailable in this browser.");
+      setMessage(gridMessage("print.unavailable"));
     }
   }
   return (
-    <section data-og-print-view={id} aria-label={ariaLabel ?? title}>
+    <section
+      data-og-print-view={id}
+      aria-label={ariaLabel ?? resolvedTitle}
+      lang={locale.locale}
+    >
       <style>{style}</style>
-      <h2 id={headingId}>{title}</h2>
+      <h2 id={headingId}>{resolvedTitle}</h2>
       <div className="og-print-controls">
         <button
           type="button"
           onClick={() => {
             setRevision((value) => value + 1);
-            setMessage("Snapshot refreshed.");
+            setMessage(gridMessage("print.refreshed"));
           }}
         >
-          Refresh print snapshot
+          {locale.t("print.refresh")}
         </button>
         {showPrintButton && (
           <button
@@ -274,31 +322,39 @@ export function GridPrintView<T>({
             onClick={print}
             disabled={!snapshot || !snapshot.columns.length}
           >
-            Print snapshot
+            {locale.t("print.print")}
           </button>
         )}
         <span id={statusId} role="status" aria-live="polite">
-          {`${scopeLabels[scope] ?? "Unknown scope"}. ${snapshot?.rowCount.toLocaleString("en-US") ?? 0} rows, ${snapshot?.columns.length.toLocaleString("en-US") ?? 0} columns.`}{" "}
-          {message}{" "}
-          {stale
-            ? "Grid changed; refresh the snapshot before printing."
-            : "Captured snapshot; later changes do not alter its values."}
+          {locale.t("print.summary", {
+            scope: locale.t(scopeKeys[scope] ?? "print.unknown"),
+            rows: snapshot?.rowCount ?? 0,
+            columns: snapshot?.columns.length ?? 0,
+          })}{" "}
+          {message === undefined ? "" : locale.resolveMessage(message)}{" "}
+          {stale ? locale.t("print.stale") : locale.t("print.captured")}
         </span>
       </div>
-      {result.error ? (
-        <p role="alert">Unable to create print snapshot: {result.error}</p>
+      {result.error !== undefined ? (
+        <p role="alert">
+          {locale.t("print.createError", {
+            error: locale.resolveMessage(result.error),
+          })}
+        </p>
       ) : snapshot && !snapshot.columns.length ? (
-        <p role="status">No visible columns to print.</p>
+        <p role="status">{locale.t("print.noColumns")}</p>
       ) : (
         snapshot && (
           <div
             className="og-print-scroll"
             role="region"
-            aria-label={`${title} table scroll area`}
+            aria-label={locale.t("print.tableArea", { title: resolvedTitle })}
             tabIndex={0}
           >
             <table aria-labelledby={headingId} aria-describedby={statusId}>
-              <caption>{caption ?? scopeLabels[snapshot.scope]}</caption>
+              <caption>
+                {caption ?? locale.t(scopeKeys[snapshot.scope])}
+              </caption>
               <thead>
                 <tr>
                   {snapshot.columns.map((column) => (
@@ -319,14 +375,23 @@ export function GridPrintView<T>({
                       data-print-kind={row.kind}
                       data-print-depth={row.depth}
                     >
-                      {row.cells.map((cell, index) =>
-                        index === 0 ? (
+                      {row.cells.map((capturedCell, index) => {
+                        const cell =
+                          row.kind === "group" &&
+                          index === 0 &&
+                          row.groupLabel !== undefined
+                            ? `${row.groupLabel}${row.leafCount === undefined ? "" : ` (${locale.number(row.leafCount)})`}`
+                            : capturedCell;
+                        return index === 0 ? (
                           <th
                             key={snapshot.columns[index].id}
                             scope="row"
                             aria-label={
                               row.depth > 0
-                                ? `Level ${row.depth + 1}: ${cell}`
+                                ? locale.t("print.level", {
+                                    level: row.depth + 1,
+                                    value: cell,
+                                  })
                                 : undefined
                             }
                             style={{ paddingInlineStart: 8 + row.depth * 16 }}
@@ -335,14 +400,14 @@ export function GridPrintView<T>({
                           </th>
                         ) : (
                           <td key={snapshot.columns[index].id}>{cell}</td>
-                        ),
-                      )}
+                        );
+                      })}
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td colSpan={snapshot.columns.length}>
-                      No rows in this print scope.
+                      {locale.t("print.empty")}
                     </td>
                   </tr>
                 )}

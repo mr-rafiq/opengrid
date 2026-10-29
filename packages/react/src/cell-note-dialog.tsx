@@ -1,5 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { CellNotesStore, CellPosition } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export interface CellNoteDialogProps {
   store: CellNotesStore;
@@ -10,7 +12,7 @@ export interface CellNoteDialogProps {
 interface InitialNote {
   draft: string;
   existing: boolean;
-  error: string;
+  error: GridMessage | string;
 }
 function readNote(store: CellNotesStore, position: CellPosition): InitialNote {
   try {
@@ -21,7 +23,11 @@ function readNote(store: CellNotesStore, position: CellPosition): InitialNote {
       draft: "",
       existing: false,
       error:
-        reason instanceof Error ? reason.message : "Unable to read this note",
+        reason instanceof Error
+          ? reason.message
+          : typeof reason === "string"
+            ? reason
+            : gridMessage("note.readFailed"),
     };
   }
 }
@@ -33,9 +39,11 @@ export function CellNoteDialog({
   columnLabel,
   onClose,
 }: CellNoteDialogProps) {
-  const [{ draft, existing, error }, setNote] = useState<InitialNote>(() =>
-    readNote(store, position),
+  const { t, resolveMessage, locale } = useGridLocale();
+  const [{ draft, existing, error: notice }, setNote] = useState<InitialNote>(
+    () => readNote(store, position),
   );
+  const error = resolveMessage(notice);
   const dialog = useRef<HTMLDialogElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const closeRequested = useRef(false);
@@ -83,7 +91,11 @@ export function CellNoteDialog({
       setNote((current) => ({
         ...current,
         error:
-          reason instanceof Error ? reason.message : "Unable to save this note",
+          reason instanceof Error
+            ? reason.message
+            : typeof reason === "string"
+              ? reason
+              : gridMessage("note.saveFailed"),
       }));
       textarea.current?.focus({ preventScroll: true });
       return;
@@ -94,6 +106,7 @@ export function CellNoteDialog({
     <dialog
       ref={dialog}
       className="og-note-dialog"
+      lang={locale}
       aria-labelledby={titleId}
       aria-describedby={`${contextId}${error ? ` ${errorId}` : ""}`}
       aria-modal="true"
@@ -118,16 +131,19 @@ export function CellNoteDialog({
       }}
     >
       <h3 id={titleId} style={{ marginTop: 0 }}>
-        Cell note
+        {t("note.title")}
       </h3>
       <p id={contextId}>
-        {columnLabel ?? position.columnId} {"\u00b7"} Row {position.rowId}
+        {t("note.context", {
+          column: columnLabel ?? position.columnId,
+          rowId: position.rowId,
+        })}
       </p>
       <label style={{ display: "block", fontWeight: 600 }}>
-        Note text
+        {t("note.text")}
         <textarea
           ref={textarea}
-          aria-label="Note text"
+          aria-label={t("note.text")}
           aria-describedby={`${helpId}${error ? ` ${errorId}` : ""}`}
           aria-invalid={error ? true : undefined}
           rows={8}
@@ -154,9 +170,10 @@ export function CellNoteDialog({
         />
       </label>
       <p id={helpId} style={{ fontSize: 12 }}>
-        Notes are plain text. Empty notes are removed.{" "}
-        {draft.length.toLocaleString()} / {store.maxTextLength.toLocaleString()}{" "}
-        characters.
+        {t("note.help", {
+          current: draft.length,
+          maximum: store.maxTextLength,
+        })}
       </p>
       {error && (
         <p id={errorId} role="alert">
@@ -173,14 +190,14 @@ export function CellNoteDialog({
       >
         {existing && (
           <button type="button" onClick={() => save(true)}>
-            Delete note
+            {t("note.delete")}
           </button>
         )}
         <button type="button" onClick={requestClose}>
-          Cancel
+          {t("common.cancel")}
         </button>
         <button type="button" onClick={() => save()}>
-          Save note
+          {t("note.save")}
         </button>
       </div>
     </dialog>

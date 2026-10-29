@@ -1,3 +1,4 @@
+import { gridMessage, type GridMessage } from "./locale.js";
 import {
   useLayoutEffect,
   useMemo,
@@ -45,7 +46,7 @@ export function useCellRanges<T>({
   enabled: boolean;
   viewport: RefObject<HTMLDivElement | null>;
   getFocusedCell: () => CellPosition | undefined;
-  onMessage: (message: string, error?: boolean) => void;
+  onMessage: (message: GridMessage | string, error?: boolean) => void;
   headerHeight?: number;
   pinnedTopHeight?: number;
   pinnedBottomHeight?: number;
@@ -207,8 +208,7 @@ export function useCellRanges<T>({
         if (error) {
           controller!.setRange(current.source.anchor, current.source.focus);
           message.current(error, true);
-        } else
-          message.current("Range filled. Undo restores the previous values.");
+        } else message.current(gridMessage("range.filled"));
       }
     }
     function cancel() {
@@ -272,11 +272,13 @@ export function useCellRanges<T>({
       const value = controller!.copy();
       event.clipboardData.setData("text/plain", value);
       event.preventDefault();
-      message.current("Selected cells copied.");
+      message.current(gridMessage("range.copied"));
     } catch (error) {
       event.preventDefault();
       message.current(
-        error instanceof Error ? error.message : "Unable to copy cells",
+        error instanceof Error
+          ? error.message
+          : gridMessage("range.copyFailed"),
         true,
       );
     }
@@ -292,18 +294,12 @@ export function useCellRanges<T>({
     if (interactive(event.target) || !ensureRange()) return;
     event.preventDefault();
     const error = controller!.paste(event.clipboardData.getData("text/plain"));
-    message.current(
-      error ?? "Cells pasted. Undo restores the previous values.",
-      Boolean(error),
-    );
+    message.current(error ?? gridMessage("range.pasted"), Boolean(error));
   }
   function fill(direction: "down" | "right") {
     if (!ensureRange()) return;
     const error = controller!.fill(direction);
-    message.current(
-      error ?? "Range filled. Undo restores the previous values.",
-      Boolean(error),
-    );
+    message.current(error ?? gridMessage("range.filled"), Boolean(error));
   }
   function fillHandle(event: ReactPointerEvent<HTMLElement>) {
     if (!controller || event.button !== 0) return;
@@ -340,15 +336,17 @@ export function useCellRanges<T>({
   async function copyToClipboard() {
     if (!ensureRange()) return;
     try {
-      if (!navigator.clipboard?.writeText)
-        throw new Error(
-          "Clipboard access is unavailable. Use the copy keyboard shortcut.",
-        );
+      if (!navigator.clipboard?.writeText) {
+        message.current(gridMessage("range.copyUnavailable"), true);
+        return;
+      }
       await navigator.clipboard.writeText(controller!.copy());
-      message.current("Selected cells copied.");
+      message.current(gridMessage("range.copied"));
     } catch (error) {
       message.current(
-        error instanceof Error ? error.message : "Clipboard write failed",
+        error instanceof Error
+          ? error.message
+          : gridMessage("range.writeFailed"),
         true,
       );
     }
@@ -356,18 +354,17 @@ export function useCellRanges<T>({
   async function pasteFromClipboard() {
     if (!ensureRange()) return;
     try {
-      if (!navigator.clipboard?.readText)
-        throw new Error(
-          "Clipboard access is unavailable. Use the paste keyboard shortcut.",
-        );
+      if (!navigator.clipboard?.readText) {
+        message.current(gridMessage("range.pasteUnavailable"), true);
+        return;
+      }
       const error = controller!.paste(await navigator.clipboard.readText());
-      message.current(
-        error ?? "Cells pasted. Undo restores the previous values.",
-        Boolean(error),
-      );
+      message.current(error ?? gridMessage("range.pasted"), Boolean(error));
     } catch (error) {
       message.current(
-        error instanceof Error ? error.message : "Clipboard read failed",
+        error instanceof Error
+          ? error.message
+          : gridMessage("range.readFailed"),
         true,
       );
     }

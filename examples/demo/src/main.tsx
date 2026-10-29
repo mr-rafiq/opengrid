@@ -27,6 +27,7 @@ import { HoldingSummary } from "./holding-summary";
 import { CalculatedLab } from "./calculated-lab";
 import { SpanLab } from "./span-lab";
 import { RowSpanLab } from "./row-span-lab";
+import { LocaleLab } from "./locale-lab";
 interface Holding {
   id: string;
   company: string;
@@ -188,6 +189,7 @@ function App() {
   const [calculatedOpen, setCalculatedOpen] = useState(false);
   const [spansOpen, setSpansOpen] = useState(false);
   const [rowSpansOpen, setRowSpansOpen] = useState(false);
+  const [localeOpen, setLocaleOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -724,6 +726,15 @@ function App() {
             Row spans lab
           </button>
           {rowSpansOpen && <RowSpanLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setLocaleOpen(!localeOpen)}
+            aria-expanded={localeOpen}
+          >
+            Localization lab
+          </button>
+          {localeOpen && <LocaleLab />}
         </section>
         <section className="pivot-panel">
           <button

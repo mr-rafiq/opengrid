@@ -1,3 +1,4 @@
+import { useGridLocale } from "./locale.js";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ColumnWindowEntry, WindowColumn } from "./column-window.js";
@@ -134,9 +135,10 @@ export function HeaderGroupRows({
   rowHeight = 38,
   onToggle,
   collapsedPaths = [],
-  ariaLabel = "Column groups",
+  ariaLabel,
   className = "",
 }: HeaderGroupRowsProps) {
+  const { t } = useGridLocale();
   const groups = computeHeaderGroups(columns);
   const root = useRef<HTMLDivElement>(null);
   const pendingToggleFocus = useRef<{
@@ -287,7 +289,7 @@ export function HeaderGroupRows({
     <div
       ref={root}
       role="rowgroup"
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? t("headers.label")}
       className={`og-group-headers ${className}`}
     >
       {groups.map((row, depth) => {
@@ -369,7 +371,10 @@ export function HeaderGroupRows({
                 {onToggle && cell.label && (
                   <button
                     type="button"
-                    aria-label={`${isCollapsed ? "Expand" : "Collapse"} column group ${cell.path.join(" / ")}`}
+                    aria-label={t(
+                      isCollapsed ? "headers.expand" : "headers.collapse",
+                      { path: cell.path.join(" / ") },
+                    )}
                     aria-pressed={isCollapsed}
                     data-group-toggle-path={JSON.stringify(cell.path)}
                     onClick={(event) => {
@@ -420,7 +425,7 @@ export function HeaderGroupRows({
               <div
                 role="columnheader"
                 aria-colindex={1}
-                aria-label="Row controls"
+                aria-label={t("grid.rowControls")}
                 className="og-group-gutter"
                 style={{
                   width: leadingWidth,

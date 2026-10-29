@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import type { Column, Filter, FilterExpression } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export interface AdvancedFilterBuilderProps<T> {
   columns: Column<T>[];
@@ -21,24 +23,29 @@ type Draft =
   | { kind: "not"; child: Draft };
 interface DraftState {
   draft: Draft | null;
-  error: string;
+  error: GridMessage | string;
+}
+class BuilderMessageError extends Error {
+  constructor(readonly notice: GridMessage) {
+    super();
+  }
 }
 const maximumDepth = 8;
-const operatorLabels: Record<Filter["op"], string> = {
-  contains: "Contains",
-  equals: "Equals",
-  notEqual: "Does not equal",
-  startsWith: "Starts with",
-  endsWith: "Ends with",
-  gt: "Greater than",
-  gte: "Greater than or equal",
-  lt: "Less than",
-  lte: "Less than or equal",
-  in: "Is one of",
-  between: "Between",
-  blank: "Is blank",
-  notBlank: "Is not blank",
-};
+const operatorKeys = {
+  contains: "filter.contains",
+  equals: "filter.equals",
+  notEqual: "filter.notEqual",
+  startsWith: "filter.startsWith",
+  endsWith: "filter.endsWith",
+  gt: "filter.gt",
+  gte: "filter.gte",
+  lt: "filter.lt",
+  lte: "filter.lte",
+  in: "filter.in",
+  between: "filter.between",
+  blank: "filter.blank",
+  notBlank: "filter.notBlank",
+} as const;
 function operators<T>(column: Column<T> | undefined): Filter["op"][] {
   if (column?.type === "boolean")
     return ["equals", "notEqual", "in", "blank", "notBlank"];
@@ -78,8 +85,8 @@ const stringify = (value: unknown) =>
 function readExpression(value: FilterExpression | null): DraftState {
   function read(expression: FilterExpression, depth: number): Draft {
     if (depth > maximumDepth)
-      throw new Error(
-        `This builder supports at most ${maximumDepth} levels. Clear the draft or replace the filter to continue.`,
+      throw new BuilderMessageError(
+        gridMessage("builder.sourceDepthLimit", { maximumDepth }),
       );
     if (expression.kind === "condition")
       return {
@@ -99,7 +106,7 @@ function readExpression(value: FilterExpression | null): DraftState {
         kind: expression.kind,
         children: expression.children.map((child) => read(child, depth + 1)),
       };
-    throw new Error("Unsupported advanced filter expression");
+    throw new BuilderMessageError(gridMessage("builder.unsupported"));
   }
   try {
     return { draft: value ? read(value, 1) : null, error: "" };
@@ -107,7 +114,13 @@ function readExpression(value: FilterExpression | null): DraftState {
     return {
       draft: null,
       error:
-        reason instanceof Error ? reason.message : "Cannot read this filter",
+        reason instanceof BuilderMessageError
+          ? reason.notice
+          : reason instanceof Error
+            ? reason.message
+            : typeof reason === "string"
+              ? reason
+              : gridMessage("builder.readFailed"),
     };
   }
 }
@@ -123,12 +136,10 @@ function parseSet(raw: string, bigint: boolean): unknown[] {
     try {
       parsed = JSON.parse(raw);
     } catch {
-      throw new Error(
-        "Set values must be a valid JSON array or one value per line",
-      );
+      throw new BuilderMessageError(gridMessage("builder.arraySyntax"));
     }
     if (!Array.isArray(parsed))
-      throw new Error("Set values must be a JSON array");
+      throw new BuilderMessageError(gridMessage("builder.arrayRequired"));
     values = parsed;
     if (
       values.some(
@@ -137,24 +148,21 @@ function parseSet(raw: string, bigint: boolean): unknown[] {
           !["string", "number", "boolean"].includes(typeof value),
       )
     )
-      throw new Error(
-        "Set values must contain only strings, numbers, booleans or null",
-      );
+      throw new BuilderMessageError(gridMessage("builder.scalarValues"));
   } else
     values = raw
       .split(/\r?\n/)
       .map((value) => value.trim())
       .filter(Boolean);
-  if (!values.length) throw new Error("Enter at least one set value");
+  if (!values.length)
+    throw new BuilderMessageError(gridMessage("builder.emptySet"));
   if (
     bigint &&
     values.some(
       (value) => typeof value === "number" && !Number.isSafeInteger(value),
     )
   )
-    throw new Error(
-      "Use quoted strings for large BigInt values in JSON arrays",
-    );
+    throw new BuilderMessageError(gridMessage("builder.bigIntJson"));
   return values;
 }
 
@@ -165,26 +173,44 @@ export function AdvancedFilterBuilder<T>({
   onApply,
   onClose,
 }: AdvancedFilterBuilderProps<T>) {
+  const { t, resolveMessage, locale } = useGridLocale();
+  const operatorText = (op: string) =>
+    Object.hasOwn(operatorKeys, op) ? t(operatorKeys[op as Filter["op"]]) : op;
   const [{ draft, error: sourceError }, setDraft] = useState<DraftState>(() =>
     readExpression(value),
   );
-  const [applyError, setApplyError] = useState("");
+  const [applyError, setApplyError] = useState<GridMessage | string>("");
   const errorId = useId();
   const helpId = useId();
   const titleId = useId();
   const errorElement = useRef<HTMLDivElement>(null);
   const available = columns.filter((column) => column.filterable !== false);
-  const error = sourceError || applyError;
+  const notice = sourceError || applyError;
+  const error =
+    typeof notice !== "string" && notice.key === "builder.unavailableOperator"
+      ? resolveMessage(
+          gridMessage("builder.unavailableOperator", {
+            operator: operatorText(notice.params.operator),
+            column: notice.params.column,
+          }),
+        )
+      : typeof notice !== "string" &&
+          notice.key === "builder.notFilterable" &&
+          !notice.params.column
+        ? resolveMessage(
+            gridMessage("builder.notFilterable", { column: t("common.none") }),
+          )
+        : resolveMessage(notice);
   useEffect(() => {
     setDraft(readExpression(value));
     setApplyError("");
   }, [value]);
   useEffect(() => {
     if (error) errorElement.current?.focus();
-  }, [error]);
+  }, [sourceError, applyError]);
   function change(next: Draft | null) {
     if (next && draftDepth(next) > maximumDepth) {
-      setApplyError(`A filter can have at most ${maximumDepth} nested levels`);
+      setApplyError(gridMessage("builder.depthLimit", { maximumDepth }));
       return;
     }
     setDraft({ draft: next, error: "" });
@@ -247,17 +273,20 @@ export function AdvancedFilterBuilder<T>({
       return { kind: "not", child: convert(current.child) };
     if (current.kind === "and" || current.kind === "or") {
       if (!current.children.length)
-        throw new Error("Each AND or OR group needs at least one condition");
+        throw new BuilderMessageError(gridMessage("builder.emptyGroup"));
       return { kind: current.kind, children: current.children.map(convert) };
     }
     const column = available.find((column) => column.id === current.columnId);
     if (!column)
-      throw new Error(
-        `Column ${current.columnId || "(none)"} is not filterable`,
+      throw new BuilderMessageError(
+        gridMessage("builder.notFilterable", { column: current.columnId }),
       );
     if (!operators(column).includes(current.op))
-      throw new Error(
-        `${operatorLabels[current.op]} is not available for ${column.header ?? column.id}`,
+      throw new BuilderMessageError(
+        gridMessage("builder.unavailableOperator", {
+          operator: current.op,
+          column: column.header ?? column.id,
+        }),
       );
     const filter: Filter = { op: current.op };
     if (current.op === "blank" || current.op === "notBlank")
@@ -266,12 +295,18 @@ export function AdvancedFilterBuilder<T>({
       filter.value = parseSet(current.value, column.type === "bigint");
     else {
       if (column.type && column.type !== "text" && !current.value.trim())
-        throw new Error(`Enter a value for ${column.header ?? column.id}`);
+        throw new BuilderMessageError(
+          gridMessage("builder.valueRequired", {
+            column: column.header ?? column.id,
+          }),
+        );
       filter.value = current.value;
       if (current.op === "between") {
         if (!current.to.trim())
-          throw new Error(
-            `Enter an upper value for ${column.header ?? column.id}`,
+          throw new BuilderMessageError(
+            gridMessage("builder.upperRequired", {
+              column: column.header ?? column.id,
+            }),
           );
         filter.to = current.to;
       }
@@ -287,9 +322,13 @@ export function AdvancedFilterBuilder<T>({
       onApply(draft ? convert(draft) : null);
     } catch (reason) {
       setApplyError(
-        reason instanceof Error
-          ? reason.message
-          : "Unable to apply this filter",
+        reason instanceof BuilderMessageError
+          ? reason.notice
+          : reason instanceof Error
+            ? reason.message
+            : typeof reason === "string"
+              ? reason
+              : gridMessage("builder.applyFailed"),
       );
       return;
     }
@@ -327,9 +366,9 @@ export function AdvancedFilterBuilder<T>({
           type="button"
           disabled={!canAdd(condition())}
           onClick={() => add(condition())}
-          aria-label={`Add condition ${label}`}
+          aria-label={t("builder.addConditionLabel", { label })}
         >
-          Add condition
+          {t("builder.addCondition")}
         </button>
         {(["and", "or", "not"] as const).map((kind) => (
           <button
@@ -337,9 +376,12 @@ export function AdvancedFilterBuilder<T>({
             key={kind}
             disabled={!canAdd(group(kind))}
             onClick={() => add(group(kind))}
-            aria-label={`Add ${kind.toUpperCase()} group ${label}`}
+            aria-label={t("builder.addGroupLabel", {
+              kind: t(`builder.${kind}`),
+              label,
+            })}
           >
-            Add {kind.toUpperCase()} group
+            {t("builder.addGroup", { kind: t(`builder.${kind}`) })}
           </button>
         ))}
       </div>
@@ -367,7 +409,7 @@ export function AdvancedFilterBuilder<T>({
           }}
           key={label}
         >
-          <legend>Condition {label}</legend>
+          <legend>{t("builder.condition", { label })}</legend>
           <div
             style={{
               display: "flex",
@@ -377,9 +419,9 @@ export function AdvancedFilterBuilder<T>({
             }}
           >
             <label>
-              Column{" "}
+              {t("builder.column")}{" "}
               <select
-                aria-label={`Column ${label}`}
+                aria-label={t("builder.columnLabel", { label })}
                 aria-describedby={describedBy}
                 value={current.columnId}
                 onChange={(event) => {
@@ -396,7 +438,9 @@ export function AdvancedFilterBuilder<T>({
               >
                 {unknownColumn && (
                   <option value={current.columnId}>
-                    Unavailable column: {current.columnId || "(none)"}
+                    {t("builder.unavailableColumn", {
+                      column: current.columnId || t("common.none"),
+                    })}
                   </option>
                 )}
                 {available.map((column) => (
@@ -407,9 +451,9 @@ export function AdvancedFilterBuilder<T>({
               </select>
             </label>
             <label>
-              Operator{" "}
+              {t("builder.operator")}{" "}
               <select
-                aria-label={`Operator ${label}`}
+                aria-label={t("builder.operatorLabel", { label })}
                 aria-describedby={describedBy}
                 value={current.op}
                 onChange={(event) =>
@@ -420,13 +464,11 @@ export function AdvancedFilterBuilder<T>({
                 }
               >
                 {!list.includes(current.op) && (
-                  <option value={current.op}>
-                    {operatorLabels[current.op]}
-                  </option>
+                  <option value={current.op}>{operatorText(current.op)}</option>
                 )}
                 {list.map((op) => (
                   <option key={op} value={op}>
-                    {operatorLabels[op]}
+                    {operatorText(op)}
                   </option>
                 ))}
               </select>
@@ -435,9 +477,9 @@ export function AdvancedFilterBuilder<T>({
               <>
                 {current.op === "in" ? (
                   <label>
-                    Set values{" "}
+                    {t("builder.setValues")}{" "}
                     <textarea
-                      aria-label={`Set values ${label}`}
+                      aria-label={t("builder.setLabel", { label })}
                       aria-describedby={`${helpId}${describedBy ? ` ${describedBy}` : ""}`}
                       value={current.value}
                       rows={3}
@@ -448,25 +490,25 @@ export function AdvancedFilterBuilder<T>({
                   </label>
                 ) : column?.type === "boolean" ? (
                   <label>
-                    Value{" "}
+                    {t("builder.value")}{" "}
                     <select
-                      aria-label={`Value ${label}`}
+                      aria-label={t("builder.valueLabel", { label })}
                       aria-describedby={describedBy}
                       value={current.value}
                       onChange={(event) =>
                         replace(path, { ...current, value: event.target.value })
                       }
                     >
-                      <option value="">Choose a boolean</option>
-                      <option value="true">True</option>
-                      <option value="false">False</option>
+                      <option value="">{t("filter.chooseBoolean")}</option>
+                      <option value="true">{t("common.true")}</option>
+                      <option value="false">{t("common.false")}</option>
                     </select>
                   </label>
                 ) : (
                   <label>
-                    Value{" "}
+                    {t("builder.value")}{" "}
                     <input
-                      aria-label={`Value ${label}`}
+                      aria-label={t("builder.valueLabel", { label })}
                       aria-describedby={describedBy}
                       value={current.value}
                       inputMode={
@@ -477,7 +519,9 @@ export function AdvancedFilterBuilder<T>({
                             : undefined
                       }
                       placeholder={
-                        column?.type === "date" ? "YYYY-MM-DD" : undefined
+                        column?.type === "date"
+                          ? t("builder.isoPlaceholder")
+                          : undefined
                       }
                       onChange={(event) =>
                         replace(path, { ...current, value: event.target.value })
@@ -487,9 +531,9 @@ export function AdvancedFilterBuilder<T>({
                 )}
                 {current.op === "between" && (
                   <label>
-                    Upper value{" "}
+                    {t("builder.upper")}{" "}
                     <input
-                      aria-label={`Upper value ${label}`}
+                      aria-label={t("builder.upperLabel", { label })}
                       aria-describedby={describedBy}
                       value={current.to}
                       inputMode={
@@ -509,19 +553,19 @@ export function AdvancedFilterBuilder<T>({
             )}
             <button
               type="button"
-              aria-label={`Remove condition ${label}`}
+              aria-label={t("builder.removeConditionLabel", { label })}
               onClick={() => replace(path, null)}
             >
-              Remove
+              {t("common.remove")}
             </button>
           </div>
           {depth < maximumDepth && (
             <button
               type="button"
-              aria-label={`Wrap condition ${label} in NOT`}
+              aria-label={t("builder.negateLabel", { label })}
               onClick={() => replace(path, { kind: "not", child: current })}
             >
-              Negate condition
+              {t("builder.negate")}
             </button>
           )}
         </fieldset>
@@ -538,7 +582,7 @@ export function AdvancedFilterBuilder<T>({
         }}
         key={label}
       >
-        <legend>Group {label}</legend>
+        <legend>{t("builder.group", { label })}</legend>
         <div
           style={{
             display: "flex",
@@ -548,9 +592,9 @@ export function AdvancedFilterBuilder<T>({
           }}
         >
           <label>
-            Match{" "}
+            {t("builder.match")}{" "}
             <select
-              aria-label={`Match ${label}`}
+              aria-label={t("builder.matchLabel", { label })}
               aria-describedby={describedBy}
               value={current.kind}
               onChange={(event) => {
@@ -566,17 +610,17 @@ export function AdvancedFilterBuilder<T>({
                   });
               }}
             >
-              <option value="and">All conditions (AND)</option>
-              <option value="or">Any condition (OR)</option>
-              <option value="not">Negate (NOT)</option>
+              <option value="and">{t("builder.allConditions")}</option>
+              <option value="or">{t("builder.anyCondition")}</option>
+              <option value="not">{t("builder.negateLogic")}</option>
             </select>
           </label>
           <button
             type="button"
-            aria-label={`Remove group ${label}`}
+            aria-label={t("builder.removeGroupLabel", { label })}
             onClick={() => replace(path, null)}
           >
-            Remove group
+            {t("builder.removeGroup")}
           </button>
         </div>
         {current.kind === "not"
@@ -591,6 +635,7 @@ export function AdvancedFilterBuilder<T>({
   return (
     <section
       className="og-filter-builder"
+      lang={locale}
       aria-labelledby={titleId}
       style={{
         padding: 16,
@@ -599,20 +644,16 @@ export function AdvancedFilterBuilder<T>({
       }}
     >
       <h3 id={titleId} style={{ marginTop: 0 }}>
-        Advanced filter
+        {t("builder.title")}
       </h3>
-      <p id={helpId}>
-        Build nested conditions with AND, OR and NOT. Sets accept a JSON array
-        or one value per line. Quote large integers in JSON. Changes take effect
-        when you apply.
-      </p>
-      {!available.length && <p role="status">No filterable columns</p>}
+      <p id={helpId}>{t("builder.help")}</p>
+      {!available.length && <p role="status">{t("builder.noColumns")}</p>}
       {draft ? (
         renderNode(draft, [], 1)
       ) : (
         <>
-          <p>No advanced filter</p>
-          {addButtons(null, [], "root", 0)}
+          <p>{t("builder.empty")}</p>
+          {addButtons(null, [], t("builder.root"), 0)}
         </>
       )}
       {error && (
@@ -625,7 +666,7 @@ export function AdvancedFilterBuilder<T>({
         style={{ display: "flex", gap: 8, marginTop: 12 }}
       >
         <button type="button" onClick={() => change(null)}>
-          Clear draft
+          {t("builder.clear")}
         </button>
         <button
           type="button"
@@ -635,14 +676,14 @@ export function AdvancedFilterBuilder<T>({
             onClose?.();
           }}
         >
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="button"
           onClick={apply}
           aria-describedby={error ? errorId : undefined}
         >
-          Apply filter
+          {t("builder.apply")}
         </button>
       </div>
     </section>

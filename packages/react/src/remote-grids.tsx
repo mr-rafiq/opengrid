@@ -20,6 +20,7 @@ import {
 } from "@opengrid/core";
 import { DataGrid, type CellContext } from "./data-grid.js";
 import { getColumnWindow, type ColumnWindowEntry } from "./column-window.js";
+import { useGridLocale } from "./locale.js";
 
 const stringValue = (value: unknown) => (value == null ? "" : String(value));
 const queryIdentity = (value: unknown) =>
@@ -48,10 +49,12 @@ export function ServerDataGrid<T>({
   model,
   columns,
   height = 400,
-  ariaLabel = "Server data grid",
+  ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
 }: ServerDataGridProps<T>) {
+  const { t, locale: language, number } = useGridLocale();
+  const ariaLabel = requestedAriaLabel ?? t("remote.serverLabel");
   const snapshot = useSyncExternalStore(
     model.subscribe,
     model.getSnapshot,
@@ -252,11 +255,12 @@ export function ServerDataGrid<T>({
   return (
     <section
       className={`og-root og-remote-server ${className}`}
-      aria-label={`${ariaLabel} controls`}
+      lang={language}
+      aria-label={t("remote.controls", { label: ariaLabel })}
     >
       <div className="og-toolbar" style={{ flexWrap: "wrap" }}>
         <nav
-          aria-label={`${ariaLabel} group path`}
+          aria-label={t("remote.path", { label: ariaLabel })}
           style={{
             display: "flex",
             gap: 8,
@@ -272,7 +276,7 @@ export function ServerDataGrid<T>({
             onClick={() => visit([])}
             disabled={!route.length}
           >
-            All groups
+            {t("remote.allGroups")}
           </button>
           {route.map((key, part) => (
             <button
@@ -281,19 +285,21 @@ export function ServerDataGrid<T>({
               aria-current={part === route.length - 1 ? "location" : undefined}
               onClick={() => visit(route.slice(0, part + 1))}
             >
-              {key || "(blank)"}
+              {key || t("remote.blankGroup")}
             </button>
           ))}
         </nav>
         <details className="og-chooser">
-          <summary>Server columns</summary>
+          <summary>{t("remote.columns")}</summary>
           <div className="og-chooser-panel">
             {local.getColumns().map((column) => (
               <div className="og-column-option" key={column.id}>
                 <label>
                   <input
                     type="checkbox"
-                    aria-label={`Show server ${column.header ?? column.id}`}
+                    aria-label={t("remote.showColumn", {
+                      column: column.header ?? column.id,
+                    })}
                     checked={!column.hidden}
                     onChange={(event) =>
                       local.hideColumn(column.id, !event.target.checked)
@@ -302,7 +308,9 @@ export function ServerDataGrid<T>({
                   {column.header ?? column.id}
                 </label>
                 <select
-                  aria-label={`Pin server ${column.header ?? column.id}`}
+                  aria-label={t("remote.pinColumn", {
+                    column: column.header ?? column.id,
+                  })}
                   value={column.pinned ?? ""}
                   onChange={(event) =>
                     local.pinColumn(
@@ -313,9 +321,9 @@ export function ServerDataGrid<T>({
                     )
                   }
                 >
-                  <option value="">Unpinned</option>
-                  <option value="left">Pin left</option>
-                  <option value="right">Pin right</option>
+                  <option value="">{t("grid.unpinned")}</option>
+                  <option value="left">{t("grid.pinLeft")}</option>
+                  <option value="right">{t("grid.pinRight")}</option>
                 </select>
               </div>
             ))}
@@ -327,19 +335,19 @@ export function ServerDataGrid<T>({
         aria-live="polite"
         style={{ padding: "8px 16px", fontSize: 12 }}
       >
-        {loading || (!response && !failure) ? "Loading server rows... " : ""}
+        {loading || (!response && !failure) ? t("remote.loading") : ""}
         {rowCount === undefined
-          ? "Route count pending"
-          : `${rowCount.toLocaleString()} rows at this route`}
+          ? t("remote.routePending")
+          : t("remote.routeCount", { count: rowCount })}
         {response?.pivotColumns?.length
-          ? `; ${response.pivotColumns.length} server pivot result columns available`
+          ? t("remote.pivotCount", { count: response.pivotColumns.length })
           : ""}
       </div>
       {failure && (
         <div role="alert" className="og-error">
           {failure}{" "}
           <button type="button" onClick={retry}>
-            Retry server rows
+            {t("remote.retryServer")}
           </button>
         </div>
       )}
@@ -356,11 +364,15 @@ export function ServerDataGrid<T>({
             return column.id === firstVisible ? (
               <button
                 type="button"
-                aria-label={`Open group ${node.label ?? node.key}`}
+                aria-label={t("remote.openGroup", {
+                  group: node.label ?? node.key,
+                })}
                 onClick={() => visit([...route, node.key])}
               >
                 {node.label ?? node.key}
-                {node.childCount === undefined ? "" : ` (${node.childCount})`}
+                {node.childCount === undefined
+                  ? ""
+                  : ` (${number(node.childCount)})`}
               </button>
             ) : (
               stringValue(value)
@@ -382,26 +394,31 @@ export function ServerDataGrid<T>({
         }}
       />
       <div className="og-statusbar">
-        <span>{viewState.selected.length} selected on this loaded page</span>
+        <span>
+          {t("remote.selected", { count: viewState.selected.length })}
+        </span>
         <div className="og-pagination">
           <button
             type="button"
-            aria-label="Previous server page"
+            aria-label={t("remote.previousPage")}
             disabled={index === 0 || loading}
             onClick={() => setIndex(index - 1)}
           >
-            Previous
+            {t("common.previous")}
           </button>
           <span>
-            Server page {index + 1} of {pageCount ?? "..."}
+            {t("remote.serverPage", {
+              page: index + 1,
+              pages: pageCount === null ? "..." : number(pageCount),
+            })}
           </span>
           <button
             type="button"
-            aria-label="Next server page"
+            aria-label={t("remote.nextPage")}
             disabled={pageCount === null || index >= pageCount - 1 || loading}
             onClick={() => setIndex(index + 1)}
           >
-            Next
+            {t("common.next")}
           </button>
         </div>
       </div>
@@ -428,10 +445,12 @@ export function LiveViewportDataGrid<T>({
   height = 400,
   rowHeight = 36,
   overscan = 4,
-  ariaLabel = "Live viewport data grid",
+  ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
 }: LiveViewportDataGridProps<T>) {
+  const { t, locale: language } = useGridLocale();
+  const ariaLabel = requestedAriaLabel ?? t("remote.liveLabel");
   const snapshot = useSyncExternalStore(
     model.subscribe,
     model.getSnapshot,
@@ -668,15 +687,18 @@ export function LiveViewportDataGrid<T>({
     focusAt(next, column);
   }
   return (
-    <section className={`og-root og-live-viewport ${className}`}>
+    <section
+      className={`og-root og-live-viewport ${className}`}
+      lang={language}
+    >
       <div className="og-statusbar">
         <span role="status" aria-live="polite">
           {snapshot.rowCount === null
-            ? "Remote row count pending"
-            : `${snapshot.rowCount.toLocaleString()} live rows`}
-          {snapshot.loading ? " - loading window" : ""}
+            ? t("remote.countPending")
+            : t("remote.liveCount", { count: snapshot.rowCount })}
+          {snapshot.loading ? t("remote.loadingWindow") : ""}
         </span>
-        <span>Read-only live provider</span>
+        <span>{t("remote.readOnly")}</span>
       </div>
       {(snapshot.error || viewError) && (
         <div role="alert" className="og-error">
@@ -692,7 +714,7 @@ export function LiveViewportDataGrid<T>({
               }
             }}
           >
-            Retry live rows
+            {t("remote.retryLive")}
           </button>
         </div>
       )}
@@ -780,7 +802,7 @@ export function LiveViewportDataGrid<T>({
                       ? column.valueFormatter(value, row.data)
                       : stringValue(value)
                     : entry.index === 0
-                      ? "Loading..."
+                      ? t("remote.livePlaceholder")
                       : "";
                   return (
                     <div
@@ -823,7 +845,7 @@ export function LiveViewportDataGrid<T>({
         </div>
         {snapshot.rowCount === 0 && (
           <div role="status" className="og-empty">
-            No live rows
+            {t("remote.emptyLive")}
           </div>
         )}
       </div>

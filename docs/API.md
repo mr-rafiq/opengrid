@@ -357,3 +357,9 @@ The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getC
 Owner editing changes only the source owner row. Enter resolves the next logical row against the new run plan; Down skips a merged run. Find and notes target owners, row selection remains per source row, and the separate row form retains all visible fields. Configured row spans disable rectangular grid clipboard/fill and managed row movement. Combined active row/column spans throw explicitly.
 
 `createRowSpanPlan` exports compact immutable runs with binary `ownerAt`/`intersecting` lookups. Limits are 100,000 rows, eight active span columns, one million work units and 1000 rows per run; limits can be tightened. Auto-measured heights, merged exports and remote adapters remain unsupported. See [row spans](ROW_SPANS.md).
+
+## UI localization
+
+Wrap built-ins with `GridLocaleProvider locale={esES}` (or `enUS`) and optional typed `messages` overrides. `createGridLocale(id, overrides, base?)` builds a custom bundle with English fallback by default. `useGridLocale()` exposes typed `t`, `resolveMessage`, the locale tag and Intl number/date/plural helpers. Built-in roots set HTML lang; the document language is not mutated.
+
+`gridMessage(key, params?)` creates a frozen language-independent descriptor for stored UI notices. Resolving during render retranslates an already-visible notice without resetting its workflow. Application headers/values/choices/formatters and raw errors remain application-owned; legacy core diagnostics can remain English. RTL geometry, touch-specific interaction and automatic locale-aware data parsing are not provided by this API. See [localization](LOCALIZATION.md).

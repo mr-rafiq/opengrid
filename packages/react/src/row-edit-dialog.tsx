@@ -17,6 +17,8 @@ import type {
 import type { EditorConfig } from "./data-grid.js";
 import { CellEditor } from "./editors.js";
 import type { CellEditorProps, CellEditorRenderer } from "./editors.js";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export interface RowEditDialogProps<T> {
   model: GridModel<T>;
@@ -31,7 +33,7 @@ export interface RowEditDialogProps<T> {
 interface SessionInfo<T> {
   session: RowEditSession | null;
   row: T | null;
-  error: string;
+  error: GridMessage | string;
 }
 const emptySnapshot: RowEditSnapshot = Object.freeze({
   rowId: "",
@@ -57,7 +59,9 @@ function newSession<T>(
       error:
         reason instanceof Error
           ? reason.message
-          : "Unable to start row editing",
+          : typeof reason === "string"
+            ? reason
+            : gridMessage("rowEdit.startFailed"),
     };
   }
 }
@@ -82,6 +86,7 @@ export function RowEditDialog<T>({
   onClose,
   onCommit,
 }: RowEditDialogProps<T>) {
+  const { t, resolveMessage, locale } = useGridLocale();
   const [generation, reload] = useReducer((version: number) => version + 1, 0);
   const [info, setInfo] = useState<SessionInfo<T>>({
     session: null,
@@ -107,15 +112,16 @@ export function RowEditDialog<T>({
             Object.prototype.hasOwnProperty.call(snapshot.values, column.id),
         )
     : [];
-  const [localError, setLocalError] = useState("");
+  const [localError, setLocalError] = useState<GridMessage | string>("");
   const [confirmReload, setConfirmReload] = useState(false);
-  const error =
+  const errorNotice =
     localError ||
     snapshot.error ||
     info.error ||
     (info.session && columns.length === 0
-      ? "This row has no editable visible fields"
+      ? gridMessage("rowEdit.noFields")
       : "");
+  const error = resolveMessage(errorNotice);
   const dialog = useRef<HTMLDialogElement>(null);
   const controls = useRef(new Map<string, HTMLDivElement>());
   const closeRequested = useRef(false);
@@ -199,7 +205,11 @@ export function RowEditDialog<T>({
       }
     } catch (reason) {
       setLocalError(
-        reason instanceof Error ? reason.message : "Unable to save this row",
+        reason instanceof Error
+          ? reason.message
+          : typeof reason === "string"
+            ? reason
+            : gridMessage("rowEdit.saveFailed"),
       );
       return false;
     }
@@ -227,6 +237,7 @@ export function RowEditDialog<T>({
     <dialog
       ref={dialog}
       className="og-row-edit-dialog"
+      lang={locale}
       aria-labelledby={titleId}
       aria-describedby={`${descriptionId}${error ? ` ${errorId}` : ""}`}
       aria-modal="true"
@@ -253,13 +264,9 @@ export function RowEditDialog<T>({
       }}
     >
       <h3 id={titleId} style={{ marginTop: 0 }}>
-        Edit row {rowId}
+        {t("rowEdit.title", { rowId })}
       </h3>
-      <p id={descriptionId}>
-        Changes stay in this form until Save row. Enter saves the row; in
-        multiline fields use Control or Command Enter. Cancel discards the
-        draft.
-      </p>
+      <p id={descriptionId}>{t("rowEdit.help")}</p>
       <div style={{ display: "grid", gap: 18 }}>
         {columns.map((column) => {
           const config = editorOptions[column.id];
@@ -271,7 +278,9 @@ export function RowEditDialog<T>({
               snapshot.values[column.id],
               config?.type === "date" || column.type === "date",
             ),
-            label: `Edit ${column.header ?? column.id}`,
+            label: t("rowEdit.fieldLabel", {
+              column: column.header ?? column.id,
+            }),
             editorType: config?.type,
             options: config?.options,
             asyncOptions: config?.asyncOptions,
@@ -339,10 +348,7 @@ export function RowEditDialog<T>({
             marginTop: 16,
           }}
         >
-          <p id={reloadId}>
-            Discard this draft and reload the latest row? This cannot restore
-            discarded draft values.
-          </p>
+          <p id={reloadId}>{t("rowEdit.confirmReload")}</p>
           <button
             type="button"
             onClick={() => {
@@ -351,10 +357,10 @@ export function RowEditDialog<T>({
               reload();
             }}
           >
-            Discard draft and reload
+            {t("rowEdit.discardReload")}
           </button>{" "}
           <button type="button" onClick={() => setConfirmReload(false)}>
-            Keep editing
+            {t("rowEdit.keepEditing")}
           </button>
         </div>
       )}
@@ -372,10 +378,10 @@ export function RowEditDialog<T>({
           onClick={() => setConfirmReload(true)}
           disabled={confirmReload}
         >
-          Reload row
+          {t("rowEdit.reload")}
         </button>
         <button type="button" ref={cancelButton} onClick={close}>
-          Cancel
+          {t("common.cancel")}
         </button>
         <button
           type="button"
@@ -387,7 +393,7 @@ export function RowEditDialog<T>({
             confirmReload
           }
         >
-          Save row
+          {t("rowEdit.save")}
         </button>
       </div>
     </dialog>

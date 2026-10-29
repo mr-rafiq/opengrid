@@ -1,5 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import type { Column, Filter } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export interface ColumnFilterProps<T> {
   column: Column<T>;
@@ -11,7 +13,12 @@ export interface ColumnFilterProps<T> {
 interface Bounds {
   minimum: string;
   maximum: string;
-  error: string;
+  error: GridMessage | string;
+}
+class RangeFilterMessageError extends Error {
+  constructor(readonly notice: GridMessage) {
+    super();
+  }
 }
 const scalar = (value: unknown) =>
   value instanceof Date
@@ -52,8 +59,7 @@ function fromFilter(filter?: Filter): Bounds {
   return {
     minimum: "",
     maximum: "",
-    error:
-      "The current filter is not an inclusive range. Change a bound or clear it to replace that filter.",
+    error: gridMessage("rangeFilter.notRange"),
   };
 }
 function parseBound(
@@ -62,16 +68,16 @@ function parseBound(
 ): number | bigint {
   const input = value.trim();
   if (input.length > 256)
-    throw new Error("Each range bound is limited to 256 characters");
+    throw new RangeFilterMessageError(gridMessage("rangeFilter.boundLimit"));
   if (type === "bigint") {
     if (!/^[+-]?\d+$/.test(input))
-      throw new Error("Enter a complete integer for each BigInt bound");
+      throw new RangeFilterMessageError(gridMessage("rangeFilter.integer"));
     return BigInt(input);
   }
   if (type === "date") {
     const parts = /^(\d{4})-(\d{2})-(\d{2})(?:T.+)?$/.exec(input);
     if (!parts)
-      throw new Error("Use an ISO date or timestamp for each date bound");
+      throw new RangeFilterMessageError(gridMessage("rangeFilter.iso"));
     const year = Number(parts[1]),
       month = Number(parts[2]),
       day = Number(parts[3]);
@@ -85,14 +91,14 @@ function parseBound(
       day > days[month - 1] ||
       !Number.isFinite(result)
     )
-      throw new Error("Enter a valid calendar date for each date bound");
+      throw new RangeFilterMessageError(gridMessage("rangeFilter.date"));
     return result;
   }
   if (
     !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i.test(input) ||
     !Number.isFinite(Number(input))
   )
-    throw new Error("Enter a complete finite number for each range bound");
+    throw new RangeFilterMessageError(gridMessage("rangeFilter.number"));
   return Number(input);
 }
 
@@ -104,6 +110,7 @@ export function NumberRangeFilter<T>({
   onFilterChange,
   onClear,
 }: ColumnFilterProps<T>) {
+  const { t, resolveMessage, locale } = useGridLocale();
   const [bounds, setBounds] = useState<Bounds>(() => fromFilter(filter));
   const errorId = useId();
   const filterKey = signature(filter);
@@ -117,9 +124,9 @@ export function NumberRangeFilter<T>({
         ? "date"
         : "number";
   const unsupported = !["number", "bigint", "date"].includes(column.type ?? "");
-  const error = unsupported
-    ? "This range filter supports number, BigInt and date columns"
-    : bounds.error;
+  const error = resolveMessage(
+    unsupported ? gridMessage("rangeFilter.type") : bounds.error,
+  );
   function change(minimum: string, maximum: string) {
     setBounds({ minimum, maximum, error: "" });
     try {
@@ -129,7 +136,7 @@ export function NumberRangeFilter<T>({
       const lower = hasMinimum ? parseBound(minimum, type) : undefined;
       const upper = hasMaximum ? parseBound(maximum, type) : undefined;
       if (lower !== undefined && upper !== undefined && lower > upper)
-        throw new Error("The minimum must not exceed the maximum");
+        throw new RangeFilterMessageError(gridMessage("rangeFilter.order"));
       const next: Filter | undefined =
         hasMinimum && hasMaximum
           ? { op: "between", value: minimum, to: maximum }
@@ -144,9 +151,13 @@ export function NumberRangeFilter<T>({
         minimum,
         maximum,
         error:
-          reason instanceof Error
-            ? reason.message
-            : "Unable to apply this range",
+          reason instanceof RangeFilterMessageError
+            ? reason.notice
+            : reason instanceof Error
+              ? reason.message
+              : typeof reason === "string"
+                ? reason
+                : gridMessage("rangeFilter.applyFailed"),
       });
     }
   }
@@ -160,7 +171,9 @@ export function NumberRangeFilter<T>({
         error:
           reason instanceof Error
             ? reason.message
-            : "Unable to clear this range",
+            : typeof reason === "string"
+              ? reason
+              : gridMessage("rangeFilter.clearFailed"),
       }));
     }
   }
@@ -173,35 +186,36 @@ export function NumberRangeFilter<T>({
   return (
     <div
       className="og-number-range-filter"
+      lang={locale}
       role="group"
-      aria-label={`${label} range`}
+      aria-label={t("rangeFilter.label", { column: label })}
     >
       <input
         type="text"
-        aria-label={`${label} minimum`}
+        aria-label={t("rangeFilter.minimum", { column: label })}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         inputMode={inputMode}
         disabled={unsupported}
-        placeholder={type === "date" ? "From date" : "Min"}
+        placeholder={t(type === "date" ? "filter.fromDate" : "filter.min")}
         value={bounds.minimum}
         onChange={(event) => change(event.target.value, bounds.maximum)}
       />
       <input
         type="text"
-        aria-label={`${label} maximum`}
+        aria-label={t("rangeFilter.maximum", { column: label })}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? errorId : undefined}
         inputMode={inputMode}
         disabled={unsupported}
-        placeholder={type === "date" ? "To date" : "Max"}
+        placeholder={t(type === "date" ? "filter.toDate" : "filter.max")}
         value={bounds.maximum}
         onChange={(event) => change(bounds.minimum, event.target.value)}
       />
       <button
         type="button"
         className="og-range-filter-clear"
-        aria-label={`Clear ${label}`}
+        aria-label={t("rangeFilter.clear", { column: label })}
         onClick={clear}
       >
         {"\u00d7"}

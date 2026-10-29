@@ -24,6 +24,8 @@ The core API acts on the complete resident client dataset, including across page
 
 ServerDataGrid explicitly overrides both methods: status is `read-only` and `moveRows` returns a provider-authoritative error. Loaded server pages cannot be reordered by mutating the local facade. Remote provider writes, tree/group moves and cross-grid transfer are outside this API.
 
+React localization translates only original frozen built-in statuses, identified by `getBuiltinRowReorderReason(status)`. Custom statuses, wrappers and copies retain their own raw message text. The query does not add fields or alter the headless status shape; copying a status gives the caller ownership of its message.
+
 ## History and cost
 
 A real move is one entry in the same chronological undo/redo stream as cell and atomic batch edits. Move entries retain only moved IDs, original indices, the anchor and direction, plus a row-count guard: O(m) retained metadata for m moved rows, rather than two dataset-sized ID arrays. Existing edit entries continue to retain row snapshots. Computing or replaying a move takes O(n + m) time and a temporary O(n) result array. `historyLimit` applies to both kinds; replacing rows or applying a transaction clears history. A successful new move clears redo.

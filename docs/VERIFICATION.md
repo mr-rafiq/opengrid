@@ -1,5 +1,17 @@
 # Verification record
 
+## Built-in UI localization
+
+`npm run check` passed strict TypeScript, **938 tests in 50 files** (102.34 seconds), all package/declaration builds and the production demo. This includes 44 locale foundation/grid/control/analysis/remote cases and 14 status-ownership cases in addition to existing regressions. Targeted compatibility/localization verification passed 81 cases with one worker. Catalog tests resolved all 339 keys in both languages. Built ESM and React server rendering verified Spanish grid output, escaped literal overrides and core/React status ownership through installed package entry points.
+
+The complete Chromium suite passed **49 scenarios with one worker in 2.5 minutes**. The language example verifies an active cell draft/DOM/focus and undo surviving a switch, preserved quick-filter state, pending async choices, an open native row form and plain-text note, retained chart configuration and a stale print capture that updates only on explicit refresh. Spanish composed workflows passed an automated serious/critical axe scan. Standalone controls, dialogs, charts, print and sparkline roots expose their resolved language; nested provider and raw application-label/error behavior have direct component coverage.
+
+The default-English regression run caught replacement of application-provided row-move rejection text. Only original frozen built-in statuses are now translated, through private WeakSet ownership and a read-only query; custom/copied/serialized statuses remain authoritative without matching English text. Core status shape and existing messages remain unchanged. One multistep remote route/page/language integration case allows a 15-second functional timeout for slow hosts; no latency guarantee is inferred.
+
+The catalogs and provider cover built-in UI workflows, not arbitrary application data, parsers, labels or existing unstructured core diagnostics. RTL geometry, touch-specific gestures and physical-device/manual assistive-technology verification remain open. The ledger records four Implemented, 52 Partial and two Missing broad categories; this is not a completion percentage or a claim that only two capabilities remain unimplemented.
+
+The production Pages build passed with 38 documentation routes, and all **9 site scenarios passed with one worker in 22.3 seconds**. The localization guide links the live example; the site still advertises source/workspace installation rather than unpublished npm packages.
+
 ## Vertical row spans and gap audit
 
 `npm run check` passed strict TypeScript, **880 tests in 44 files** (78.23 seconds), all three ESM/declaration package builds and the production demo. New focused coverage totals 69 cases: compact run planning, core metadata validation and 17 React interactions. A built-ESM smoke verified exported owner/window lookup, real model editing and undo. All local test configurations now default to one concurrent worker; no system memory/security settings or unrelated processes were changed.
@@ -11,6 +23,8 @@ Review found an invalidation gap when pure getter/predicate closure dependencies
 The new [gap inventory](GAP_INVENTORY.md) separates completed bounded contracts from partial breadth. Combined two-dimensional spans, merged clipboard/export, auto-measured height, remote row spans, localization/RTL/touch and the other listed workflows remain open. Automated checks do not establish manual screen-reader or physical-device conformance.
 
 The production Pages build passed with 37 documentation routes, and all **9 site scenarios passed with one worker in 12.5 seconds**. The two new guides are available through documentation navigation and full-text search.
+
+Published as `a8df50f780cd063e26e288405c00e4b7e66fec5f`; [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40851257386) and [Pages](https://github.com/mr-rafiq/opengrid/actions/runs/40851257447) passed for that exact commit. Live HTTPS checks verified both new guide routes, 120-row/4560-pixel owners, navigation/edit/undo/focus, skeletal offscreen anchors, Find and pin/detail/full-width boundaries with zero runtime errors and no serious/critical axe findings. Deployed anchor and boundary screenshots were visually inspected.
 
 ## Column spanning
 
@@ -100,4 +114,4 @@ GitHub Actions is configured to repeat typecheck/tests/build/browser checks on p
 
 ## Limits
 
-No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing families include localization/RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, combined two-dimensional spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.
+No full parity claim, API-compatibility claim, production-readiness certification or performance guarantee is made. Runtime supports the bounded features in [FEATURE_PARITY.md](FEATURE_PARITY.md). Missing capabilities include RTL/touch coverage, AI/MCP and additional framework UI adapters. Multi-filter panels, external row drops, combined two-dimensional spans and other partial features retain their stated limits. Existing partial features have separate limits in the ledger. Package names are local workspace names; npm publication/name reservation was not performed.

@@ -6,6 +6,8 @@ import type {
   ReactNode,
 } from "react";
 import type { Column } from "@opengrid/core";
+import { gridMessage, useGridLocale } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 
 export type EditorType =
   "text" | "number" | "date" | "boolean" | "select" | "largeText";
@@ -43,7 +45,12 @@ export type CellEditorComponent<T> = ComponentType<CellEditorProps<T>>;
 interface OptionState {
   loading: boolean;
   options: readonly EditorOption[];
-  error?: string;
+  error?: GridMessage | string;
+}
+class EditorMessageError extends Error {
+  constructor(readonly notice: GridMessage) {
+    super();
+  }
 }
 const validOptions = (value: unknown): value is readonly EditorOption[] =>
   Array.isArray(value) &&
@@ -73,6 +80,7 @@ export function CellEditor<T>({
   onKeyDown,
   autoFocus = true,
 }: CellEditorProps<T>) {
+  const { t, resolveMessage, locale } = useGridLocale();
   const type =
     editorType ??
     (column.type === "number"
@@ -125,7 +133,7 @@ export function CellEditor<T>({
         if (!active || version !== request.current || controller.signal.aborted)
           return;
         if (!validOptions(loaded))
-          throw new TypeError("Options provider returned invalid choices");
+          throw new EditorMessageError(gridMessage("editor.invalidChoices"));
         setRemote({ loading: false, options: loaded });
       })
       .catch((reason) => {
@@ -135,7 +143,13 @@ export function CellEditor<T>({
           loading: false,
           options: [],
           error:
-            reason instanceof Error ? reason.message : "Unable to load choices",
+            reason instanceof EditorMessageError
+              ? reason.notice
+              : reason instanceof Error
+                ? reason.message
+                : typeof reason === "string"
+                  ? reason
+                  : gridMessage("editor.loadFailed"),
         });
       });
     return () => {
@@ -211,7 +225,7 @@ export function CellEditor<T>({
         onChange={(event) => change(event.target.value)}
       >
         {missingValue && (
-          <option value={value}>{value || "Choose a value"}</option>
+          <option value={value}>{value || t("editor.choose")}</option>
         )}
         {choices.map((option, index) => (
           <option
@@ -268,6 +282,7 @@ export function CellEditor<T>({
     <div
       ref={shell}
       className="og-editor-shell"
+      lang={locale}
       data-editor-type={type}
       style={{ width: "100%", height: "100%" }}
       onBlur={handleBlur}
@@ -280,17 +295,19 @@ export function CellEditor<T>({
       )}
       {type === "select" && remote.loading && (
         <span id={loadingId} role="status" className="og-editor-loading">
-          Loading choices...
+          {t("editor.loading")}
         </span>
       )}
       {type === "select" && remote.error && (
         <div id={loadErrorId} role="alert" className="og-editor-load-error">
-          <span>Could not load choices: {remote.error}</span>{" "}
+          <span>
+            {t("editor.loadError", { error: resolveMessage(remote.error) })}
+          </span>{" "}
           <button
             type="button"
             onClick={() => setRetry((attempt) => attempt + 1)}
           >
-            Retry choices
+            {t("editor.retry")}
           </button>
         </div>
       )}

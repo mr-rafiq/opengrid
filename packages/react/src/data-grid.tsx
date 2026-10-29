@@ -23,9 +23,11 @@ import type {
   CellRange,
   Filter,
 } from "@opengrid/core";
+import { useGridLocale, gridMessage } from "./locale.js";
+import type { GridMessage } from "./locale.js";
 import { useCellRanges } from "./use-cell-ranges.js";
 import { useFind } from "./use-find.js";
-import { CellNotesStore } from "@opengrid/core";
+import { CellNotesStore, getBuiltinRowReorderReason } from "@opengrid/core";
 import { AdvancedFilterBuilder } from "./advanced-filter-builder.js";
 import { CellNoteDialog } from "./cell-note-dialog.js";
 import { RowEditDialog } from "./row-edit-dialog.js";
@@ -228,7 +230,7 @@ export function DataGrid<T>({
   onRowEdit,
   rowDragging = false,
   onRowMove,
-  ariaLabel = "Data grid",
+  ariaLabel,
   toolbar = true,
   advancedFiltering = true,
   filterComponents,
@@ -238,6 +240,7 @@ export function DataGrid<T>({
   renderCell,
   onCellEdit,
 }: DataGridProps<T>) {
+  const { t, locale, resolveMessage, number } = useGridLocale();
   const state = useSyncExternalStore(
     model.subscribe,
     model.getState,
@@ -441,8 +444,9 @@ export function DataGrid<T>({
   const [restoreRowFocus, setRestoreRowFocus] = useState<CellPosition | null>(
     null,
   );
-  const [error, setError] = useState("");
-  const [announcement, setAnnouncement] = useState("");
+  const [errorMessage, setError] = useState<GridMessage | string>("");
+  const error = resolveMessage(errorMessage);
+  const [announcement, setAnnouncement] = useState<GridMessage | string>("");
   const [collapsedGroups, setCollapsedGroups] = useState<string[][]>([]);
   const groupVisibility = useRef(new Map<string, Record<string, boolean>>());
   const [filterBuilderOpen, setFilterBuilderOpen] = useState(false);
@@ -712,24 +716,45 @@ export function DataGrid<T>({
       ? model.getRowReorderStatus()
       : {
           allowed: false as const,
-          message: "This data source does not support managed row moves",
+          message: gridMessage("move.unsupported"),
         };
+  function reorderReason(
+    status: ReturnType<GridModel<T>["getRowReorderStatus"]>,
+  ): GridMessage | string | undefined {
+    if (status.allowed) return;
+    switch (getBuiltinRowReorderReason(status)) {
+      case "sorting":
+        return gridMessage("move.sorting");
+      case "filtering":
+        return gridMessage("move.filtering");
+      case "grouping":
+        return gridMessage("move.grouping");
+      case "tree-data":
+        return gridMessage("move.tree");
+      case "external-filter":
+        return gridMessage("move.externalFilter");
+      default:
+        return status.message;
+    }
+  }
   const rowMoveReason = !rowDragging
-    ? "Row moving is not enabled"
+    ? gridMessage("move.disabled")
     : hasRowSpans
-      ? "Turn off row spanning before moving rows"
+      ? gridMessage("move.rowSpans")
       : !coreReorder.allowed
-        ? coreReorder.message
+        ? "reason" in coreReorder
+          ? reorderReason(coreReorder)
+          : coreReorder.message
         : !columns.length
-          ? "Show a data column before moving rows"
+          ? gridMessage("move.noColumns")
           : editing || rowEditing || noteEditing
-            ? "Finish or cancel editing before moving rows"
+            ? gridMessage("move.editing")
             : projection.top.length || projection.bottom.length
-              ? "Remove pinned rows from this view before moving rows"
+              ? gridMessage("move.pins")
               : projection.rows.some((entry) => entry.fullWidth)
-                ? "Turn off full-width rows in this view before moving rows"
+                ? gridMessage("move.fullWidth")
                 : rowGeometry.detailCount
-                  ? "Close detail panels before moving rows"
+                  ? gridMessage("move.details")
                   : rows.some(
                         (node) =>
                           node.kind !== "row" ||
@@ -737,7 +762,7 @@ export function DataGrid<T>({
                           node.depth !== 0 ||
                           node.children?.length,
                       )
-                    ? "Managed row moves require ordinary flat rows"
+                    ? gridMessage("move.flat")
                     : undefined;
   const rowViewSignature = JSON.stringify([
     state.page,
@@ -806,14 +831,17 @@ export function DataGrid<T>({
       managedDrag.current &&
       (managedDrag.current.signature !== rowViewSignature || rowMoveReason)
     )
-      stopManagedDrag("The row view changed. Start the move again.");
-  }, [rowViewSignature, rowMoveReason]);
+      stopManagedDrag(gridMessage("move.changed"));
+  }, [
+    rowViewSignature,
+    typeof rowMoveReason === "string" ? rowMoveReason : rowMoveReason?.key,
+  ]);
   useEffect(() => {
     const cancel = () => stopManagedDrag();
     const escape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape" && managedDrag.current) {
         event.preventDefault();
-        stopManagedDrag("Row move cancelled");
+        stopManagedDrag(gridMessage("move.cancelled"));
       }
     };
     const track = (event: globalThis.DragEvent) => {
@@ -954,9 +982,7 @@ export function DataGrid<T>({
       ownerRowAt(row, current.columnId) !== row
     ) {
       cancelEdit();
-      setAnnouncement(
-        "Editing cancelled because the cell is no longer visible",
-      );
+      setAnnouncement(gridMessage("grid.hiddenEditCancelled"));
     }
   }, [spanPlanFor, projection, rowSpanPlan]);
   useLayoutEffect(() => {
@@ -1179,7 +1205,9 @@ export function DataGrid<T>({
       filterComponents && Object.hasOwn(filterComponents, column.id)
         ? filterComponents[column.id]
         : undefined;
-    const label = `Filter ${column.header ?? column.id}`;
+    const label = t("grid.filterColumn", {
+      column: column.header ?? column.id,
+    });
     return (
       <FilterOwner>
         {Component ? (
@@ -1195,8 +1223,8 @@ export function DataGrid<T>({
             aria-label={label}
             placeholder={
               column.type === "number" || column.type === "bigint"
-                ? "= value"
-                : "Filter..."
+                ? t("grid.numberFilterPlaceholder")
+                : t("grid.filterPlaceholder")
             }
             value={text(filter?.value)}
             onChange={(event) =>
@@ -1361,7 +1389,7 @@ export function DataGrid<T>({
     editingRef.current = null;
     setEditing(null);
     setError("");
-    setAnnouncement("Cell updated");
+    setAnnouncement(gridMessage("grid.cellUpdated"));
     return true;
   }
   function cancelEdit() {
@@ -1381,7 +1409,10 @@ export function DataGrid<T>({
       row: node.data,
       column,
       value: editing.draft,
-      label: `Edit ${column.header ?? column.id} row ${node.id}`,
+      label: t("grid.editCell", {
+        column: column.header ?? column.id,
+        rowId: node.id,
+      }),
       editorType: config.type,
       options: config.options,
       asyncOptions: config.asyncOptions,
@@ -1546,9 +1577,9 @@ export function DataGrid<T>({
       setAnnouncement(
         changed
           ? redo
-            ? "Change redone"
-            : "Change undone"
-          : "No edits to restore",
+            ? gridMessage("grid.changeRedone")
+            : gridMessage("grid.changeUndone")
+          : gridMessage("grid.noHistory"),
       );
       return;
     }
@@ -1632,7 +1663,7 @@ export function DataGrid<T>({
       target.closest('[role="grid"],[role="treegrid"]') === viewport.current
     );
   }
-  function stopManagedDrag(message?: string) {
+  function stopManagedDrag(message?: GridMessage | string) {
     const active = managedDrag.current !== null;
     managedDrag.current = null;
     if (rowDragFrame.current) {
@@ -1658,12 +1689,12 @@ export function DataGrid<T>({
     ]);
     const message =
       rowMoveReason ??
-      (!status.allowed ? status.message : undefined) ??
+      reorderReason(status) ??
       (signature !== expectedSignature
-        ? "The row view changed. Start the move again."
+        ? gridMessage("move.changed")
         : !actualRows.some((node) => node.id === rowId) ||
             !actualRows.some((node) => node.id === targetRowId)
-          ? "Moves must stay within the current page"
+          ? gridMessage("move.pageOnly")
           : undefined);
     if (message) {
       setError(message);
@@ -1671,12 +1702,12 @@ export function DataGrid<T>({
       return false;
     }
     const before = model.getState();
-    let failure: string | undefined;
+    let failure: GridMessage | string | undefined;
     try {
       failure = model.moveRows([rowId], targetRowId, position);
     } catch (reason) {
       failure =
-        reason instanceof Error ? reason.message : "Unable to move this row";
+        reason instanceof Error ? reason.message : gridMessage("move.failed");
     }
     if (failure) {
       setError(failure);
@@ -1693,7 +1724,10 @@ export function DataGrid<T>({
     setError("");
     const updatedPage = pagination ? model.getPageRows() : model.getRowModel();
     setAnnouncement(
-      `Row ${rowId} moved to position ${updatedPage.findIndex((node) => node.id === rowId) + 1} on this page`,
+      gridMessage("move.moved", {
+        rowId,
+        position: updatedPage.findIndex((node) => node.id === rowId) + 1,
+      }),
     );
     onRowMove?.({ rowIds: Object.freeze([rowId]), targetRowId, position });
     return true;
@@ -1711,9 +1745,7 @@ export function DataGrid<T>({
       target = rows[index + direction];
     if (!target) {
       setAnnouncement(
-        direction < 0
-          ? "Row is already first on this page"
-          : "Row is already last on this page",
+        direction < 0 ? gridMessage("move.first") : gridMessage("move.last"),
       );
       return;
     }
@@ -1752,7 +1784,7 @@ export function DataGrid<T>({
       context.signature !== source.signature ||
       context.reason
     ) {
-      stopManagedDrag("The row view changed. Start the move again.");
+      stopManagedDrag(gridMessage("move.changed"));
       return;
     }
     if (!source.owned) return;
@@ -1808,9 +1840,7 @@ export function DataGrid<T>({
     event.dataTransfer.setData(ROW_DRAG_MIME, payload);
     setDraggingRowId(rowId);
     setFocus((current) => ({ ...current, rowId }));
-    setAnnouncement(
-      `Moving row ${rowId}. Drop before or after another row on this page.`,
-    );
+    setAnnouncement(gridMessage("move.moving", { rowId }));
   }
   function overManagedRow(event: DragEvent<HTMLDivElement>, rowId: string) {
     const source = managedDrag.current;
@@ -1840,7 +1870,7 @@ export function DataGrid<T>({
         event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
     stopManagedDrag();
     if (!matches || source.model !== model) {
-      setAnnouncement("Only a row dragged from this grid can be moved here");
+      setAnnouncement(gridMessage("move.foreign"));
       return;
     }
     performRowMove(
@@ -2112,12 +2142,13 @@ export function DataGrid<T>({
                         tabIndex={-1}
                         draggable={!rowMoveReason}
                         disabled={Boolean(rowMoveReason)}
-                        aria-label={`Drag row ${node.id}`}
+                        aria-label={t("grid.dragRow", { rowId: node.id })}
                         aria-describedby={rowMoveHelpId}
                         aria-keyshortcuts="Alt+ArrowUp Alt+ArrowDown"
                         title={
-                          rowMoveReason ??
-                          "Drag to move; Alt+Up or Alt+Down moves one row"
+                          rowMoveReason
+                            ? resolveMessage(rowMoveReason)
+                            : t("grid.dragHelp")
                         }
                         onFocus={() => {
                           ownsCellFocus.current = false;
@@ -2153,7 +2184,7 @@ export function DataGrid<T>({
                       <input
                         type="checkbox"
                         tabIndex={-1}
-                        aria-label={`Select row ${node.id}`}
+                        aria-label={t("grid.selectRow", { rowId: node.id })}
                         checked={isSelected}
                         onChange={() =>
                           model.toggleSelection(
@@ -2334,7 +2365,10 @@ export function DataGrid<T>({
                                 type="button"
                                 tabIndex={-1}
                                 className="og-note-indicator"
-                                aria-label={`Edit note for ${column.header ?? column.id} row ${node.id}`}
+                                aria-label={t("note.editLabel", {
+                                  column: column.header ?? column.id,
+                                  rowId: node.id,
+                                })}
                                 title={notesStore.get({
                                   rowId: node.id,
                                   columnId: column.id,
@@ -2362,7 +2396,12 @@ export function DataGrid<T>({
                                   type="button"
                                   tabIndex={-1}
                                   className="og-expand"
-                                  aria-label={`${rowGeometry.detailHeights[row] ? "Collapse" : "Expand"} details row ${node.id}`}
+                                  aria-label={t(
+                                    rowGeometry.detailHeights[row]
+                                      ? "grid.collapseDetails"
+                                      : "grid.expandDetails",
+                                    { rowId: node.id },
+                                  )}
                                   aria-expanded={Boolean(
                                     rowGeometry.detailHeights[row],
                                   )}
@@ -2382,7 +2421,12 @@ export function DataGrid<T>({
                                   type="button"
                                   className="og-expand"
                                   tabIndex={-1}
-                                  aria-label={`${state.expanded.includes(node.id) ? "Collapse" : "Expand"} ${node.label ?? node.id}`}
+                                  aria-label={t(
+                                    state.expanded.includes(node.id)
+                                      ? "grid.collapseGroup"
+                                      : "grid.expandGroup",
+                                    { group: node.label ?? node.id },
+                                  )}
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     model.toggleExpanded(node.id);
@@ -2400,7 +2444,9 @@ export function DataGrid<T>({
                               <>
                                 {node.label}{" "}
                                 <span className="og-group-count">
-                                  {node.leafCount}
+                                  {node.leafCount === undefined
+                                    ? ""
+                                    : number(node.leafCount)}
                                 </span>
                               </>
                             ) : node.data && renderCell ? (
@@ -2418,7 +2464,7 @@ export function DataGrid<T>({
                                 type="button"
                                 className="og-fill-handle"
                                 tabIndex={-1}
-                                aria-label="Drag to fill cells; Alt-drag extends a numeric series"
+                                aria-label={t("grid.fillHandle")}
                                 onPointerDown={ranges.fillHandle}
                                 onClick={(event) => {
                                   event.stopPropagation();
@@ -2464,7 +2510,10 @@ export function DataGrid<T>({
                   padding: 12,
                 }}
               >
-                <div role="region" aria-label={`Details for row ${node.id}`}>
+                <div
+                  role="region"
+                  aria-label={t("grid.details", { rowId: node.id })}
+                >
                   {renderDetail?.({ row: node.data, rowId: node.id })}
                 </div>
               </div>
@@ -2476,54 +2525,36 @@ export function DataGrid<T>({
   }
 
   return (
-    <section className={`og-root ${className}`}>
+    <section className={`og-root ${className}`} lang={locale}>
       {(hasColumnSpans || hasRowSpans) && (
         <p className="og-span-help" role="status">
-          {hasRowSpans ? "Row" : "Column"} spanning is configured. Cell ranges,
-          grid clipboard and fill are unavailable; row selection and cell
-          editing remain available.
+          {t(hasRowSpans ? "grid.rowSpanHelp" : "grid.columnSpanHelp")}
         </p>
       )}
       <p id={helpId} className="og-sr-only">
-        Use arrow keys to navigate cells, Home and End to move across a row,
-        Control Home and End to reach the first or last cell. Press Enter or F2
-        to edit{" "}
-        {editMode === "row" ? "the current row in a dialog" : "editable cells"},
-        Escape to cancel, Space to select a row. Shift click headers for
-        multiple sort columns.
-        {effectiveCellSelection && (
-          <>
-            {" "}
-            Shift and arrow keys extend a cell range. Control or Command A
-            selects visible data cells; C copies and V pastes. Control or
-            Command D fills down, R fills right. Drag the range corner to fill,
-            or Alt-drag to extend a numeric series.
-          </>
-        )}
-        {toolbar && <> Control or Command F opens Find in the current view.</>}
-        {notes !== false && <> Alt N opens the current cell note.</>}
-        {renderDetail && (
-          <> Alt Enter expands or collapses the current row detail.</>
-        )}
-        {rowDragging && (
-          <>
-            {" "}
-            Alt+Up and Alt+Down move an eligible row within the current page.
-          </>
-        )}
+        {t("grid.help", {
+          target: t(
+            editMode === "row" ? "grid.helpEditRow" : "grid.helpEditCells",
+          ),
+        })}
+        {effectiveCellSelection && <> {t("grid.rangeHelp")}</>}
+        {toolbar && <> {t("grid.findHelp")}</>}
+        {notes !== false && <> {t("grid.noteHelp")}</>}
+        {renderDetail && <> {t("grid.detailHelp")}</>}
+        {rowDragging && <> {t("grid.moveHelp")}</>}
       </p>
       {toolbar && (
         <div
           className="og-toolbar"
           role="toolbar"
-          aria-label="Grid tools"
+          aria-label={t("grid.tools")}
           style={{ zIndex: 7 }}
         >
           <label className="og-search">
             <span aria-hidden="true">{"\u2315"}</span>
             <input
-              aria-label="Search all rows"
-              placeholder="Search all rows..."
+              aria-label={t("grid.searchLabel")}
+              placeholder={t("grid.searchPlaceholder")}
               value={state.quickFilter}
               onChange={(event) => {
                 model.setQuickFilter(event.target.value);
@@ -2537,23 +2568,23 @@ export function DataGrid<T>({
               <>
                 <button
                   type="button"
-                  aria-label="Move focused row up"
+                  aria-label={t("grid.moveUp")}
                   aria-describedby={rowMoveHelpId}
                   disabled={Boolean(rowMoveReason) || focusRow <= 0}
                   onClick={() => moveAdjacentRow(focus.rowId, -1, "cell")}
                 >
-                  Move focused row up
+                  {t("grid.moveUp")}
                 </button>
                 <button
                   type="button"
-                  aria-label="Move focused row down"
+                  aria-label={t("grid.moveDown")}
                   aria-describedby={rowMoveHelpId}
                   disabled={
                     Boolean(rowMoveReason) || focusRow >= rows.length - 1
                   }
                   onClick={() => moveAdjacentRow(focus.rowId, 1, "cell")}
                 >
-                  Move focused row down
+                  {t("grid.moveDown")}
                 </button>
               </>
             )}
@@ -2576,7 +2607,7 @@ export function DataGrid<T>({
                   if (node && column) startEdit(node, column);
                 }}
               >
-                Edit row
+                {t("grid.editRow")}
               </button>
             )}
             <button
@@ -2584,11 +2615,11 @@ export function DataGrid<T>({
               onClick={() => setFindOpen(!findOpen)}
               aria-expanded={findOpen}
             >
-              Find
+              {t("grid.find")}
             </button>
             {notes !== false && (
               <button type="button" onClick={() => openNote()}>
-                Note
+                {t("grid.note")}
               </button>
             )}
             {advancedFiltering && (
@@ -2598,7 +2629,7 @@ export function DataGrid<T>({
                 aria-expanded={filterBuilderOpen}
                 onClick={() => setFilterBuilderOpen(!filterBuilderOpen)}
               >
-                Advanced filter
+                {t("grid.advancedFilter")}
               </button>
             )}
             {effectiveCellSelection && (
@@ -2606,23 +2637,23 @@ export function DataGrid<T>({
                 <button
                   type="button"
                   onClick={ranges.copyToClipboard}
-                  aria-label="Copy selected cells"
+                  aria-label={t("grid.copyLabel")}
                 >
-                  Copy
+                  {t("grid.copy")}
                 </button>
                 <button
                   type="button"
                   onClick={ranges.pasteFromClipboard}
-                  aria-label="Paste cells"
+                  aria-label={t("grid.pasteLabel")}
                 >
-                  Paste
+                  {t("grid.paste")}
                 </button>
                 <button
                   type="button"
                   onClick={() => ranges.fill("down")}
-                  aria-label="Fill down selected cells"
+                  aria-label={t("grid.fillDownLabel")}
                 >
-                  Fill down
+                  {t("grid.fillDown")}
                 </button>
               </>
             )}
@@ -2630,33 +2661,35 @@ export function DataGrid<T>({
               type="button"
               onClick={() => {
                 model.undo();
-                setAnnouncement("Undo requested");
+                setAnnouncement(gridMessage("grid.undoRequested"));
               }}
             >
-              Undo
+              {t("grid.undo")}
             </button>
             <button
               type="button"
               onClick={() => {
                 model.redo();
-                setAnnouncement("Redo requested");
+                setAnnouncement(gridMessage("grid.redoRequested"));
               }}
             >
-              Redo
+              {t("grid.redo")}
             </button>
             <button type="button" onClick={downloadCsv}>
-              Export CSV
+              {t("grid.exportCsv")}
             </button>
             <details className="og-chooser">
-              <summary>Columns</summary>
+              <summary>{t("grid.columns")}</summary>
               <div className="og-chooser-panel">
-                <strong>Arrange your view</strong>
+                <strong>{t("grid.arrangeView")}</strong>
                 {allColumns.map((column, index) => (
                   <div className="og-column-option" key={column.id}>
                     <label>
                       <input
                         type="checkbox"
-                        aria-label={`Show ${column.header ?? column.id}`}
+                        aria-label={t("grid.showColumn", {
+                          column: column.header ?? column.id,
+                        })}
                         checked={visibleOf(column)}
                         onChange={(event) =>
                           model.hideColumn(column.id, !event.target.checked)
@@ -2665,7 +2698,9 @@ export function DataGrid<T>({
                       {column.header ?? column.id}
                     </label>
                     <select
-                      aria-label={`Pin ${column.header ?? column.id}`}
+                      aria-label={t("grid.pinColumn", {
+                        column: column.header ?? column.id,
+                      })}
                       value={pinOf(column) ?? ""}
                       onChange={(event) =>
                         model.pinColumn(
@@ -2676,13 +2711,15 @@ export function DataGrid<T>({
                         )
                       }
                     >
-                      <option value="">Unpinned</option>
-                      <option value="left">Pin left</option>
-                      <option value="right">Pin right</option>
+                      <option value="">{t("grid.unpinned")}</option>
+                      <option value="left">{t("grid.pinLeft")}</option>
+                      <option value="right">{t("grid.pinRight")}</option>
                     </select>
                     <button
                       type="button"
-                      aria-label={`Move ${column.header ?? column.id} left`}
+                      aria-label={t("grid.moveColumnLeft", {
+                        column: column.header ?? column.id,
+                      })}
                       onClick={() =>
                         model.moveColumn(
                           column.id,
@@ -2694,7 +2731,9 @@ export function DataGrid<T>({
                     </button>
                     <button
                       type="button"
-                      aria-label={`Move ${column.header ?? column.id} right`}
+                      aria-label={t("grid.moveColumnRight", {
+                        column: column.header ?? column.id,
+                      })}
                       onClick={() =>
                         model.moveColumn(
                           column.id,
@@ -2718,20 +2757,17 @@ export function DataGrid<T>({
       )}
       {rowDragging && (
         <p className="og-row-move-help" id={rowMoveHelpId} role="status">
-          {rowMoveReason ??
-            "Drag a row handle or press Alt+Up or Alt+Down on a cell. Moves stay within this page."}
+          {rowMoveReason
+            ? resolveMessage(rowMoveReason)
+            : t("grid.rowMoveHelp")}
         </p>
       )}
       {findOpen && (
-        <div
-          className="og-findbar"
-          role="search"
-          aria-label="Find in current view"
-        >
+        <div className="og-findbar" role="search" aria-label={t("find.label")}>
           <input
             ref={findInput}
-            aria-label="Find in current view"
-            placeholder="Find without filtering rows"
+            aria-label={t("find.label")}
+            placeholder={t("find.placeholder")}
             value={finder.snapshot.query}
             onChange={(event) => {
               try {
@@ -2740,7 +2776,9 @@ export function DataGrid<T>({
                 setError("");
               } catch (error) {
                 setError(
-                  error instanceof Error ? error.message : "Find failed",
+                  error instanceof Error
+                    ? error.message
+                    : gridMessage("grid.findFailed"),
                 );
               }
             }}
@@ -2764,22 +2802,25 @@ export function DataGrid<T>({
           />
           <span role="status">
             {finder.snapshot.matches.length
-              ? `${finder.snapshot.activeIndex + 1} of ${finder.snapshot.matches.length}`
-              : "No matches"}
+              ? t("find.position", {
+                  position: finder.snapshot.activeIndex + 1,
+                  count: finder.snapshot.matches.length,
+                })
+              : t("find.none")}
           </span>
           <button
             type="button"
-            aria-label="Previous find match"
+            aria-label={t("find.previous")}
             onClick={() => focusMatch(finder.controller?.previous())}
           >
-            Previous
+            {t("common.previous")}
           </button>
           <button
             type="button"
-            aria-label="Next find match"
+            aria-label={t("find.next")}
             onClick={() => focusMatch(finder.controller?.next())}
           >
-            Next
+            {t("common.next")}
           </button>
           <button
             type="button"
@@ -2788,7 +2829,7 @@ export function DataGrid<T>({
               finder.controller?.setQuery("");
             }}
           >
-            Close find
+            {t("find.close")}
           </button>
         </div>
       )}
@@ -2806,7 +2847,7 @@ export function DataGrid<T>({
         style={{ height: safeHeight }}
         role={hierarchical ? "treegrid" : "grid"}
         tabIndex={-1}
-        aria-label={ariaLabel}
+        aria-label={ariaLabel ?? t("grid.ariaLabel")}
         aria-describedby={helpId}
         aria-rowcount={rows.length + rowGeometry.detailCount + headerRows}
         aria-colcount={Math.max(1, columns.length + (selectionWidth ? 1 : 0))}
@@ -2856,14 +2897,14 @@ export function DataGrid<T>({
                 <div
                   role="columnheader"
                   aria-colindex={1}
-                  aria-label="Row controls"
+                  aria-label={t("grid.rowControls")}
                   className="og-selection og-header-cell"
                   style={{ width: selectionWidth, minWidth: selectionWidth }}
                 >
                   {selectionMode === "multiple" && (
                     <input
                       type="checkbox"
-                      aria-label="Select all rows on page"
+                      aria-label={t("grid.selectPage")}
                       checked={allSelected}
                       onChange={selectPage}
                     />
@@ -2915,7 +2956,9 @@ export function DataGrid<T>({
                           column.id,
                         )
                       }
-                      aria-label={`Sort ${column.header ?? column.id}`}
+                      aria-label={t("grid.sortColumn", {
+                        column: column.header ?? column.id,
+                      })}
                       onClick={(event) => {
                         model.setSort(
                           column.id,
@@ -2936,7 +2979,7 @@ export function DataGrid<T>({
                             ? "\u2193"
                             : "\u2195"}
                         {sort && state.sorting.length > 1
-                          ? state.sorting.indexOf(sort) + 1
+                          ? number(state.sorting.indexOf(sort) + 1)
                           : ""}
                       </span>
                     </button>
@@ -2944,7 +2987,9 @@ export function DataGrid<T>({
                       role="separator"
                       tabIndex={0}
                       aria-orientation="vertical"
-                      aria-label={`Resize ${column.header ?? column.id}`}
+                      aria-label={t("grid.resizeColumn", {
+                        column: column.header ?? column.id,
+                      })}
                       aria-valuenow={widthOf(column)}
                       aria-valuemin={column.minWidth ?? 60}
                       aria-valuemax={column.maxWidth ?? 1000}
@@ -3041,7 +3086,7 @@ export function DataGrid<T>({
         {projection.top.length > 0 && (
           <div
             role="rowgroup"
-            aria-label="Pinned top rows"
+            aria-label={t("grid.pinnedTop")}
             data-row-region="top"
             className="og-pinned-row-band"
             style={{
@@ -3071,7 +3116,7 @@ export function DataGrid<T>({
         {projection.bottom.length > 0 && (
           <div
             role="rowgroup"
-            aria-label="Pinned bottom rows"
+            aria-label={t("grid.pinnedBottom")}
             data-row-region="bottom"
             className="og-pinned-row-band"
             style={{
@@ -3088,7 +3133,7 @@ export function DataGrid<T>({
         )}
         {rows.length === 0 && (
           <div className="og-empty" role="status">
-            No matching rows
+            {t("grid.empty")}
           </div>
         )}
       </div>
@@ -3106,7 +3151,7 @@ export function DataGrid<T>({
           renderEditor={renderEditor}
           conflictPolicy={rowConflictPolicy}
           onCommit={(rowId) => {
-            setAnnouncement("Row updated");
+            setAnnouncement(gridMessage("grid.rowUpdated"));
             onRowEdit?.({ rowId });
           }}
           onClose={() => {
@@ -3132,27 +3177,28 @@ export function DataGrid<T>({
       )}
       <div className="og-statusbar">
         <span>
-          {model.getFilteredRows().length.toLocaleString()} rows
+          {t("grid.rowCount", { count: model.getFilteredRows().length })}
           {ranges.selectedCellCount > 0 && (
             <>
               {" "}
-              {"\u00b7"} {ranges.selectedCellCount.toLocaleString()} cells
-              selected
+              {"\u00b7"}{" "}
+              {t("grid.cellCount", { count: ranges.selectedCellCount })}
             </>
           )}
           {state.selected.length > 0 && (
             <>
               {" "}
-              {"\u00b7"} {state.selected.length.toLocaleString()} selected
+              {"\u00b7"}{" "}
+              {t("grid.selectedCount", { count: state.selected.length })}
             </>
           )}
         </span>
         {pagination && (
           <div className="og-pagination">
             <label>
-              Rows per page{" "}
+              {t("grid.rowsPerPage")}
               <select
-                aria-label="Rows per page"
+                aria-label={t("grid.rowsPerPage")}
                 value={state.pageSize}
                 onChange={(event) => {
                   model.setState({
@@ -3167,17 +3213,20 @@ export function DataGrid<T>({
                   .sort((a, b) => a - b)
                   .map((size) => (
                     <option value={size} key={size}>
-                      {size}
+                      {number(size)}
                     </option>
                   ))}
               </select>
             </label>
             <span aria-live="polite">
-              Page {pageCount ? state.page + 1 : 0} of {pageCount}
+              {t("grid.pageCount", {
+                page: pageCount ? state.page + 1 : 0,
+                pages: pageCount,
+              })}
             </span>
             <button
               type="button"
-              aria-label="Previous page"
+              aria-label={t("grid.previousPage")}
               disabled={state.page <= 0}
               onClick={() => {
                 model.setState({ page: state.page - 1 });
@@ -3189,7 +3238,7 @@ export function DataGrid<T>({
             </button>
             <button
               type="button"
-              aria-label="Next page"
+              aria-label={t("grid.nextPage")}
               disabled={state.page >= pageCount - 1}
               onClick={() => {
                 model.setState({ page: state.page + 1 });
@@ -3203,7 +3252,7 @@ export function DataGrid<T>({
         )}
       </div>
       <span className="og-sr-only" role="status" aria-live="polite">
-        {announcement}
+        {resolveMessage(announcement)}
       </span>
     </section>
   );
@@ -3221,9 +3270,10 @@ export function Sparkline({
   values,
   width = 100,
   height = 28,
-  label = "Trend",
+  label,
   color = "currentColor",
 }: SparklineProps) {
+  const { t, locale } = useGridLocale();
   const finite = values
     .map((value, index) => ({ value, index }))
     .filter((point) => Number.isFinite(point.value));
@@ -3238,7 +3288,8 @@ export function Sparkline({
   return (
     <svg
       role="img"
-      aria-label={label}
+      lang={locale}
+      aria-label={label ?? t("grid.sparkline")}
       width={width}
       height={height}
       viewBox={`0 0 ${width} ${height}`}
