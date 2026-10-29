@@ -1,4 +1,5 @@
 import type { Column, GridModel } from "./types.js";
+import { getFormulaGridController } from "./formula-grid-registry.js";
 
 export interface RowEditOptions {
   conflictPolicy?: "reject" | "overwrite";
@@ -30,6 +31,8 @@ export function createRowEditSession<T>(
   rowId: string,
   options: RowEditOptions = {},
 ): RowEditSession {
+  if (getFormulaGridController(model))
+    throw new Error("Full-row editing is not supported by formula grids");
   const conflictPolicy = options.conflictPolicy ?? "reject";
   if (conflictPolicy !== "reject" && conflictPolicy !== "overwrite")
     throw new TypeError("Unknown row-edit conflict policy");

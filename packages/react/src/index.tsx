@@ -18,3 +18,9 @@ export * from "./direction.js";
 
 export { SetListFilter } from "./set-list-filter.js";
 export type { SetListFilterProps } from "./set-list-filter.js";
+
+export { FormulaCellEditor } from "./formula-cell-editor.js";
+export type {
+  FormulaCellEditorProps,
+  FormulaEditMode,
+} from "./formula-cell-editor.js";

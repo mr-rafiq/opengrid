@@ -30,6 +30,7 @@ import { RowSpanLab } from "./row-span-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
+import { FormulaGridLab } from "./formula-grid-lab";
 interface Holding {
   id: string;
   company: string;
@@ -194,6 +195,7 @@ function App() {
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
+  const [formulaGridOpen, setFormulaGridOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -748,6 +750,15 @@ function App() {
             Set-filter lab
           </button>
           {setFilterOpen && <SetFilterLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setFormulaGridOpen(!formulaGridOpen)}
+            aria-expanded={formulaGridOpen}
+          >
+            Formula grid lab
+          </button>
+          {formulaGridOpen && <FormulaGridLab />}
         </section>
         <section className="pivot-panel">
           <button

@@ -370,6 +370,10 @@
 .og-editor[aria-invalid="true"] {
   border-color: #c84040;
 }
+.og-cell[data-formula-error]:not(.og-editing) {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
 .og-statusbar {
   display: flex;
   justify-content: space-between;
@@ -465,6 +469,10 @@
   display: flex;
   align-items: center;
   position: relative;
+}
+.og-formula-cell-editor > select {
+  min-width: 0;
+  border-radius: 3px;
 }
 .og-editor-popup {
   z-index: 30;
@@ -658,6 +666,9 @@
 }
 .og-set-list-filter > button {
   width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .og-set-list-dialog::backdrop {
   background: #102b3d55;

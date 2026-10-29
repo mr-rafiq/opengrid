@@ -64,6 +64,7 @@ const labels = {
   "pinned-full-width-rows": "Pinned & full-width rows",
   "custom-filters": "Custom column filters",
   "set-filters": "Set-list filters",
+  "formula-grid": "Editable formula grids",
   "calculated-columns": "Calculated columns",
 };
 const order = [
@@ -91,6 +92,7 @@ const order = [
   "remote-models",
   "remote-grids",
   "formulas",
+  "formula-grid",
   "calculated-columns",
   "charts",
   "show-values-as",
@@ -128,6 +130,7 @@ const section = (slug) =>
           "filter-builder",
           "custom-filters",
           "set-filters",
+          "formula-grid",
           "find-notes",
           "notes-ui",
           "pinned-full-width-rows",

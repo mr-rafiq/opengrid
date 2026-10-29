@@ -386,6 +386,10 @@ export interface GridMessageParams {
   "setList.typeBoolean": undefined;
   "setList.typeText": undefined;
   "setList.typeDate": undefined;
+  "formula.mode": undefined;
+  "formula.literal": undefined;
+  "formula.formula": undefined;
+  "formula.modeHelp": undefined;
 }
 export type GridMessageKey = keyof GridMessageParams;
 export interface GridPluralForms {
@@ -992,5 +996,9 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "setList.typeBoolean": {},
   "setList.typeText": {},
   "setList.typeDate": {},
+  "formula.mode": {},
+  "formula.literal": {},
+  "formula.formula": {},
+  "formula.modeHelp": {},
 });
 for (const fields of Object.values(MESSAGE_PARAM_TYPES)) Object.freeze(fields);

@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { createGrid } from "@opengrid/core";
 import { DataGrid } from "./index";
 afterEach(cleanup);
@@ -32,6 +38,49 @@ function setup() {
   return { model, view, cell };
 }
 describe("React cell ranges", () => {
+  it("notifies the latest listener for semantic range/view changes without replaying on handler or value updates", () => {
+    const { model, view, cell } = setup();
+    const first = vi.fn(),
+      latest = vi.fn(),
+      reattached = vi.fn();
+    view.rerender(
+      <DataGrid model={model} selectionMode="none" onCellRangeChange={first} />,
+    );
+    expect(first).toHaveBeenCalledExactlyOnceWith(null);
+    fireEvent.click(cell("a", "price"));
+    expect(first).toHaveBeenCalledTimes(2);
+    view.rerender(
+      <DataGrid
+        model={model}
+        selectionMode="none"
+        onCellRangeChange={latest}
+      />,
+    );
+    expect(latest).not.toHaveBeenCalled();
+    act(() => model.editCell("a", "price", 11));
+    act(() => model.resizeColumn("price", 180));
+    expect(latest).not.toHaveBeenCalled();
+    fireEvent.click(cell("c", "price"), { shiftKey: true });
+    expect(latest).toHaveBeenCalledTimes(1);
+    expect(latest.mock.lastCall?.[0].focus).toEqual({
+      rowId: "c",
+      columnId: "price",
+    });
+    act(() => model.setSort("price", "desc"));
+    expect(latest).toHaveBeenCalledTimes(2);
+    view.rerender(<DataGrid model={model} selectionMode="none" />);
+    view.rerender(
+      <DataGrid
+        model={model}
+        selectionMode="none"
+        onCellRangeChange={reattached}
+      />,
+    );
+    expect(reattached).toHaveBeenCalledTimes(1);
+    act(() => model.setQuickFilter("A"));
+    expect(reattached).toHaveBeenLastCalledWith(null);
+    expect(latest).toHaveBeenCalledTimes(2);
+  });
   it("extends a rectangle by keyboard, exposes selection and clears it", () => {
     const { cell } = setup();
     cell("a", "price").focus();

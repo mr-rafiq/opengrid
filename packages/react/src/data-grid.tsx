@@ -22,6 +22,7 @@ import type {
   CellPosition,
   CellRange,
   Filter,
+  FormulaGridController,
 } from "@opengrid/core";
 import { useGridLocale, gridMessage } from "./locale.js";
 import type { GridMessage } from "./locale.js";
@@ -29,7 +30,15 @@ import { useCellRanges } from "./use-cell-ranges.js";
 import { useFind } from "./use-find.js";
 import { useColumnResize } from "./use-column-resize.js";
 import { useTouchTaps } from "./use-touch-taps.js";
-import { CellNotesStore, getBuiltinRowReorderReason } from "@opengrid/core";
+import {
+  CellNotesStore,
+  getBuiltinRowReorderReason,
+  getFormulaGridController,
+  isFormulaInput,
+  isFormulaError,
+} from "@opengrid/core";
+import { FormulaCellEditor } from "./formula-cell-editor.js";
+import type { FormulaEditMode } from "./formula-cell-editor.js";
 import {
   getInlineColumnOrder,
   normalizeScrollLeft,
@@ -78,6 +87,8 @@ export interface CellContext<T> {
 }
 export interface DataGridProps<T> {
   model: GridModel<T>;
+  /** Registered formula models are detected automatically. A supplied controller must own this model. */
+  formulas?: FormulaGridController<T>;
   direction?: GridDirection;
   height?: number;
   rowHeight?: number;
@@ -136,6 +147,7 @@ interface Editing {
   rowId: string;
   columnId: string;
   draft: string;
+  formulaMode?: FormulaEditMode;
 }
 const text = (value: unknown) => (value == null ? "" : String(value));
 const clamp = (value: number, low: number, high: number) =>
@@ -216,6 +228,7 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 /** A row- and column-virtualized grid with optional variable row heights and detail rows. The supplied model owns data and persisted state. */
 export function DataGrid<T>({
   model,
+  formulas: suppliedFormulas,
   direction = "ltr",
   height = 480,
   rowHeight = 38,
@@ -254,6 +267,9 @@ export function DataGrid<T>({
   onCellEdit,
 }: DataGridProps<T>) {
   const { t, locale, resolveMessage, number } = useGridLocale();
+  const formulas = suppliedFormulas ?? getFormulaGridController(model);
+  if (formulas && formulas.model !== model)
+    throw new TypeError("Formula controller must own the supplied grid model");
   const state = useSyncExternalStore(
     model.subscribe,
     model.getState,
@@ -939,9 +955,20 @@ export function DataGrid<T>({
   useLayoutEffect(() => {
     if (findOpen) findInput.current?.focus();
   }, [findOpen]);
+  const rangeChangeListener = useRef(onCellRangeChange);
+  rangeChangeListener.current = onCellRangeChange;
+  const hasRangeChangeListener = onCellRangeChange !== undefined;
+  const rangeChangeKey = ranges.range
+    ? JSON.stringify([
+        ranges.range.anchor,
+        ranges.range.focus,
+        dataRowIds,
+        columnIds,
+      ])
+    : "";
   useEffect(() => {
-    onCellRangeChange?.(ranges.range);
-  }, [onCellRangeChange, ranges.range]);
+    rangeChangeListener.current?.(ranges.range);
+  }, [model, hasRangeChangeListener, rangeChangeKey]);
 
   useEffect(() => () => stopManagedDrag(), [model, rowDragging]);
   useEffect(() => {
@@ -1016,7 +1043,7 @@ export function DataGrid<T>({
     editingRef.current = null;
     setEditing(null);
     setError("");
-  }, [model, editMode]);
+  }, [model, editMode, formulas]);
   useEffect(() => {
     if (rowEditing || !restoreRowFocus) return;
     setRestoreRowFocus(null);
@@ -1155,6 +1182,11 @@ export function DataGrid<T>({
   ]);
   useLayoutEffect(() => {
     if (pendingFocus.current) {
+      if (!rows.length) {
+        pendingFocus.current = false;
+        viewport.current?.focus({ preventScroll: true });
+        return;
+      }
       const cell = projection.rows[focusRow]?.fullWidth
         ? fullWidthCells.current.get(rows[focusRow].id)
         : cells.current.get(
@@ -1520,10 +1552,29 @@ export function DataGrid<T>({
     }
     node = rows[ownerRowAt(projection.indexOf(node.id), column.id)];
     if (!column.editable || !node.data || node.kind !== "row") return;
-    const next = {
+    const formulaEnabled = formulas?.supportsColumn(column.id);
+    const input = formulaEnabled
+      ? formulas!.getInput({ rowId: node.id, columnId: column.id })
+      : undefined;
+    const formula = isFormulaInput(input);
+    const next: Editing = {
       rowId: node.id,
       columnId: column.id,
-      draft: initial ?? text(model.getValue(node.data, column.id)),
+      draft:
+        initial ??
+        (formulaEnabled
+          ? formula
+            ? input.expression
+            : text(input)
+          : text(model.getValue(node.data, column.id))),
+      ...(formulaEnabled
+        ? {
+            formulaMode:
+              initial === undefined && formula
+                ? ("formula" as const)
+                : ("literal" as const),
+          }
+        : {}),
     };
     editingRef.current = next;
     setEditing(next);
@@ -1532,11 +1583,13 @@ export function DataGrid<T>({
   function commitEdit() {
     const current = editingRef.current;
     if (!current) return true;
-    const message = model.editCell(
-      current.rowId,
-      current.columnId,
-      current.draft,
-    );
+    const message =
+      current.formulaMode === "formula" && formulas
+        ? formulas.setFormula(
+            { rowId: current.rowId, columnId: current.columnId },
+            current.draft,
+          )
+        : model.editCell(current.rowId, current.columnId, current.draft);
     onCellEdit?.({
       rowId: current.rowId,
       columnId: current.columnId,
@@ -1581,7 +1634,7 @@ export function DataGrid<T>({
       errorId,
       inlineValidation: false,
       onChange: (value) => {
-        const next = { ...editing, draft: value };
+        const next = { ...(editingRef.current ?? editing), draft: value };
         editingRef.current = next;
         setEditing(next);
         setError("");
@@ -1605,7 +1658,10 @@ export function DataGrid<T>({
         }
         if (
           event.key === "Enter" &&
-          (config.type !== "largeText" || event.ctrlKey || event.metaKey)
+          (editing.formulaMode ||
+            config.type !== "largeText" ||
+            event.ctrlKey ||
+            event.metaKey)
         ) {
           event.preventDefault();
           event.stopPropagation();
@@ -1633,12 +1689,25 @@ export function DataGrid<T>({
         }
       },
     };
-    const content = renderEditor ? (
+    const content = editing.formulaMode ? (
+      <FormulaCellEditor
+        {...props}
+        mode={editing.formulaMode}
+        onModeChange={(formulaMode) => {
+          const current = editingRef.current;
+          if (!current) return;
+          const next = { ...current, formulaMode };
+          editingRef.current = next;
+          setEditing(next);
+          setError("");
+        }}
+      />
+    ) : renderEditor ? (
       renderEditor(props)
     ) : (
       <CellEditor {...props} />
     );
-    if (config.type !== "largeText") return content;
+    if (editing.formulaMode || config.type !== "largeText") return content;
     const rect = cells.current
       .get(keyOf(row, column.id))
       ?.getBoundingClientRect();
@@ -2415,6 +2484,16 @@ export function DataGrid<T>({
                     editMode === "cell" &&
                     editing?.rowId === node.id &&
                     editing.columnId === column.id;
+                  const formulaResult =
+                    node.data && formulas?.supportsColumn(column.id)
+                      ? formulas.getResult({
+                          rowId: node.id,
+                          columnId: column.id,
+                        })
+                      : undefined;
+                  const formulaError = isFormulaError(formulaResult)
+                    ? formulaResult
+                    : undefined;
                   const display =
                     node.data && column.valueFormatter
                       ? column.valueFormatter(value, node.data)
@@ -2427,6 +2506,8 @@ export function DataGrid<T>({
                       aria-colspan={span.span > 1 ? span.span : undefined}
                       aria-rowspan={rowSpan?.span}
                       aria-readonly={!column.editable || node.kind !== "row"}
+                      aria-invalid={formulaError ? true : undefined}
+                      aria-description={formulaError?.message}
                       aria-keyshortcuts={
                         rowDragging ? "Alt+ArrowUp Alt+ArrowDown" : undefined
                       }
@@ -2448,6 +2529,7 @@ export function DataGrid<T>({
                       }}
                       data-row-id={node.id}
                       data-column-id={column.id}
+                      data-formula-error={formulaError?.code}
                       className={`og-cell ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
                       style={{
                         ...cellStyle(column, span),
@@ -2465,7 +2547,11 @@ export function DataGrid<T>({
                             }
                           : {}),
                       }}
-                      title={display}
+                      title={
+                        formulaError
+                          ? `${display}: ${formulaError.message}`
+                          : display
+                      }
                       onFocus={(event) => {
                         if (event.target === event.currentTarget) {
                           ownsCellFocus.current = true;
@@ -2641,6 +2727,8 @@ export function DataGrid<T>({
                               </>
                             ) : node.data && renderCell ? (
                               renderCell({ value, row: node.data, column })
+                            ) : formulaError ? (
+                              <bdi dir="ltr">{display}</bdi>
                             ) : (
                               display
                             )}
@@ -3030,13 +3118,18 @@ export function DataGrid<T>({
         </p>
       )}
       {toolbar && (
-        <p className="og-touch-help">
+        <p className="og-touch-help" dir="auto">
           {t("grid.touchHelp")}
           {rowDragging && <> {t("grid.touchMoveHelp")}</>}
         </p>
       )}
       {rowDragging && (
-        <p className="og-row-move-help" id={rowMoveHelpId} role="status">
+        <p
+          className="og-row-move-help"
+          id={rowMoveHelpId}
+          role="status"
+          dir="auto"
+        >
           {rowMoveReason
             ? resolveMessage(rowMoveReason)
             : t("grid.rowMoveHelp")}

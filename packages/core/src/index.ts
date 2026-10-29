@@ -14,6 +14,8 @@ export * from "./value-transforms.js";
 export * from "./aligned-columns.js";
 export * from "./calculated-grid.js";
 export * from "./set-filter-index.js";
+export * from "./formula-grid.js";
+import { takeGridExtension } from "./grid-extension.js";
 export { matchesFilter } from "./filter-predicates.js";
 import {
   isFilterBlank as blank,
@@ -55,6 +57,7 @@ export function csvCell(value: unknown): string {
 }
 
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
+  const extension = takeGridExtension(options);
   const columns = options.columns.map((column) => {
     if (
       column.spanRows !== undefined &&
@@ -270,7 +273,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     expanded: [],
     ...options.initialState,
   });
-  const getValue = (row: T, id: string): unknown => {
+  const getRawValue = (row: T, id: string): unknown => {
     const column = requireColumn(id);
     if (!column.valueGetter)
       return column.field
@@ -305,6 +308,18 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     return value;
   };
+  const getValue = (row: T, id: string): unknown =>
+    extension
+      ? extension.resolveValue(row, requireColumn(id), () =>
+          getRawValue(row, id),
+        )
+      : getRawValue(row, id);
+  extension?.initialize({
+    getRawValue,
+    getRows: () => rows,
+    getRow,
+    getState: () => state,
+  });
   function sortedFiltered() {
     if (filteredCache) return filteredCache;
     const terms = text(state.quickFilter).trim().split(/\s+/u).filter(Boolean);
@@ -527,6 +542,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     emit();
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
+    if (extension?.beforeBatch) {
+      try {
+        const beforeError = extension.beforeBatch(edits);
+        if (beforeError) return beforeError;
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid batch";
+      }
+    }
     const pending = new Map(rows.map((row) => [idOf(row), row]));
     const originals = new Map(pending);
     const validationTargets = new Map<string, Map<string, Column<T>>>();
@@ -585,12 +608,25 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         return error instanceof Error ? error.message : "Invalid value";
       }
     }
+    if (extension?.validateBatch) {
+      try {
+        const error = extension.validateBatch(
+          rows.map((row) => pending.get(idOf(row))!),
+          edits,
+        );
+        if (error) return error;
+      } catch (error) {
+        return error instanceof Error ? error.message : "Invalid batch";
+      }
+    }
     const changed = [...validationTargets].some(([rowId, targets]) => {
       const before = originals.get(rowId)!,
         after = pending.get(rowId)!;
       return [...targets.values()].some((column) => {
         const left = before[column.field!],
           right = after[column.field!];
+        const extensionEqual = extension?.equalValue?.(column.id, left, right);
+        if (extensionEqual !== undefined) return !extensionEqual;
         return left instanceof Date && right instanceof Date
           ? !Object.is(left.getTime(), right.getTime())
           : !Object.is(left, right);
@@ -680,7 +716,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     },
     setRows(next) {
       assertRows(next);
-      rows = [...next];
+      const prepared = extension?.validateRows?.(next) ?? next;
+      rows = [...prepared];
       undoStack.length = redoStack.length = 0;
       state = sanitize({ ...state, page: 0 });
       emit();
@@ -836,7 +873,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         ...(transaction.add ?? []),
       ];
       assertRows(next);
-      rows = next;
+      const prepared = extension?.validateRows?.(next) ?? next;
+      rows = [...prepared];
       undoStack.length = redoStack.length = 0;
       state = sanitize(state);
       emit();

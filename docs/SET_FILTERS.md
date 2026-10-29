@@ -23,7 +23,7 @@ Use a stable registry/component identity. The grid supplies its source `model` t
 
 ## Drafts, search and updates
 
-The Values button opens a labelled native modal dialog, within its column's filter owner. Search narrows the choice list without changing the applied filter. Select matching values affects **all search matches across pages**. The list mounts 50 choices per page by default; a `pageSize` override is clamped to 10–200. Next/Previous controls bound the DOM without a custom listbox keyboard model. Choices are native labelled checkboxes. Escape and Cancel discard the draft and restore the launcher focus.
+The column filter button opens a labelled native modal dialog, within its filter owner. Its visible text matches its accessible column label; a Values tooltip describes the panel. Search narrows the choice list without changing the applied filter. Select matching values affects **all search matches across pages**. The list mounts 50 choices per page by default; a `pageSize` override is clamped to 10–200. Next/Previous controls bound the DOM without a custom listbox keyboard model. Choices are native labelled checkboxes. Escape and Cancel discard the draft and restore the launcher focus.
 
 Only Apply calls the filter callback. An explicit empty selection emits `{ op: "in", value: [] }` and matches no rows. Clear stages an unrestricted draft; Apply then removes the column predicate. Selecting every checkbox explicitly still creates a fixed membership list, so later new values remain unselected. An unrestricted draft includes new values automatically.
 

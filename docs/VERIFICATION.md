@@ -1,5 +1,19 @@
 # Verification record
 
+## Editable fixed-sheet formulas
+
+The final `npm run check` passed strict TypeScript, **1,161 tests in 65 files** (116.01 seconds), all three package/declaration builds and the production demo with one worker. This adds 26 formula-adapter cases, nine editor-boundary cases, nine DataGrid integration cases and one semantic-range callback regression. Focused formula/range/set-list verification passed **70 cases across five files in 11.94 seconds**. Existing FormulaEngine behavior is unchanged; the adapter reuses the safe parser/evaluator directly and keeps its model reads silent.
+
+Coverage includes explicit frozen/raw inputs, numeric/text/boolean result contracts, literal equals prefixes, candidate cross-row validation, rollback/no notifications, no-op expression batches, shared data history, fixed references through source reordering, actual sort/filter/group/Set List/CSV pipelines, retryable providers, cache expiry/disposal, foreign-row reads, reentrant guards and hard remaining validation budgets. React checks verify omitted-controller auto-detection, raw draft seeding, rejected Enter/Tab, mode containment, dependency undo, language/direction retention, typed error/null projection, row-session guards and focus recovery when the last matching row disappears.
+
+Four focused Chromium flows passed with one worker in **17.0 seconds**. They exercise actual raw formula edits and source-result validation, computed clipboard/paste/fill with atomic undo, fixed references through managed moving/sorting/grouping, quoted source-scope CSV output, native touch entry, actual language/direction buttons preserving editor DOM/draft/mode/focus, and cycle inspection/recovery. Composed axe checks found no serious/critical findings after correcting the inspector's definition-list structure and matching set-list visible/accessibility labels. Browser checks also found and fixed last-row focus loss and redundant selection callback replay when a handler identity changed; callbacks now distinguish selection/view changes from data-value-only updates.
+
+Screenshot review found mirrored ASCII error-code punctuation under RTL. Error labels now have explicit LTR isolation, while translated touch/row-move help resolves its content direction independently. Built ESM and React server-render checks verified the public factory/controller/editor, frozen atoms, dependency calculations, mixed atomic undo, literal-prefix CSV protection, all **380 English/Spanish keys**, silent reads, raw editor markup and RTL error isolation. No manual screen-reader, physical-device or performance certification is inferred. Rich completion/range authoring, relative clipboard/fill, structural/reference migration and full-row formula editing remain open.
+
+After the final direction fix, the complete Chromium suite passed **65 scenarios with one worker in 2.6 minutes**, including the existing touch, RTL, merge, remote/million-row, export and 100,000-row regressions. The corrected composed screenshot was visually inspected; error codes and translated help read in their own content direction.
+
+The production Pages build generated **42 documentation routes**, including the editable formula guide and working lab. All **nine production site scenarios passed in 10.8 seconds** with one worker, retaining route/asset, keyboard/mobile navigation, search/copy, generated-link, real-404 and serious/critical axe checks.
+
 ## Resident set-list filtering
 
 Strict TypeScript, **1,116 tests in 62 files** (110.10 seconds), all three package/declaration builds and the production demo passed with one worker. The 41 new core/component cases cover canonical scalar identity, exact BigInt and negative zero, date instants, blank/invalid compatibility, source-wide counts, frozen indexes, bounded construction, cache expiry, final controlled application, cancellation, live source reconciliation and external-filter conflicts. Calculation-local membership compilation is checked against existing comparisons and actual ordinary/advanced filtering; public direct matcher behavior remains live.
@@ -9,6 +23,8 @@ Three focused Chromium flows passed with one worker in **16.7 seconds**. The com
 Built ESM and React server rendering verified the new public exports, immutable indexes, exact membership, negative-zero behavior, all **376 English/Spanish catalog keys**, RTL markup and literal formatter escaping. The family remains Partial: no tree/remote distinct-value universe, cross-filter availability, Excel modes, independent multi-filter panel or full menu lifecycle is inferred.
 
 The production Pages artifact generated **41 documentation routes**, including the new set-list guide and interactive lab. All **nine production site scenarios passed in 10.8 seconds** with one worker, covering routes/assets, navigation, search/copy, responsive layout, generated links, real 404 behavior and serious/critical axe checks.
+
+Published as `cb1b1cb63f3631fc4c2f364885e1952ba8bbee2e`; [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40882615660) and [Pages](https://github.com/mr-rafiq/opengrid/actions/runs/40882615504) passed for that exact commit. Live HTTPS checks verified the new guide, paging, search-based selection across pages, staged Clear/Apply, Escape/launcher focus, incoming filter conflict/Reload and native touch selection of exact large integers in Spanish RTL. Search DOM/focus survived horizontal virtualization. The modal reported zero runtime errors and no serious/critical axe findings; the deployed screenshot was visually inspected.
 
 ## Native drag entry and CI portability follow-up
 

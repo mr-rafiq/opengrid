@@ -353,6 +353,7 @@ export function SetListFilter<T>({
         ref={launcher}
         type="button"
         aria-label={label}
+        title={t("setList.values")}
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => {
@@ -365,7 +366,7 @@ export function SetListFilter<T>({
           setOpen(true);
         }}
       >
-        {t("setList.values")}
+        {label}
       </button>
       {open && (
         <dialog

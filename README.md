@@ -83,6 +83,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Expandable grouping and path-based trees, built-in/custom aggregates and a standalone pivot utility.
 - CSV with RFC 4180 escaping and spreadsheet formula neutralization; basic SVG sparklines.
 - A safe formula dependency engine with A1/local references, ranges, lazy IF, aggregates, targeted invalidation, cycle diagnostics and resource limits.
+- A bounded fixed-sheet formula model with explicit Formula/Literal cell editing, raw-expression history, atomic final-sheet validation and computed sort/filter/group/export values.
 - Separate flat infinite, hierarchical server block and live viewport strategies with cache/refresh/retry/stale-request handling.
 - Model/range-linked bar, line and scatter SVG charts with configuration controls, an underlying data table and SVG export.
 - Optional real XLSX/PDF output with typed workbook cells, multiple sheets, tables/frozen headers and paginated PDF reports.
@@ -117,6 +118,8 @@ Use [managed row moving](docs/ROW_DRAGGING_UI.md) for pointer and keyboard inter
 Use the [calculated-column factory](docs/CALCULATED_COLUMNS.md) for compiled derived values, and [custom filter components](docs/CUSTOM_FILTERS.md) to provide controlled React filter interfaces.
 
 Use [resident set-list filters](docs/SET_FILTERS.md) for staged checkbox choices, search, exact BigInt/date identity and update conflicts. Tree/remote value lists and independent multi-filter panels remain open.
+
+Use [editable formula grids](docs/FORMULA_GRID.md) for explicit per-cell expressions and computed pipeline values. The plain text mode editor preserves raw expressions; reference-aware fill, rich completion, structural rewriting and full-row formula sessions remain open.
 
 ## Keyboard controls
 

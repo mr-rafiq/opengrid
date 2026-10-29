@@ -154,6 +154,8 @@ const matches = findCells(
 
 The newer **`FormulaEngine`** is a separate export with an AST, A1/absolute and current-row references, rectangular ranges, built-in aggregate/comparison/IF expressions, dependency graphs, targeted invalidation, memoization, cycle detection and typed errors. The application registers formulas explicitly with `setFormula`; raw strings do not silently execute. It is standalone: no automatic grid edit binding, formula editor, autocomplete, structural rewrite or copy/fill reference adjustment. Read the [formula API](FORMULAS.md) for syntax, error data, resource budgets and reference identity. Do not infer the small helper's limits apply to this engine, or that the larger engine changes ordinary cell text semantics.
 
+`createFormulaGrid({...gridOptions,formulaColumns,formulaGridLimits?,formulaLimits?,validateFormulaResult?})` supplies a separate `{model,formulas}` adapter. `formulaInput(expression)` creates an explicit frozen atom; ordinary equals-prefixed strings remain literals. Its computed `getValue` feeds real model operations, while registered React grids automatically seed the raw Formula/Literal editor. The controller exposes raw inputs/results and atomic edits, fixed identities and shared history. Raw `column.validate` and final-sheet `validateFormulaResult` have distinct contracts; typed errors project to null for scalar pipelines and remain available from `getResult`. Full-row sessions, structural changes, rich authoring and formula-reference rewriting remain open. See [editable formula grids](FORMULA_GRID.md).
+
 `findCells(rows, columns, query)` returns zero-based row coordinates and column IDs for formatted visible-column matches. It does not change selection, scroll, highlight or provide next/previous UI.
 
 `getVirtualWindow(count, scrollTop, height, rowHeight, overscan?)` returns `{ start, end, offset, totalHeight }`, where end is exclusive. Dimensions must be finite/valid; heights are fixed.
@@ -210,6 +212,8 @@ ranges.dispose();
 `copy({ formatted? })` serializes quoted TSV. `paste(tsv, anchor?)` parses bounded text and submits one atomic edit batch; malformed TSV, ragged/beyond-boundary blocks, read-only cells or validation errors reject without partial writes. `fill('down'|'right')` repeats the leading row/column into the selection. `fillRange(source, target, 'copy'|'series')` extends a source rectangle; series mode recognizes numeric/BigInt progressions. No multi-range selection, rich HTML clipboard or formula-reference rewriting is supplied. Successful paste/fill is one undo unit.
 
 `parseTsv` and `serializeTsv` are exported independently. Default limits bound selections/parser output to 100,000 cells and clipboard input to 10 million characters. Formula-like strings are neutralized on serialization by default; raw numeric negatives remain numeric text. Native browser clipboard access remains permission/secure-context dependent, and the React controls surface failures rather than claiming success.
+
+`onCellRangeChange` receives an initial snapshot when attached and subsequent semantic range or active-view changes. Replacing a handler function or editing values without changing range/view identity does not replay the selection; the newest handler receives the next event. Observe the model separately when a consumer also needs data-value changes.
 
 ## CSV
 

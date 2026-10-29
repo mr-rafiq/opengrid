@@ -464,6 +464,11 @@ export const enMessages = Object.freeze({
   "setList.typeBoolean": "Boolean",
   "setList.typeText": "Text",
   "setList.typeDate": "Date",
+  "formula.mode": "Cell input mode",
+  "formula.literal": "Literal",
+  "formula.formula": "Formula",
+  "formula.modeHelp":
+    "Literal stores a value. Formula evaluates an expression. Alt+M focuses the mode selector; Enter in that selector returns to the input. Tab from the input commits the cell. Changing mode preserves the draft text.",
 } satisfies GridMessages);
 export const enUS: GridLocale = Object.freeze({
   id: "en-US",
