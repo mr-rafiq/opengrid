@@ -410,8 +410,7 @@ export function createFormulaGrid<T>(
         evaluation.foreign?.rowId === reference.rowId
           ? evaluation.foreign.row
           : target.rows.get(reference.rowId);
-      if (row == null)
-        return createFormulaError("REF", "Unknown formula row");
+      if (row == null) return createFormulaError("REF", "Unknown formula row");
       const key = keyOf(reference);
       if (evaluation.stack.has(key))
         return createFormulaError("CYCLE", "Circular formula reference");
