@@ -28,6 +28,27 @@ const interactive = (target: EventTarget | null) =>
   Boolean(
     target.closest('input,textarea,select,button,a,[contenteditable="true"]'),
   );
+const pointerId = (event: { pointerId?: number }) =>
+  Number.isFinite(event.pointerId) ? event.pointerId! : 1;
+const pointerType = (event: { pointerType?: string }) =>
+  event.pointerType || "mouse";
+type FillMode = "copy" | "series";
+interface OwnedRangeDrag<T> {
+  pointerId: number;
+  pointerType: string;
+  captureTarget: HTMLElement;
+  captured: boolean;
+  model: GridModel<T>;
+  modelState: object;
+  viewKey: string;
+  direction: string;
+  before: CellRange | null;
+  source?: CellRange;
+  fillMode: FillMode;
+  last?: CellPosition;
+  x: number;
+  y: number;
+}
 
 /** Owns browser interaction only. Selection geometry and atomic data changes live in core. */
 export function useCellRanges<T>({
@@ -74,12 +95,16 @@ export function useCellRanges<T>({
   const message = useRef(onMessage);
   message.current = onMessage;
   const [controller, setController] = useState<CellRangeModel<T> | null>(null);
-  const drag = useRef<{
-    source?: CellRange;
-    last?: CellPosition;
-    x: number;
-    y: number;
-  } | null>(null);
+  const [extendOnTap, setExtendOnTap] = useState(false);
+  const [fillMode, setFillMode] = useState<FillMode>("copy");
+  const mode = useRef(fillMode);
+  mode.current = fillMode;
+  const drag = useRef<OwnedRangeDrag<T> | null>(null);
+  const contacts = useRef(new Set<number>());
+  const blockStart = useRef(false);
+  const cancelCurrent = useRef<() => void>(() => {});
+  const currentModel = useRef(model);
+  currentModel.current = model;
   useLayoutEffect(() => {
     if (!enabled) {
       setController(null);
@@ -91,6 +116,7 @@ export function useCellRanges<T>({
     });
     setController(next);
     return () => {
+      cancelCurrent.current();
       next.dispose();
     };
   }, [model, enabled]);
@@ -107,6 +133,35 @@ export function useCellRanges<T>({
     }),
     [model, gridState, rowIds, columnIds],
   );
+  const currentIndices = useRef(indices);
+  currentIndices.current = indices;
+  const signature = useMemo(
+    () =>
+      JSON.stringify([
+        rowIds,
+        currentColumnIds(),
+        headerHeight,
+        pinnedTopHeight,
+        pinnedBottomHeight,
+      ]),
+    [
+      model,
+      gridState,
+      rowIds,
+      columnIds,
+      headerHeight,
+      pinnedTopHeight,
+      pinnedBottomHeight,
+    ],
+  );
+  const viewKey = useRef(signature);
+  viewKey.current = signature;
+  function direction() {
+    const container = viewport.current;
+    return container
+      ? `${container.closest("[dir]")?.getAttribute("dir") ?? ""}|${getComputedStyle(container).direction || "ltr"}`
+      : "ltr";
+  }
   const range = snapshot.range;
   const bounds = range
     ? {
@@ -131,11 +186,70 @@ export function useCellRanges<T>({
     : 0;
   // View callbacks can change when pagination/grouping changes even before the model subscription runs.
   useLayoutEffect(() => {
+    const current = drag.current;
+    if (
+      current &&
+      (current.model !== currentModel.current ||
+        current.modelState !== current.model.getState() ||
+        current.viewKey !== viewKey.current ||
+        current.direction !== direction())
+    )
+      cancelCurrent.current();
     controller?.refresh();
   });
   useLayoutEffect(() => {
     if (!controller) return;
     let frame = 0;
+    function restore(current: OwnedRangeDrag<T>) {
+      try {
+        if (current.before)
+          controller!.setRange(current.before.anchor, current.before.focus);
+        else controller!.clear();
+      } catch {
+        // Stale endpoints may no longer belong to the current view. Clearing is
+        // safer than restoring a selection against another row/column schema.
+        controller!.clear();
+      }
+    }
+    function release(current: OwnedRangeDrag<T>) {
+      if (!current.captured) return;
+      current.captured = false;
+      try {
+        if (
+          !current.captureTarget.hasPointerCapture ||
+          current.captureTarget.hasPointerCapture(current.pointerId)
+        )
+          current.captureTarget.releasePointerCapture?.(current.pointerId);
+      } catch {
+        /* The browser may already have released a cancelled pointer. */
+      }
+    }
+    function cancel() {
+      const current = drag.current;
+      drag.current = null;
+      cancelAnimationFrame(frame);
+      frame = 0;
+      if (!current) return;
+      if (contacts.current.size) blockStart.current = true;
+      release(current);
+      restore(current);
+    }
+    cancelCurrent.current = cancel;
+    function isFresh(current: OwnedRangeDrag<T>) {
+      return (
+        current.model === currentModel.current &&
+        current.modelState === current.model.getState() &&
+        current.viewKey === viewKey.current &&
+        current.direction === direction() &&
+        current.captureTarget.isConnected
+      );
+    }
+    function owns(event: PointerEvent, current: OwnedRangeDrag<T>) {
+      return (
+        pointerId(event) === current.pointerId &&
+        (!event.pointerType || event.pointerType === current.pointerType)
+      );
+    }
     function positionAt(x: number, y: number): CellPosition | undefined {
       const element = document
         .elementFromPoint?.(x, y)
@@ -147,7 +261,11 @@ export function useCellRanges<T>({
         return;
       const rowId = element.dataset.rowId!,
         columnId = element.dataset.columnId!;
-      if (!ids.current.includes(rowId)) return;
+      if (
+        !currentIndices.current.rows.has(rowId) ||
+        !currentIndices.current.columns.has(columnId)
+      )
+        return;
       return { rowId, columnId };
     }
     function extendAt(x: number, y: number) {
@@ -159,13 +277,22 @@ export function useCellRanges<T>({
         previous.columnId === position.columnId
       )
         return;
-      controller!.extend(position);
+      try {
+        controller!.extend(position);
+      } catch {
+        cancel();
+        return;
+      }
       if (drag.current) drag.current.last = position;
     }
     function tick() {
       const current = drag.current,
         container = viewport.current;
       if (!current || !container) return;
+      if (!isFresh(current)) {
+        cancel();
+        return;
+      }
       const rect = container.getBoundingClientRect();
       const top = rect.top + headerHeight + pinnedTopHeight,
         bottom = rect.bottom - pinnedBottomHeight,
@@ -198,58 +325,209 @@ export function useCellRanges<T>({
             : Math.max(top + 2, Math.min(bottom - 2, current.y)),
         );
       }
-      frame = requestAnimationFrame(tick);
+      if (drag.current) frame = requestAnimationFrame(tick);
     }
     function move(event: PointerEvent) {
-      if (!drag.current) return;
-      drag.current.x = event.clientX;
-      drag.current.y = event.clientY;
+      const current = drag.current;
+      if (!current || !owns(event, current)) return;
+      if (
+        event.isPrimary === false ||
+        !isFresh(current) ||
+        !Number.isFinite(event.clientX) ||
+        !Number.isFinite(event.clientY)
+      ) {
+        cancel();
+        return;
+      }
+      current.x = event.clientX;
+      current.y = event.clientY;
       extendAt(event.clientX, event.clientY);
-      if (!frame) frame = requestAnimationFrame(tick);
+      if (drag.current && !frame) frame = requestAnimationFrame(tick);
     }
     function end(event: PointerEvent) {
-      if (drag.current) extendAt(event.clientX, event.clientY);
       const current = drag.current;
+      if (!current || !owns(event, current)) return;
+      if (
+        event.isPrimary === false ||
+        (event.button !== undefined && event.button !== 0) ||
+        (event.buttons !== undefined && event.buttons !== 0) ||
+        blockStart.current ||
+        !isFresh(current) ||
+        !Number.isFinite(event.clientX) ||
+        !Number.isFinite(event.clientY)
+      ) {
+        cancel();
+        return;
+      }
+      const releasedAt = positionAt(event.clientX, event.clientY);
+      if (current.source && !releasedAt) {
+        cancel();
+        return;
+      }
+      if (releasedAt) extendAt(event.clientX, event.clientY);
+      if (drag.current !== current) return;
       drag.current = null;
       cancelAnimationFrame(frame);
       frame = 0;
-      if (current?.source) {
+      release(current);
+      if (current.source) {
         const target = controller!.getSnapshot().range;
-        if (!target) return;
+        if (!target) {
+          restore(current);
+          return;
+        }
         const error = controller!.fillRange(
           current.source,
           target,
-          event.altKey ? "series" : "copy",
+          current.pointerType !== "touch" && event.altKey
+            ? "series"
+            : current.fillMode,
         );
         if (error) {
-          controller!.setRange(current.source.anchor, current.source.focus);
+          restore(current);
           message.current(error, true);
         } else message.current(gridMessage("range.filled"));
       }
     }
-    function cancel() {
-      const source = drag.current?.source;
-      drag.current = null;
-      cancelAnimationFrame(frame);
-      frame = 0;
-      if (source) controller!.setRange(source.anchor, source.focus);
+    function down(event: PointerEvent) {
+      const id = pointerId(event),
+        duplicate = contacts.current.has(id);
+      contacts.current.add(id);
+      if (contacts.current.size > 1 || event.isPrimary === false || duplicate)
+        blockStart.current = true;
+      if (drag.current) cancel();
     }
-    window.addEventListener("pointermove", move);
-    window.addEventListener("pointerup", end);
-    window.addEventListener("pointercancel", cancel);
+    function up(event: PointerEvent) {
+      try {
+        end(event);
+      } finally {
+        contacts.current.delete(pointerId(event));
+        if (!contacts.current.size) blockStart.current = false;
+      }
+    }
+    function cancelled(event: PointerEvent) {
+      if (drag.current && owns(event, drag.current)) cancel();
+      contacts.current.delete(pointerId(event));
+      if (!contacts.current.size) blockStart.current = false;
+    }
+    function lost(event: PointerEvent) {
+      if (
+        drag.current &&
+        owns(event, drag.current) &&
+        event.target === drag.current.captureTarget
+      )
+        cancel();
+    }
+    function escape(event: KeyboardEvent) {
+      if (event.key === "Escape" && drag.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        cancel();
+      }
+    }
+    function blurred() {
+      cancel();
+      contacts.current.clear();
+      blockStart.current = false;
+    }
+    const stopModel = model.subscribe(() => {
+      if (drag.current) cancel();
+    });
+    window.addEventListener("pointerdown", down, true);
+    window.addEventListener("pointermove", move, true);
+    window.addEventListener("pointerup", up, true);
+    window.addEventListener("pointercancel", cancelled, true);
+    window.addEventListener("lostpointercapture", lost, true);
+    window.addEventListener("keydown", escape, true);
+    window.addEventListener("blur", blurred);
     return () => {
-      window.removeEventListener("pointermove", move);
-      window.removeEventListener("pointerup", end);
-      window.removeEventListener("pointercancel", cancel);
-      cancelAnimationFrame(frame);
-      drag.current = null;
+      cancel();
+      stopModel();
+      window.removeEventListener("pointerdown", down, true);
+      window.removeEventListener("pointermove", move, true);
+      window.removeEventListener("pointerup", up, true);
+      window.removeEventListener("pointercancel", cancelled, true);
+      window.removeEventListener("lostpointercapture", lost, true);
+      window.removeEventListener("keydown", escape, true);
+      window.removeEventListener("blur", blurred);
+      contacts.current.clear();
+      blockStart.current = false;
+      if (cancelCurrent.current === cancel) cancelCurrent.current = () => {};
     };
-  }, [controller, viewport, headerHeight, pinnedTopHeight, pinnedBottomHeight]);
+  }, [
+    controller,
+    model,
+    viewport,
+    headerHeight,
+    pinnedTopHeight,
+    pinnedBottomHeight,
+  ]);
 
-  function select(position: CellPosition, extend = false) {
-    if (!controller || !ids.current.includes(position.rowId)) return;
-    if (extend && controller.getSnapshot().range) controller.extend(position);
+  function select(position: CellPosition, extend?: boolean) {
+    if (
+      !controller ||
+      !enabled ||
+      !currentIndices.current.rows.has(position.rowId) ||
+      !currentIndices.current.columns.has(position.columnId)
+    )
+      return;
+    const extending = extend ?? extendOnTap;
+    if (extending && controller.getSnapshot().range)
+      controller.extend(position);
     else controller.setRange(position);
+  }
+  function ownDrag(
+    event: ReactPointerEvent<HTMLElement>,
+    before: CellRange | null,
+    source?: CellRange,
+    last?: CellPosition,
+  ) {
+    if (
+      !controller ||
+      !enabled ||
+      event.defaultPrevented ||
+      event.isPrimary === false ||
+      event.button !== 0 ||
+      (event.buttons !== undefined &&
+        event.buttons !== 0 &&
+        event.buttons !== 1) ||
+      blockStart.current ||
+      contacts.current.size > 1 ||
+      !Number.isFinite(event.clientX) ||
+      !Number.isFinite(event.clientY)
+    )
+      return false;
+    const target = viewport.current ?? event.currentTarget;
+    const current: OwnedRangeDrag<T> = {
+      pointerId: pointerId(event),
+      pointerType: pointerType(event),
+      captureTarget: target,
+      captured: false,
+      model,
+      modelState: model.getState(),
+      viewKey: viewKey.current,
+      direction: direction(),
+      before,
+      source,
+      fillMode: mode.current,
+      last,
+      x: event.clientX,
+      y: event.clientY,
+    };
+    drag.current = current;
+    try {
+      // Capture only the dedicated fill gesture. Capturing ordinary cell clicks
+      // on the viewport retargets click/dblclick away from their cell owners.
+      // Mouse/pen range drags keep their ID guard and window listeners instead.
+      if (source && typeof target.setPointerCapture === "function") {
+        target.setPointerCapture(current.pointerId);
+        current.captured = true;
+      }
+    } catch {
+      cancelCurrent.current();
+      return false;
+    }
+    return true;
   }
   function begin(
     event: ReactPointerEvent<HTMLElement>,
@@ -257,15 +535,26 @@ export function useCellRanges<T>({
   ) {
     if (
       !controller ||
+      !enabled ||
+      pointerType(event) === "touch" ||
+      event.defaultPrevented ||
+      event.isPrimary === false ||
+      blockStart.current ||
       event.button !== 0 ||
       interactive(event.target) ||
-      !ids.current.includes(position.rowId)
+      !currentIndices.current.rows.has(position.rowId) ||
+      !currentIndices.current.columns.has(position.columnId)
     )
       return;
-    event.preventDefault();
+    const before = controller.getSnapshot().range;
     event.currentTarget.focus({ preventScroll: true });
-    select(position, event.shiftKey);
-    drag.current = { last: position, x: event.clientX, y: event.clientY };
+    if (!ownDrag(event, before, undefined, position)) return;
+    event.preventDefault();
+    try {
+      select(position, event.shiftKey);
+    } catch {
+      cancelCurrent.current();
+    }
   }
   function ensureRange() {
     if (!controller) return false;
@@ -318,17 +607,12 @@ export function useCellRanges<T>({
     message.current(error ?? gridMessage("range.filled"), Boolean(error));
   }
   function fillHandle(event: ReactPointerEvent<HTMLElement>) {
-    if (!controller || event.button !== 0) return;
+    if (!controller || !enabled || event.button !== 0) return;
     const source = controller.getSnapshot().range;
     if (!source) return;
+    if (!ownDrag(event, source, source, source.focus)) return;
     event.preventDefault();
     event.stopPropagation();
-    drag.current = {
-      source,
-      last: source.focus,
-      x: event.clientX,
-      y: event.clientY,
-    };
   }
   function selectAll() {
     if (!controller) return;
@@ -389,6 +673,11 @@ export function useCellRanges<T>({
     controller,
     range: snapshot.range,
     selectedCellCount,
+    extendOnTap,
+    setExtendOnTap,
+    fillMode,
+    setFillMode,
+    cancelGesture: () => cancelCurrent.current(),
     select,
     begin,
     onCopy,

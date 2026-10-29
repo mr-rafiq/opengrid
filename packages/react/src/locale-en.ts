@@ -17,6 +17,17 @@ export const enMessages = Object.freeze({
   "grid.moveUp": "Move focused row up",
   "grid.moveDown": "Move focused row down",
   "grid.editRow": "Edit row",
+  "grid.editFocusedCell": "Edit cell",
+  "grid.extendRange": "Extend range",
+  "grid.extendRangeHelp":
+    "Tap a cell to extend the current range. You can scroll before choosing the endpoint.",
+  "grid.fillMode": "Fill mode",
+  "grid.fillCopy": "Copy values",
+  "grid.fillSeries": "Extend numeric series",
+  "grid.touchHelp":
+    "Tap to focus a cell. Double-tap an editable cell or use Edit cell. Scroll or pinch to navigate the grid.",
+  "grid.touchMoveHelp":
+    "On touch screens, use Move focused row up or down to reorder rows.",
   "grid.find": "Find",
   "grid.note": "Note",
   "grid.advancedFilter": "Advanced filter",

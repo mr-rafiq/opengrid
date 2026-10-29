@@ -362,10 +362,16 @@ Owner editing changes only the source owner row. Enter resolves the next logical
 
 Wrap built-ins with `GridLocaleProvider locale={esES}` (or `enUS`) and optional typed `messages` overrides. `createGridLocale(id, overrides, base?)` builds a custom bundle with English fallback by default. `useGridLocale()` exposes typed `t`, `resolveMessage`, the locale tag and Intl number/date/plural helpers. Built-in roots set HTML lang; the document language is not mutated.
 
-`gridMessage(key, params?)` creates a frozen language-independent descriptor for stored UI notices. Resolving during render retranslates an already-visible notice without resetting its workflow. Application headers/values/choices/formatters and raw errors remain application-owned; legacy core diagnostics can remain English. Explicit RTL geometry is a separate presentation API; touch-specific interaction and automatic locale-aware data parsing remain open. See [localization](LOCALIZATION.md) and [RTL layout](RTL.md).
+`gridMessage(key, params?)` creates a frozen language-independent descriptor for stored UI notices. Resolving during render retranslates an already-visible notice without resetting its workflow. Application headers/values/choices/formatters and raw errors remain application-owned; legacy core diagnostics can remain English. Explicit RTL geometry and touch interactions are separate presentation workflows; automatic locale-aware data parsing remains open. See [localization](LOCALIZATION.md), [RTL layout](RTL.md) and [touch](TOUCH.md).
 
 ## Layout direction
 
 `DataGrid`, `ServerDataGrid` and `LiveViewportDataGrid` accept `direction?: "ltr" | "rtl"` (default `"ltr"`). Physical pin sides remain stable. Inline order, horizontal navigation, resize controls, header/merged geometry and range/Find order follow the displayed direction. Switching direction preserves the model and active workflow; focused unpinned cells are revealed when needed. UI language and export ordering are independent.
 
 The React package exports `normalizeScrollLeft(native, maximum, direction)`, `denormalizeScrollLeft(inline, maximum, direction)`, `getInlineColumnOrder(columns, direction)` and `createDirectionLayout(options)`. Native negative RTL offsets are normalized to positive inline distances by default. Explicit legacy endpoint models are helper options, not automatic browser detection. Range/Find core options accept `getColumnIds` for a validated ordered subset of visible columns. See [RTL](RTL.md) for contracts and limits.
+
+## Touch workflow
+
+Ordinary touch cell backgrounds retain native pan/pinch behavior. Completed taps focus/select; guarded double-tap or the Edit cell action opens the configured editor. Extend range retains a valid current anchor and lets users scroll before tapping an endpoint. Fill mode chooses copy or numeric series for the dedicated fill grip; release uses the existing atomic validation/history pipeline.
+
+Pointer resizing previews local geometry and commits a changed width once on release, for mouse, pen and touch. Captured gestures track their owning primary pointer and cancel on interruption, stale model/view state or unmount. Touch header/group/row drag-and-drop and physical-device coverage remain open. See [touch interaction](TOUCH.md).

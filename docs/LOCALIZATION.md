@@ -1,6 +1,6 @@
 # Localization
 
-Built-in React workflows share original English (`enUS`) and Spanish (`esES`) catalogs with 339 typed message keys, overrides and immutable notices. Grid, filters, editors/dialogs, remote bindings, charts and print controls consume the provider and retain state during language changes. This is UI localization; the unsupported boundaries below remain part of the contract.
+Built-in React workflows share original English (`enUS`) and Spanish (`esES`) catalogs with 347 typed message keys, overrides and immutable notices. Grid, filters, editors/dialogs, remote bindings, charts and print controls consume the provider and retain state during language changes. This is UI localization; the unsupported boundaries below remain part of the contract.
 
 ```tsx
 import { DataGrid, GridLocaleProvider, esES } from "@opengrid/react";
@@ -40,7 +40,7 @@ Messages are strings rendered through ordinary React text nodes. There is no HTM
 
 The catalog inventories DataGrid tools, chooser, pagination, Find, drag/span notices, keyboard help and ARIA; group-header controls; advanced/range filters; built-in editors; row-edit and note dialogs; clipboard/fill notices; remote bindings; chart controls; and print views. Components consume the same provider, including nested detail grids and standalone exported controls. Column headers, group names, cell values, choice labels, custom renderers/formatters, arbitrary validation messages and application-generated errors remain application-owned. Existing unstructured core diagnostic strings remain unchanged and may be English.
 
-[RTL layout](RTL.md) is available through an explicit, independent direction property; choosing a locale does not infer direction. Touch interaction, automatic locale-aware data parsing and every native browser dialog's language remain separate gaps. The demo language selector switches the existing grid in place. Its Ctrl/Cmd+Shift+L shortcut demonstrates changing language while an editor/dialog retains its draft and focus.
+[RTL layout](RTL.md) is available through an explicit, independent direction property; choosing a locale does not infer direction. [Touch interaction](TOUCH.md) has a separate native-pan, tap, range and resize contract. Physical-device coverage, automatic locale-aware data parsing and every native browser dialog's language remain separate gaps. The demo language selector switches the existing grid in place. Its Ctrl/Cmd+Shift+L shortcut demonstrates changing language while an editor/dialog retains its draft and focus.
 
 Tests cover catalog/schema completeness, overrides and fallback, parameter validation, plural/date/BigInt formatting, literal markup rendering, nested inheritance, immutable notices and runtime switching without DOM/draft/focus/model-history reset. Component-level and real-browser scenarios exercise grid drafts, dialogs, pending option providers, Find, charts, stale print capture and remote state. See the [verification record](VERIFICATION.md) for executed complete-suite results.
 

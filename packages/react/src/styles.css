@@ -142,6 +142,7 @@
 }
 .og-viewport {
   overflow: auto;
+  touch-action: manipulation;
   position: relative;
   scrollbar-color: #b6c5cd transparent;
   overscroll-behavior: contain;
@@ -277,14 +278,25 @@
   position: absolute;
   inset-inline-end: 0;
   bottom: 0;
-  width: 8px;
-  height: 8px;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  border: 1px solid var(--og-bg);
+  border: 0;
   border-radius: 0;
-  background: var(--og-accent);
+  background: transparent;
   cursor: crosshair;
   z-index: 5;
+  touch-action: none;
+}
+.og-root .og-fill-handle::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--og-bg);
+  background: var(--og-accent);
 }
 .og-toolbar-actions {
   flex-wrap: wrap;
@@ -589,7 +601,7 @@
   background: transparent;
   color: var(--og-muted);
   cursor: grab;
-  touch-action: none;
+  touch-action: manipulation;
 }
 .og-root .og-row-drag-handle:active {
   cursor: grabbing;
@@ -627,6 +639,34 @@
   background: var(--og-surface);
   border-bottom: 1px solid var(--og-border);
   font-size: 12px;
+}
+.og-root .og-touch-help {
+  margin: 0;
+  padding: 6px 16px;
+  color: var(--og-muted);
+  background: var(--og-surface);
+  border-bottom: 1px solid var(--og-border);
+  font-size: 12px;
+}
+.og-root .og-fill-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+@media (pointer: coarse) {
+  .og-root input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+  .og-root .og-row-drag-handle {
+    flex-basis: 24px;
+    width: 24px;
+    min-height: 24px;
+  }
+  .og-root .og-resizer {
+    width: 24px;
+    inset-inline-end: -12px;
+  }
 }
 .og-row .og-cell.og-row-spanning {
   background: inherit;

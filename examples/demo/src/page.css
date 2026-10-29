@@ -373,6 +373,31 @@ footer a {
   color: #b5c6dd;
   border-color: #3d516d;
 }
+.explorer-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 16px;
+}
+.explorer-controls > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.explorer-controls button,
+.explorer-controls select {
+  min-height: 32px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+}
+.explorer-controls button {
+  cursor: pointer;
+}
 @media (max-width: 850px) {
   main {
     padding: 0 16px;

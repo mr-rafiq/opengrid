@@ -17,6 +17,17 @@ export const esMessages = Object.freeze({
   "grid.moveUp": "Subir la fila enfocada",
   "grid.moveDown": "Bajar la fila enfocada",
   "grid.editRow": "Editar fila",
+  "grid.editFocusedCell": "Editar celda",
+  "grid.extendRange": "Extender rango",
+  "grid.extendRangeHelp":
+    "Toque una celda para extender el rango actual. Puede desplazarse antes de elegir el extremo.",
+  "grid.fillMode": "Modo de relleno",
+  "grid.fillCopy": "Copiar valores",
+  "grid.fillSeries": "Extender serie numérica",
+  "grid.touchHelp":
+    "Toque para enfocar una celda. Toque dos veces una celda editable o use Editar celda. Desplácese o use dos dedos para ampliar o reducir la vista de la cuadrícula.",
+  "grid.touchMoveHelp":
+    "En pantallas táctiles, use Subir la fila enfocada o Bajar la fila enfocada para reorganizar las filas.",
   "grid.find": "Buscar",
   "grid.note": "Nota",
   "grid.advancedFilter": "Filtro avanzado",

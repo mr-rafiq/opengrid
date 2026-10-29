@@ -17,6 +17,14 @@ export interface GridMessageParams {
   "grid.moveUp": undefined;
   "grid.moveDown": undefined;
   "grid.editRow": undefined;
+  "grid.editFocusedCell": undefined;
+  "grid.extendRange": undefined;
+  "grid.extendRangeHelp": undefined;
+  "grid.fillMode": undefined;
+  "grid.fillCopy": undefined;
+  "grid.fillSeries": undefined;
+  "grid.touchHelp": undefined;
+  "grid.touchMoveHelp": undefined;
   "grid.find": undefined;
   "grid.note": undefined;
   "grid.advancedFilter": undefined;
@@ -404,6 +412,14 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "grid.moveUp": {},
   "grid.moveDown": {},
   "grid.editRow": {},
+  "grid.editFocusedCell": {},
+  "grid.extendRange": {},
+  "grid.extendRangeHelp": {},
+  "grid.fillMode": {},
+  "grid.fillCopy": {},
+  "grid.fillSeries": {},
+  "grid.touchHelp": {},
+  "grid.touchMoveHelp": {},
   "grid.find": {},
   "grid.note": {},
   "grid.advancedFilter": {},

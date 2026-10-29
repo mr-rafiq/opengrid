@@ -27,6 +27,8 @@ import { useGridLocale, gridMessage } from "./locale.js";
 import type { GridMessage } from "./locale.js";
 import { useCellRanges } from "./use-cell-ranges.js";
 import { useFind } from "./use-find.js";
+import { useColumnResize } from "./use-column-resize.js";
+import { useTouchTaps } from "./use-touch-taps.js";
 import { CellNotesStore, getBuiltinRowReorderReason } from "@opengrid/core";
 import {
   getInlineColumnOrder,
@@ -332,10 +334,30 @@ export function DataGrid<T>({
   const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
   const selectionWidth =
     (selectionMode === "none" ? 0 : 44) + (rowDragging ? 32 : 0);
+  const resizeAllowed = useRef(true);
+  const columnResize = useColumnResize({
+    model,
+    direction,
+    viewKey: JSON.stringify([
+      pagination,
+      columnGroups,
+      pinnedTopRowIds,
+      pinnedBottomRowIds,
+      height,
+      rowHeight,
+      !!isFullWidthRow,
+      !!renderDetail,
+    ]),
+    canResize: () => resizeAllowed.current,
+    onCommitError: (error) =>
+      setError(error instanceof Error ? error.message : String(error)),
+  });
   const widthOf = (column: Column<T>) =>
-    Object.hasOwn(state.columnWidths, column.id)
-      ? state.columnWidths[column.id]
-      : (column.width ?? 160);
+    columnResize.preview?.columnId === column.id
+      ? columnResize.preview.width
+      : Object.hasOwn(state.columnWidths, column.id)
+        ? state.columnWidths[column.id]
+        : (column.width ?? 160);
   const totalWidth = columns.reduce(
     (width, column) => width + widthOf(column),
     selectionWidth,
@@ -380,7 +402,15 @@ export function DataGrid<T>({
       if (cache.size > 256) cache.delete(cache.keys().next().value!);
       return plan;
     };
-  }, [model, state, projection, hasColumnSpans, direction]);
+  }, [
+    model,
+    state,
+    projection,
+    hasColumnSpans,
+    direction,
+    columnResize.preview?.columnId,
+    columnResize.preview?.width,
+  ]);
   function ownerAt(row: number, leaf: number) {
     return getColumnSpanOwner(spanPlanFor(row), leaf);
   }
@@ -410,7 +440,7 @@ export function DataGrid<T>({
   const cells = useRef(new Map<string, HTMLDivElement>());
   const fullWidthCells = useRef(new Map<string, HTMLDivElement>());
   const ownsCellFocus = useRef(false);
-  const dragCleanup = useRef<(() => void) | undefined>(undefined);
+  const rowGripTouch = useRef(false);
   const rowElements = useRef(new Map<string, HTMLDivElement>());
   const rowHandles = useRef(new Map<string, HTMLButtonElement>());
   const managedDrag = useRef<{
@@ -497,6 +527,8 @@ export function DataGrid<T>({
   const [findOpen, setFindOpen] = useState(false);
   const findInput = useRef<HTMLInputElement>(null);
   const [noteEditing, setNoteEditing] = useState<CellPosition | null>(null);
+  resizeAllowed.current =
+    !editing && !rowEditing && !noteEditing && !managedDrag.current;
   const defaultNotes = useMemo(() => new CellNotesStore(), []);
   const notesStore = notes === false ? defaultNotes : (notes ?? defaultNotes);
   useSyncExternalStore(
@@ -845,6 +877,42 @@ export function DataGrid<T>({
       setAnnouncement(message);
     },
   });
+  const touchTaps = useTouchTaps({
+    viewport,
+    model,
+    viewKey: state,
+    direction,
+    onTap: (position) => {
+      if (rowEditing || noteEditing) return;
+      const row = projection.indexOf(position.rowId);
+      if (row < 0) return;
+      const columnId = ownerColumnId(row, position.columnId),
+        owner = ownerRowAt(row, columnId);
+      ownsCellFocus.current = true;
+      setFocus({ rowId: rows[owner].id, columnId });
+      cells.current.get(keyOf(owner, columnId))?.focus({ preventScroll: true });
+      if (rows[owner].kind === "row")
+        ranges.select({ rowId: rows[owner].id, columnId });
+    },
+    onDoubleTap: (position) => {
+      if (ranges.extendOnTap || rowEditing || noteEditing) return;
+      const row = projection.indexOf(position.rowId),
+        column = columns.findIndex((column) => column.id === position.columnId);
+      if (
+        row < 0 ||
+        column < 0 ||
+        !columns[column].editable ||
+        rows[row].kind !== "row"
+      )
+        return;
+      focusAt(row, column, false, undefined, false);
+      startEdit(rows[row], columns[column]);
+    },
+  });
+  useLayoutEffect(() => {
+    touchTaps.cancel();
+    if (editing || rowEditing || noteEditing) ranges.cancelGesture();
+  }, [ranges.extendOnTap, editing, rowEditing, noteEditing]);
   const finder = useFind(
     model,
     dataRowIds,
@@ -875,7 +943,6 @@ export function DataGrid<T>({
     onCellRangeChange?.(ranges.range);
   }, [onCellRangeChange, ranges.range]);
 
-  useEffect(() => () => dragCleanup.current?.(), []);
   useEffect(() => () => stopManagedDrag(), [model, rowDragging]);
   useEffect(() => {
     if (
@@ -1900,6 +1967,10 @@ export function DataGrid<T>({
     event: DragEvent<HTMLButtonElement>,
     rowId: string,
   ) {
+    if (rowGripTouch.current) {
+      event.preventDefault();
+      return;
+    }
     if (rowMoveReason || !ownedDragTarget(event.target)) {
       event.preventDefault();
       if (rowMoveReason) setAnnouncement(rowMoveReason);
@@ -2226,6 +2297,11 @@ export function DataGrid<T>({
                         className="og-row-drag-handle"
                         tabIndex={-1}
                         draggable={!rowMoveReason}
+                        onPointerDown={(event) => {
+                          rowGripTouch.current = event.pointerType === "touch";
+                          event.currentTarget.draggable =
+                            !rowGripTouch.current && !rowMoveReason;
+                        }}
                         disabled={Boolean(rowMoveReason)}
                         aria-label={t("grid.dragRow", { rowId: node.id })}
                         aria-describedby={rowMoveHelpId}
@@ -2404,6 +2480,23 @@ export function DataGrid<T>({
                         })
                       }
                       onClick={(event) => {
+                        if (
+                          event.target instanceof Element &&
+                          (event.target.closest(
+                            '[role="grid"],[role="treegrid"]',
+                          ) !== viewport.current ||
+                            event.target.closest(
+                              'button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
+                            ))
+                        )
+                          return;
+                        if (
+                          touchTaps.consumeClick(event, {
+                            rowId: node.id,
+                            columnId: column.id,
+                          })
+                        )
+                          return;
                         setFocus({ rowId: node.id, columnId: column.id });
                         if (event.detail === 0)
                           ranges.select(
@@ -2412,6 +2505,7 @@ export function DataGrid<T>({
                           );
                       }}
                       onDoubleClick={(event) => {
+                        if (touchTaps.suppressDoubleClick(event)) return;
                         if (
                           event.target instanceof Element &&
                           event.target.closest(
@@ -2620,7 +2714,7 @@ export function DataGrid<T>({
       data-direction={direction}
     >
       {(hasColumnSpans || hasRowSpans) && (
-        <p className="og-span-help" role="status">
+        <p className="og-span-help" role="status" dir="auto">
           {t(hasRowSpans ? "grid.rowSpanHelp" : "grid.columnSpanHelp")}
         </p>
       )}
@@ -2635,6 +2729,7 @@ export function DataGrid<T>({
         {notes !== false && <> {t("grid.noteHelp")}</>}
         {renderDetail && <> {t("grid.detailHelp")}</>}
         {rowDragging && <> {t("grid.moveHelp")}</>}
+        <> {t("grid.touchHelp")}</>
       </p>
       {toolbar && (
         <div
@@ -2657,6 +2752,37 @@ export function DataGrid<T>({
             />
           </label>
           <div className="og-toolbar-actions">
+            {editMode === "cell" && (
+              <button
+                type="button"
+                disabled={
+                  !!editing ||
+                  !!rowEditing ||
+                  !!noteEditing ||
+                  rows[focusRow]?.kind !== "row" ||
+                  !columns.find((column) => column.id === focus.columnId)
+                    ?.editable
+                }
+                onClick={() => {
+                  const column = columns.find(
+                      (column) => column.id === focus.columnId,
+                    ),
+                    node = rows[focusRow];
+                  if (column && node) {
+                    focusAt(
+                      focusRow,
+                      columns.indexOf(column),
+                      false,
+                      undefined,
+                      false,
+                    );
+                    startEdit(node, column);
+                  }
+                }}
+              >
+                {t("grid.editFocusedCell")}
+              </button>
+            )}
             {rowDragging && (
               <>
                 <button
@@ -2727,6 +2853,34 @@ export function DataGrid<T>({
             )}
             {effectiveCellSelection && (
               <>
+                <button
+                  type="button"
+                  aria-pressed={ranges.extendOnTap}
+                  aria-describedby={
+                    ranges.extendOnTap ? `${helpId}-extend-range` : undefined
+                  }
+                  onClick={() => {
+                    ranges.cancelGesture();
+                    ranges.setExtendOnTap((value) => !value);
+                  }}
+                >
+                  {t("grid.extendRange")}
+                </button>
+                <label className="og-fill-mode">
+                  {t("grid.fillMode")}{" "}
+                  <select
+                    aria-label={t("grid.fillMode")}
+                    value={ranges.fillMode}
+                    onChange={(event) =>
+                      ranges.setFillMode(
+                        event.target.value === "series" ? "series" : "copy",
+                      )
+                    }
+                  >
+                    <option value="copy">{t("grid.fillCopy")}</option>
+                    <option value="series">{t("grid.fillSeries")}</option>
+                  </select>
+                </label>
                 <button
                   type="button"
                   onClick={ranges.copyToClipboard}
@@ -2857,6 +3011,22 @@ export function DataGrid<T>({
           </div>
         </div>
       )}
+      {effectiveCellSelection && ranges.extendOnTap && (
+        <p
+          id={`${helpId}-extend-range`}
+          className="og-touch-help"
+          role="status"
+          dir="auto"
+        >
+          {t("grid.extendRangeHelp")}
+        </p>
+      )}
+      {toolbar && (
+        <p className="og-touch-help">
+          {t("grid.touchHelp")}
+          {rowDragging && <> {t("grid.touchMoveHelp")}</>}
+        </p>
+      )}
       {rowDragging && (
         <p className="og-row-move-help" id={rowMoveHelpId} role="status">
           {rowMoveReason
@@ -2945,6 +3115,12 @@ export function DataGrid<T>({
       )}
       <div
         className="og-viewport"
+        onPointerDownCapture={touchTaps.onPointerDown}
+        onPointerMoveCapture={touchTaps.onPointerMove}
+        onPointerUpCapture={touchTaps.onPointerUp}
+        onPointerCancelCapture={touchTaps.onPointerCancel}
+        onLostPointerCapture={touchTaps.onLostPointerCapture}
+        onContextMenu={touchTaps.onContextMenu}
         dir={direction}
         ref={viewport}
         style={{ height: safeHeight }}
@@ -3092,10 +3268,21 @@ export function DataGrid<T>({
                         column: column.header ?? column.id,
                       })}
                       aria-valuenow={widthOf(column)}
-                      aria-valuemin={column.minWidth ?? 60}
-                      aria-valuemax={column.maxWidth ?? 1000}
+                      aria-valuemin={column.minWidth ?? 40}
+                      aria-valuemax={
+                        Number.isFinite(column.maxWidth)
+                          ? column.maxWidth
+                          : undefined
+                      }
                       className="og-resizer"
+                      aria-disabled={!resizeAllowed.current}
+                      style={{
+                        touchAction: resizeAllowed.current
+                          ? "none"
+                          : "manipulation",
+                      }}
                       onKeyDown={(event) => {
+                        if (!resizeAllowed.current) return;
                         if (
                           event.key === "ArrowLeft" ||
                           event.key === "ArrowRight"
@@ -3112,29 +3299,9 @@ export function DataGrid<T>({
                         }
                       }}
                       onPointerDown={(event) => {
-                        event.preventDefault();
-                        dragCleanup.current?.();
-                        const startX = event.clientX;
-                        const width = widthOf(column);
-                        const move = (pointer: PointerEvent) =>
-                          model.resizeColumn(
-                            column.id,
-                            width +
-                              physicalToInlineDelta(
-                                pointer.clientX - startX,
-                                direction,
-                              ),
-                          );
-                        const stop = () => {
-                          window.removeEventListener("pointermove", move);
-                          window.removeEventListener("pointerup", stop);
-                          dragCleanup.current = undefined;
-                        };
-                        dragCleanup.current = stop;
-                        window.addEventListener("pointermove", move);
-                        window.addEventListener("pointerup", stop, {
-                          once: true,
-                        });
+                        if (!resizeAllowed.current) return;
+                        ranges.cancelGesture();
+                        columnResize.begin(event, column, widthOf(column));
                       }}
                     />
                   </div>
@@ -3284,7 +3451,7 @@ export function DataGrid<T>({
         />
       )}
       <div className="og-statusbar">
-        <span>
+        <span dir="auto">
           {t("grid.rowCount", { count: model.getFilteredRows().length })}
           {ranges.selectedCellCount > 0 && (
             <>
