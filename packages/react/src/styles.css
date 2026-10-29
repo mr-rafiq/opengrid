@@ -108,7 +108,7 @@
 }
 .og-chooser-panel {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   top: calc(100% + 8px);
   width: 390px;
   max-width: 90vw;
@@ -162,7 +162,7 @@
 .og-header-cell {
   position: relative;
   background: var(--og-surface);
-  border-right: 1px solid var(--og-border);
+  border-inline-end: 1px solid var(--og-border);
   display: flex;
   align-items: center;
   flex-shrink: 0;
@@ -182,7 +182,7 @@
   justify-content: space-between;
   gap: 8px;
   padding: 0 12px;
-  text-align: left;
+  text-align: start;
   font: inherit;
   color: inherit;
 }
@@ -201,7 +201,7 @@
 }
 .og-resizer {
   position: absolute;
-  right: -3px;
+  inset-inline-end: -3px;
   top: 0;
   bottom: 0;
   width: 7px;
@@ -217,7 +217,7 @@
   display: flex;
   align-items: center;
   padding: 4px 8px;
-  border-right: 1px solid var(--og-border);
+  border-inline-end: 1px solid var(--og-border);
   flex-shrink: 0;
   background: var(--og-surface);
 }
@@ -257,7 +257,8 @@
   align-items: center;
   padding: 0 12px;
   overflow: hidden;
-  border-right: 1px solid color-mix(in srgb, var(--og-border) 60%, transparent);
+  border-inline-end: 1px solid
+    color-mix(in srgb, var(--og-border) 60%, transparent);
   flex-shrink: 0;
   position: relative;
   white-space: nowrap;
@@ -274,7 +275,7 @@
 }
 .og-root .og-fill-handle {
   position: absolute;
-  right: 0;
+  inset-inline-end: 0;
   bottom: 0;
   width: 8px;
   height: 8px;
@@ -307,7 +308,7 @@
 }
 .og-selection {
   position: sticky;
-  left: 0;
+  inset-inline-start: 0;
   z-index: 3;
   justify-content: center;
   padding: 0 !important;
@@ -337,7 +338,7 @@
 }
 .og-group-count {
   display: inline-block;
-  margin-left: 6px;
+  margin-inline-start: 6px;
   border-radius: 10px;
   background: var(--og-border);
   padding: 0 6px;
@@ -464,7 +465,7 @@
 .og-editor-load-error {
   position: absolute;
   top: 100%;
-  left: 0;
+  inset-inline-start: 0;
   min-width: 220px;
   padding: 8px;
   background: var(--og-bg);
@@ -516,7 +517,7 @@
 }
 .og-root .og-note-indicator {
   position: absolute;
-  right: 3px;
+  inset-inline-end: 3px;
   top: 0;
   padding: 0 2px;
   line-height: 12px;
@@ -563,7 +564,7 @@
 }
 .og-root .og-range-filter-error {
   position: absolute;
-  left: 0;
+  inset-inline-start: 0;
   top: calc(100% + 5px);
   z-index: 20;
   width: max-content;

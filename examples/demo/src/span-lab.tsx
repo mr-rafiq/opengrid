@@ -106,7 +106,8 @@ export function SpanLab() {
         Column spans use one visible cell and retain logical column indices.
         Rectangle copy, paste and fill are disabled here; individual cells and
         the separate row-edit form retain their documented behavior. Row
-        spanning is still unsupported.
+        spanning is demonstrated separately; combining both axes in one grid
+        remains unsupported.
       </p>
     </>
   );

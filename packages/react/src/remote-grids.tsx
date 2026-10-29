@@ -21,6 +21,13 @@ import {
 import { DataGrid, type CellContext } from "./data-grid.js";
 import { getColumnWindow, type ColumnWindowEntry } from "./column-window.js";
 import { useGridLocale } from "./locale.js";
+import {
+  normalizeScrollLeft,
+  denormalizeScrollLeft,
+  assertGridDirection,
+  createDirectionLayout,
+  type GridDirection,
+} from "./direction.js";
 
 const stringValue = (value: unknown) => (value == null ? "" : String(value));
 const queryIdentity = (value: unknown) =>
@@ -36,6 +43,7 @@ export interface ServerDataGridProps<T> {
   model: ServerSideRowModel<T>;
   columns: Column<T>[];
   height?: number;
+  direction?: GridDirection;
   ariaLabel?: string;
   className?: string;
   renderCell?: (context: CellContext<T>) => ReactNode;
@@ -49,10 +57,12 @@ export function ServerDataGrid<T>({
   model,
   columns,
   height = 400,
+  direction = "ltr",
   ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
 }: ServerDataGridProps<T>) {
+  assertGridDirection(direction);
   const { t, locale: language, number } = useGridLocale();
   const ariaLabel = requestedAriaLabel ?? t("remote.serverLabel");
   const snapshot = useSyncExternalStore(
@@ -250,11 +260,21 @@ export function ServerDataGrid<T>({
     setRoute(keys);
     setRequestError(null);
   }
-  const firstVisible = local.getColumns().find((column) => !column.hidden)?.id;
+  const viewColumns = local.getColumns().filter((column) => !column.hidden);
+  const firstVisible = (
+    direction === "rtl"
+      ? [
+          ...viewColumns.filter((column) => column.pinned === "right"),
+          ...viewColumns.filter((column) => !column.pinned),
+          ...viewColumns.filter((column) => column.pinned === "left"),
+        ]
+      : viewColumns
+  )[0]?.id;
   const failure = remoteError?.message ?? requestError;
   return (
     <section
       className={`og-root og-remote-server ${className}`}
+      dir={direction}
       lang={language}
       aria-label={t("remote.controls", { label: ariaLabel })}
     >
@@ -352,6 +372,7 @@ export function ServerDataGrid<T>({
         </div>
       )}
       <DataGrid
+        direction={direction}
         model={facade}
         height={height}
         ariaLabel={ariaLabel}
@@ -432,6 +453,7 @@ export interface LiveViewportDataGridProps<T> {
   height?: number;
   rowHeight?: number;
   overscan?: number;
+  direction?: GridDirection;
   ariaLabel?: string;
   className?: string;
   renderCell?: (context: CellContext<T>) => ReactNode;
@@ -445,10 +467,12 @@ export function LiveViewportDataGrid<T>({
   height = 400,
   rowHeight = 36,
   overscan = 4,
+  direction = "ltr",
   ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
 }: LiveViewportDataGridProps<T>) {
+  assertGridDirection(direction);
   const { t, locale: language } = useGridLocale();
   const ariaLabel = requestedAriaLabel ?? t("remote.liveLabel");
   const snapshot = useSyncExternalStore(
@@ -463,13 +487,15 @@ export function LiveViewportDataGrid<T>({
   const safeOverscan = Number.isFinite(overscan)
     ? Math.max(0, Math.min(100, Math.floor(overscan)))
     : 4;
+  const pinStart = direction === "rtl" ? "right" : "left",
+    pinEnd = direction === "rtl" ? "left" : "right";
   const columns = [
     ...definitions.filter(
-      (column) => !column.hidden && column.pinned === "left",
+      (column) => !column.hidden && column.pinned === pinStart,
     ),
     ...definitions.filter((column) => !column.hidden && !column.pinned),
     ...definitions.filter(
-      (column) => !column.hidden && column.pinned === "right",
+      (column) => !column.hidden && column.pinned === pinEnd,
     ),
   ];
   const widthOf = (column: Column<T>) =>
@@ -478,8 +504,57 @@ export function LiveViewportDataGrid<T>({
   const viewport = useRef<HTMLDivElement>(null);
   const cells = useRef(new Map<string, HTMLDivElement>());
   const pendingFocus = useRef(false);
+  const ownsCellFocus = useRef(false);
   const [scroll, setScroll] = useState({ top: 0, left: 0 });
   const [viewportWidth, setViewportWidth] = useState(800);
+  const previousDirection = useRef(direction);
+  function scrollMaximum(container: HTMLElement) {
+    const width = container.clientWidth || viewportWidth;
+    return Math.max(
+      0,
+      (container.scrollWidth || Math.max(width, totalWidth)) - width,
+    );
+  }
+  function readInlineScroll(container: HTMLElement) {
+    return normalizeScrollLeft(
+      container.scrollLeft,
+      scrollMaximum(container),
+      direction,
+    );
+  }
+  function writeInlineScroll(container: HTMLElement, inline: number) {
+    container.scrollLeft = denormalizeScrollLeft(
+      inline,
+      scrollMaximum(container),
+      direction,
+    );
+    return readInlineScroll(container);
+  }
+  function revealColumn(
+    container: HTMLElement,
+    columnIndex: number,
+    inline: number,
+  ) {
+    const target = columns[columnIndex];
+    if (!target || target.pinned) return inline;
+    return createDirectionLayout({
+      direction,
+      viewportWidth: container.clientWidth || viewportWidth,
+      contentWidth: totalWidth,
+      scrollOffset: inline,
+      leftPinnedWidth: columns
+        .filter((column) => column.pinned === "left")
+        .reduce((sum, column) => sum + widthOf(column), 0),
+      rightPinnedWidth: columns
+        .filter((column) => column.pinned === "right")
+        .reduce((sum, column) => sum + widthOf(column), 0),
+    }).scrollToReveal(
+      columns
+        .slice(0, columnIndex)
+        .reduce((sum, column) => sum + widthOf(column), 0),
+      widthOf(target),
+    );
+  }
   const [viewError, setViewError] = useState<string | null>(null);
   const [focus, setFocus] = useState({
     index: 0,
@@ -514,6 +589,7 @@ export function LiveViewportDataGrid<T>({
       pinned: column.pinned,
     })),
     {
+      direction,
       scrollLeft: scroll.left,
       viewportWidth,
       retainIndices: [
@@ -534,6 +610,29 @@ export function LiveViewportDataGrid<T>({
     observer?.observe(container);
     return () => observer?.disconnect();
   }, []);
+  useLayoutEffect(() => {
+    const container = viewport.current;
+    if (!container) return;
+    const flipped = previousDirection.current !== direction;
+    previousDirection.current = direction;
+    if (
+      flipped &&
+      ownsCellFocus.current &&
+      (document.activeElement === document.body ||
+        container.contains(document.activeElement))
+    )
+      pendingFocus.current = true;
+    let inline = Math.min(scrollMaximum(container), Math.max(0, scroll.left));
+    if (flipped)
+      inline = revealColumn(
+        container,
+        columns.findIndex((column) => column.id === focus.columnId),
+        inline,
+      );
+    inline = writeInlineScroll(container, inline);
+    if (inline !== scroll.left)
+      setScroll((current) => ({ ...current, left: inline }));
+  }, [direction, totalWidth, viewportWidth]);
   useEffect(() => {
     try {
       // A positive desired window keeps an empty provider's count stream alive.
@@ -578,8 +677,10 @@ export function LiveViewportDataGrid<T>({
     if (column.pinned === "left")
       Object.assign(style, {
         position: "sticky",
-        left: columns
-          .slice(0, columnIndex)
+        left: (direction === "rtl"
+          ? columns.slice(columnIndex + 1)
+          : columns.slice(0, columnIndex)
+        )
           .filter((item) => item.pinned === "left")
           .reduce((sum, item) => sum + widthOf(item), 0),
         zIndex: 2,
@@ -587,8 +688,10 @@ export function LiveViewportDataGrid<T>({
     if (column.pinned === "right")
       Object.assign(style, {
         position: "sticky",
-        right: columns
-          .slice(columnIndex + 1)
+        right: (direction === "rtl"
+          ? columns.slice(0, columnIndex)
+          : columns.slice(columnIndex + 1)
+        )
           .filter((item) => item.pinned === "right")
           .reduce((sum, item) => sum + widthOf(item), 0),
         zIndex: 2,
@@ -620,27 +723,14 @@ export function LiveViewportDataGrid<T>({
         physicalMaximum,
         Math.max(0, nextLogical / scale),
       );
-      const target = columns[columnIndex];
-      if (!target.pinned) {
-        const left = columns
-          .slice(0, columnIndex)
-          .reduce((sum, column) => sum + widthOf(column), 0);
-        const pinnedLeft = columns
-          .filter((column) => column.pinned === "left")
-          .reduce((sum, column) => sum + widthOf(column), 0);
-        const pinnedRight = columns
-          .filter((column) => column.pinned === "right")
-          .reduce((sum, column) => sum + widthOf(column), 0);
-        const width = container.clientWidth || viewportWidth;
-        if (left < container.scrollLeft + pinnedLeft)
-          container.scrollLeft = Math.max(0, left - pinnedLeft);
-        else if (
-          left + widthOf(target) >
-          container.scrollLeft + width - pinnedRight
-        )
-          container.scrollLeft = left + widthOf(target) - width + pinnedRight;
-      }
-      setScroll({ top: container.scrollTop, left: container.scrollLeft });
+      const inline = writeInlineScroll(
+        container,
+        revealColumn(container, columnIndex, readInlineScroll(container)),
+      );
+      setScroll({
+        top: container.scrollTop,
+        left: inline,
+      });
     }
     pendingFocus.current = true;
     setFocus({ index, columnId: columns[columnIndex].id });
@@ -661,10 +751,10 @@ export function LiveViewportDataGrid<T>({
         next--;
         break;
       case "ArrowRight":
-        column++;
+        column += direction === "rtl" ? -1 : 1;
         break;
       case "ArrowLeft":
-        column--;
+        column += direction === "rtl" ? 1 : -1;
         break;
       case "Home":
         column = 0;
@@ -689,6 +779,8 @@ export function LiveViewportDataGrid<T>({
   return (
     <section
       className={`og-root og-live-viewport ${className}`}
+      dir={direction}
+      data-direction={direction}
       lang={language}
     >
       <div className="og-statusbar">
@@ -721,16 +813,24 @@ export function LiveViewportDataGrid<T>({
       <div
         ref={viewport}
         role="grid"
+        dir={direction}
         aria-label={ariaLabel}
         aria-rowcount={snapshot.rowCount === null ? -1 : count + 1}
         aria-colcount={columns.length}
         aria-readonly="true"
         className="og-viewport"
+        onBlurCapture={(event) => {
+          if (
+            event.relatedTarget instanceof Node &&
+            !event.currentTarget.contains(event.relatedTarget)
+          )
+            ownsCellFocus.current = false;
+        }}
         style={{ height: safeHeight }}
         onScroll={(event) =>
           setScroll({
             top: event.currentTarget.scrollTop,
-            left: event.currentTarget.scrollLeft,
+            left: readInlineScroll(event.currentTarget),
           })
         }
       >
@@ -825,6 +925,8 @@ export function LiveViewportDataGrid<T>({
                         else cells.current.delete(key);
                       }}
                       onFocus={(event) => {
+                        ownsCellFocus.current =
+                          event.target === event.currentTarget;
                         if (event.target === event.currentTarget)
                           setFocus({ index, columnId: column.id });
                       }}

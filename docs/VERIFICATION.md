@@ -1,5 +1,15 @@
 # Verification record
 
+## Explicit RTL presentation
+
+`npm run check` passed strict TypeScript, **1,014 tests in 56 files** (137.69 seconds), all three ESM/declaration package builds and the production demo. New RTL/view-order coverage totals 76 cases, including pure scroll/geometry bounds, physical pin and merged-span offsets, group identity, client editor/filter/keyboard behavior, range/Find ordering, remote provider retention, nonzero scroll preservation and repeated focus of oversized center cells. Built ESM and React server rendering verified public direction helpers, fractional negative-scroll normalization, physical pins, view-ordered range/Find and RTL markup.
+
+The four focused Chromium direction flows passed in 20.2 seconds with one worker. They check actual pin positions through negative horizontal scrolling, bounded rendered columns, arrows/Home/End, keyboard resizing, active editor DOM/draft/focus through direction changes, clipboard order/paste/fill/undo, independent column/row spans with retained offscreen owners, server route controls and million-row RTL navigation. The composed merged view passed a serious/critical axe scan. The complete Chromium suite passed **53 scenarios with one worker in 3.0 minutes**, including existing default-English/LTR, 100,000-row, remote, editing, merge and export regressions.
+
+Review found an oversized live-grid column could alternate its leading/trailing scroll alignment on repeated focus; it now consistently reveals the inline leading edge. Remote scrolling uses measured browser maxima with readback, and direction changes restore owned cell focus without taking focus from external controls. An asynchronous editor test now waits for the provider effect before asserting its invocation. No touch, manual screen-reader, legacy-browser or physical-device conformance is inferred. The feature ledger remains four Implemented, 52 Partial and two Missing broad categories.
+
+The production Pages artifact passed with **39 documentation routes**, and all **9 site scenarios passed with one worker in 16.4 seconds**. The new RTL guide, direction lab and remote direction controls are included. Existing generated-route, responsive navigation, search/copy, real 404 and serious/critical axe checks remain green.
+
 ## Built-in UI localization
 
 `npm run check` passed strict TypeScript, **938 tests in 50 files** (102.34 seconds), all package/declaration builds and the production demo. This includes 44 locale foundation/grid/control/analysis/remote cases and 14 status-ownership cases in addition to existing regressions. Targeted compatibility/localization verification passed 81 cases with one worker. Catalog tests resolved all 339 keys in both languages. Built ESM and React server rendering verified Spanish grid output, escaped literal overrides and core/React status ownership through installed package entry points.
@@ -11,6 +21,8 @@ The default-English regression run caught replacement of application-provided ro
 The catalogs and provider cover built-in UI workflows, not arbitrary application data, parsers, labels or existing unstructured core diagnostics. RTL geometry, touch-specific gestures and physical-device/manual assistive-technology verification remain open. The ledger records four Implemented, 52 Partial and two Missing broad categories; this is not a completion percentage or a claim that only two capabilities remain unimplemented.
 
 The production Pages build passed with 38 documentation routes, and all **9 site scenarios passed with one worker in 22.3 seconds**. The localization guide links the live example; the site still advertises source/workspace installation rather than unpublished npm packages.
+
+Published as `b71d2acd8bdeb337e74963629b8679f349bca00d`; [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40861286004) and [Pages](https://github.com/mr-rafiq/opengrid/actions/runs/40861286222) passed for that exact commit. Live HTTPS checks verified the localization and gap guides, preserved active editor DOM/focus and undo, pending choices, row-dialog drafts, plain-text notes, chart configuration and explicit refresh of a stale print capture. The composed Spanish workflows reported zero runtime errors and no serious/critical axe findings; deployed editor and composed screenshots were visually inspected.
 
 ## Vertical row spans and gap audit
 

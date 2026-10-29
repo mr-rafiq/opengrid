@@ -1,5 +1,7 @@
 import { getColumnWindow } from "./column-window.js";
 import type { ColumnWindowOptions } from "./column-window.js";
+import { assertGridDirection } from "./direction.js";
+import type { GridDirection } from "./direction.js";
 
 /** Presentation metadata, independent of the source row/value model. */
 export interface SpanColumn<T> {
@@ -12,6 +14,8 @@ export interface SpanColumn<T> {
 export type SpanRowContext<T> =
   { readonly kind: "row"; readonly row: T } | { readonly kind: "group" };
 export interface ColumnSpanOptions {
+  /** Direction selects the required supplied inline pin order; source indices are never reordered here. */
+  readonly direction?: GridDirection;
   /** Counts all supplied columns, including hidden columns. Default 10,000; hard cap 100,000. */
   readonly maxColumns?: number;
   /** False produces ordinary single-column cells without invoking callbacks. */
@@ -29,9 +33,9 @@ export interface ColumnSpanCell {
   /** Logical pixel position, excluding any leading row controls. */
   readonly offset: number;
   readonly pinned: "left" | "right" | null;
-  /** Sticky offset excludes leading row controls; add their width in the renderer. */
+  /** Physical left offset excludes inline-start row controls. In RTL sum left-pinned widths after the whole span. */
   readonly leftOffset?: number;
-  /** Sum of right-pinned columns strictly AFTER the end of this span. */
+  /** Physical right offset excludes row controls: widths after the span in LTR, before it in RTL. */
   readonly rightOffset?: number;
 }
 export interface ColumnSpanPlan {
@@ -52,8 +56,8 @@ export type ColumnSpanWindowEntry =
 
 const DEFAULT_MAX_COLUMNS = 10_000;
 const HARD_MAX_COLUMNS = 100_000;
-const pinRank = (pin: "left" | "right" | null) =>
-  pin === "left" ? 0 : pin === null ? 1 : 2;
+const pinRank = (pin: "left" | "right" | null, direction: GridDirection) =>
+  pin === (direction === "rtl" ? "right" : "left") ? 0 : pin === null ? 1 : 2;
 
 function validSpan(value: unknown, columnId: string): number {
   if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 1)
@@ -71,7 +75,7 @@ function callbackSpan(value: unknown): number {
 
 /**
  * Build one row's immutable cell geometry in O(column count) time and space.
- * Supply the rendered order: left-pinned, unpinned, then right-pinned leaves.
+ * Supply inline order: left/center/right in LTR, right/center/left in RTL.
  * Hidden columns are omitted before spans are counted. No borrowed object is frozen.
  * Callbacks run only for uncovered owners of data rows and never for group rows.
  */
@@ -80,6 +84,8 @@ export function createColumnSpanPlan<T>(
   context: SpanRowContext<T>,
   options: ColumnSpanOptions = {},
 ): ColumnSpanPlan {
+  const direction = options.direction ?? "ltr";
+  assertGridDirection(direction);
   const maxColumns = options.maxColumns ?? DEFAULT_MAX_COLUMNS;
   if (
     !Number.isSafeInteger(maxColumns) ||
@@ -136,16 +142,19 @@ export function createColumnSpanPlan<T>(
       validSpan(column.colSpan, column.id);
     if (column.hidden) continue;
     const pin = column.pinned ?? null;
-    const rank = pinRank(pin);
+    const rank = pinRank(pin, direction);
     if (rank < previousRank)
       throw new TypeError(
-        "Span columns must be in rendered left, center, right pin order",
+        direction === "rtl"
+          ? "Span columns must be in rendered right, center, left pin order"
+          : "Span columns must be in rendered left, center, right pin order",
       );
     previousRank = rank;
     visible.push({ column, sourceIndex, pin });
   }
   const count = visible.length;
-  const offsets = [0];
+  const offsets = [0],
+    rightStarts = [0];
   for (const item of visible) {
     const total = offsets[offsets.length - 1] + item.column.width;
     if (!Number.isFinite(total) || total > Number.MAX_SAFE_INTEGER)
@@ -153,13 +162,20 @@ export function createColumnSpanPlan<T>(
         "Total column span width exceeds safe numeric geometry",
       );
     offsets.push(total);
+    rightStarts.push(
+      rightStarts.at(-1)! + (item.pin === "right" ? item.column.width : 0),
+    );
   }
   const rightOffsets: number[] = new Array(count + 1).fill(0);
+  const leftOffsets: number[] = new Array(count + 1).fill(0);
   const regionEnds: number[] = new Array(count);
   for (let index = count - 1; index >= 0; index--) {
     rightOffsets[index] =
       rightOffsets[index + 1] +
       (visible[index].pin === "right" ? visible[index].column.width : 0);
+    leftOffsets[index] =
+      leftOffsets[index + 1] +
+      (visible[index].pin === "left" ? visible[index].column.width : 0);
     regionEnds[index] =
       index + 1 < count && visible[index].pin === visible[index + 1].pin
         ? regionEnds[index + 1]
@@ -192,8 +208,18 @@ export function createColumnSpanPlan<T>(
         width,
         offset: offsets[start],
         pinned: pin,
-        ...(pin === "left" ? { leftOffset: offsets[start] } : {}),
-        ...(pin === "right" ? { rightOffset: rightOffsets[end] } : {}),
+        ...(pin === "left"
+          ? {
+              leftOffset:
+                direction === "rtl" ? leftOffsets[end] : offsets[start],
+            }
+          : {}),
+        ...(pin === "right"
+          ? {
+              rightOffset:
+                direction === "rtl" ? rightStarts[start] : rightOffsets[end],
+            }
+          : {}),
       }),
     );
     start = end;

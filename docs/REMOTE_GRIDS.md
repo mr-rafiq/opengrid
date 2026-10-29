@@ -2,6 +2,8 @@
 
 `ServerDataGrid` and `LiveViewportDataGrid` are read-only React bindings for the distinct provider models described in [REMOTE_MODELS.md](REMOTE_MODELS.md). They render actual provider results and call provider-model operations; they do not present a client-side sort/filter as an operation over unloaded server data. Import `@opengrid/react/styles.css` as with the client grid.
 
+Both accept explicit `direction="ltr" | "rtl"`, independent of language. Physical pin sides remain stable; inline scrolling/navigation, header order and sticky offsets follow direction. A direction change preserves the local server route/page/selection and existing live subscription rather than restarting providers. See [RTL layout](RTL.md) for coordinate conventions and scope. These remain read-only bindings; direction does not add remote editing or merged remote cells.
+
 ## ServerDataGrid
 
 ```tsx

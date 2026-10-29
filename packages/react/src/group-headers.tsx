@@ -2,6 +2,8 @@ import { useGridLocale } from "./locale.js";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ColumnWindowEntry, WindowColumn } from "./column-window.js";
+import { assertGridDirection, normalizeScrollLeft } from "./direction.js";
+import type { GridDirection } from "./direction.js";
 
 export interface GroupedWindowColumn extends WindowColumn {
   id: string;
@@ -24,11 +26,16 @@ export interface HeaderGroupCell {
   rightOffset?: number;
   leafIds: string[];
 }
+export interface HeaderGroupOptions {
+  direction?: GridDirection;
+}
 
 /** Group each contiguous path prefix and pin region independently. No hidden columns should be supplied. */
 export function computeHeaderGroups(
   columns: readonly GroupedWindowColumn[],
+  { direction = "ltr" }: HeaderGroupOptions = {},
 ): HeaderGroupCell[][] {
+  assertGridDirection(direction);
   const ids = new Set<string>();
   let depthCount = 0;
   const offsets = [0],
@@ -91,11 +98,13 @@ export function computeHeaderGroups(
         previous.end = index + 1;
         previous.width = offsets[index + 1] - offsets[previous.start];
         previous.leafIds.push(column.id);
-        if (pinned === "right")
+        if (pinned === "left" && direction === "rtl")
+          previous.leftOffset = leftOffsets.at(-1)! - leftOffsets[index + 1];
+        if (pinned === "right" && direction === "ltr")
           previous.rightOffset = rightOffsets.at(-1)! - rightOffsets[index + 1];
       } else
         cells.push({
-          key: `group-${depth}-${index}-${JSON.stringify(path)}-${pinned ?? "center"}`,
+          key: `group-${depth}-${JSON.stringify([column.id, path, pinned])}`,
           label,
           path: [...path],
           depth,
@@ -103,9 +112,21 @@ export function computeHeaderGroups(
           end: index + 1,
           width: column.width,
           pinned,
-          ...(pinned === "left" ? { leftOffset: leftOffsets[index] } : {}),
+          ...(pinned === "left"
+            ? {
+                leftOffset:
+                  direction === "rtl"
+                    ? leftOffsets.at(-1)! - leftOffsets[index + 1]
+                    : leftOffsets[index],
+              }
+            : {}),
           ...(pinned === "right"
-            ? { rightOffset: rightOffsets.at(-1)! - rightOffsets[index + 1] }
+            ? {
+                rightOffset:
+                  direction === "rtl"
+                    ? rightOffsets[index]
+                    : rightOffsets.at(-1)! - rightOffsets[index + 1],
+              }
             : {}),
           leafIds: [column.id],
         });
@@ -116,6 +137,9 @@ export function computeHeaderGroups(
 
 export interface HeaderGroupRowsProps {
   columns: readonly GroupedWindowColumn[];
+  direction?: GridDirection;
+  /** Optional positive inline scroll position from the parent; native RTL scrollLeft is not accepted. */
+  scrollLeft?: number;
   /** Full logical-column window entries. Spacer widths are recomputed at group boundaries. */
   entries?: readonly ColumnWindowEntry[];
   leadingWidth?: number;
@@ -130,6 +154,8 @@ export interface HeaderGroupRowsProps {
 /** Group rows for insertion before a grid's leaf-header and filter rows. */
 export function HeaderGroupRows({
   columns,
+  direction = "ltr",
+  scrollLeft,
   entries,
   leadingWidth = 0,
   rowHeight = 38,
@@ -138,26 +164,56 @@ export function HeaderGroupRows({
   ariaLabel,
   className = "",
 }: HeaderGroupRowsProps) {
-  const { t } = useGridLocale();
-  const groups = computeHeaderGroups(columns);
+  const { t, locale } = useGridLocale();
+  const groups = computeHeaderGroups(columns, { direction });
+  const totalWidth = columns.reduce(
+    (sum, column) => sum + column.width,
+    leadingWidth,
+  );
   const root = useRef<HTMLDivElement>(null);
+  const previousDirection = useRef(direction);
+  // Capture existing focus before keyed pin segments move; restore only document-level focus loss.
+  const directionFocus =
+    previousDirection.current !== direction &&
+    typeof document !== "undefined" &&
+    root.current?.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement)
+      : null;
   const pendingToggleFocus = useRef<{
     button: HTMLButtonElement;
     path: string;
   } | null>(null);
   const [viewport, setViewport] = useState({ left: 0, width: 0 });
   useLayoutEffect(() => {
+    previousDirection.current = direction;
+    if (
+      directionFocus?.isConnected &&
+      (document.activeElement === document.body ||
+        document.activeElement === document.documentElement)
+    )
+      directionFocus.focus({ preventScroll: true });
+  }, [direction]);
+  useLayoutEffect(() => {
     const container = root.current?.closest<HTMLElement>(
       '[role="grid"],[role="treegrid"]',
     );
     if (!container) return;
-    const measure = () =>
-      setViewport((current) =>
-        current.left === container.scrollLeft &&
-        current.width === container.clientWidth
-          ? current
-          : { left: container.scrollLeft, width: container.clientWidth },
+    const measure = () => {
+      const maximum =
+        container.scrollWidth > 0
+          ? Math.max(0, container.scrollWidth - container.clientWidth)
+          : Math.max(0, totalWidth - container.clientWidth);
+      const inlineScroll = normalizeScrollLeft(
+        container.scrollLeft,
+        maximum,
+        direction,
       );
+      setViewport((current) =>
+        current.left === inlineScroll && current.width === container.clientWidth
+          ? current
+          : { left: inlineScroll, width: container.clientWidth },
+      );
+    };
     measure();
     container.addEventListener("scroll", measure, { passive: true });
     const observer =
@@ -171,7 +227,7 @@ export function HeaderGroupRows({
       observer?.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [groups.length > 0]);
+  }, [groups.length > 0, direction, totalWidth]);
   useLayoutEffect(() => {
     const pending = pendingToggleFocus.current;
     if (!pending) return;
@@ -198,13 +254,10 @@ export function HeaderGroupRows({
     leadingWidth > Number.MAX_SAFE_INTEGER ||
     !Number.isFinite(rowHeight) ||
     rowHeight <= 0 ||
-    rowHeight > Number.MAX_SAFE_INTEGER
+    rowHeight > Number.MAX_SAFE_INTEGER ||
+    (scrollLeft !== undefined && !Number.isFinite(scrollLeft))
   )
     throw new RangeError("Invalid group-header dimensions");
-  const totalWidth = columns.reduce(
-    (sum, column) => sum + column.width,
-    leadingWidth,
-  );
   if (!Number.isFinite(totalWidth) || totalWidth > Number.MAX_SAFE_INTEGER)
     throw new RangeError(
       "Group-header total width exceeds the safe dimension range",
@@ -234,6 +287,14 @@ export function HeaderGroupRows({
   const rightPinned = columns
     .filter((column) => column.pinned === "right")
     .reduce((sum, column) => sum + column.width, 0);
+  const startPinned = direction === "rtl" ? rightPinned : leftPinned;
+  const inlineScroll = Math.max(
+    0,
+    Math.min(
+      scrollLeft ?? viewport.left,
+      Math.max(0, totalWidth - viewport.width),
+    ),
+  );
   const offsets = [0];
   for (const column of columns) offsets.push(offsets.at(-1)! + column.width);
   const background = "var(--og-surface, #f4f7fa)",
@@ -269,18 +330,23 @@ export function HeaderGroupRows({
       whiteSpace: "nowrap",
       fontWeight: 600,
       fontSize: 12,
-      borderRight: `1px solid ${border}`,
+      borderInlineEnd: `1px solid ${border}`,
       borderBottom: `1px solid ${border}`,
       background,
       color: "var(--og-text, #233246)",
       ...(cell.pinned === "left"
         ? {
             position: "sticky",
-            left: leadingWidth + cell.leftOffset!,
+            left: (direction === "ltr" ? leadingWidth : 0) + cell.leftOffset!,
             zIndex: 2,
           }
         : cell.pinned === "right"
-          ? { position: "sticky", right: cell.rightOffset!, zIndex: 2 }
+          ? {
+              position: "sticky",
+              right:
+                (direction === "rtl" ? leadingWidth : 0) + cell.rightOffset!,
+              zIndex: 2,
+            }
           : {}),
     };
   }
@@ -288,6 +354,8 @@ export function HeaderGroupRows({
   return (
     <div
       ref={root}
+      dir={direction}
+      lang={locale}
       role="rowgroup"
       aria-label={ariaLabel ?? t("headers.label")}
       className={`og-group-headers ${className}`}
@@ -325,7 +393,7 @@ export function HeaderGroupRows({
                   ),
                   Math.max(
                     padding,
-                    viewport.left + leftPinned - offsets[cell.start] + padding,
+                    inlineScroll + startPinned - offsets[cell.start] + padding,
                   ),
                 );
           const availableWidth =
@@ -364,7 +432,9 @@ export function HeaderGroupRows({
                   alignItems: "center",
                   gap: 6,
                   flexShrink: 0,
-                  marginLeft: Math.max(0, contentOffset - padding),
+                  ...(direction === "rtl"
+                    ? { marginRight: Math.max(0, contentOffset - padding) }
+                    : { marginLeft: Math.max(0, contentOffset - padding) }),
                   maxWidth: contentWidth,
                 }}
               >
@@ -432,7 +502,7 @@ export function HeaderGroupRows({
                   minWidth: leadingWidth,
                   flexShrink: 0,
                   position: "sticky",
-                  left: 0,
+                  ...(direction === "rtl" ? { right: 0 } : { left: 0 }),
                   zIndex: 3,
                   background,
                   borderBottom: `1px solid ${border}`,

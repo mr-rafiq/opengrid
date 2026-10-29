@@ -13,6 +13,8 @@ export interface CellRangeSnapshot {
 }
 export interface CellRangeOptions {
   getRowIds?: () => string[];
+  /** Ordered view subset; IDs must be unique, existing and visible. */
+  getColumnIds?: () => readonly string[];
   maxCells?: number;
 }
 export interface CellRangeModel<T> {
@@ -170,6 +172,11 @@ export function createCellRangeModel<T>(
   grid: GridModel<T>,
   options: CellRangeOptions = {},
 ): CellRangeModel<T> {
+  if (
+    options.getColumnIds !== undefined &&
+    typeof options.getColumnIds !== "function"
+  )
+    throw new TypeError("Range getColumnIds must be a function");
   const maxCells = options.maxCells ?? DEFAULT_MAX_CELLS;
   if (!Number.isInteger(maxCells) || maxCells < 1)
     throw new RangeError("maxCells must be a positive integer");
@@ -217,19 +224,40 @@ export function createCellRangeModel<T>(
   }
   function refresh() {
     if (disposed) return;
-    observedState = grid.getState();
+    const nextState = grid.getState();
     const visible = grid
       .getRowModel()
       .filter((node) => node.kind === "row" && node.data !== undefined);
-    data = new Map(visible.map((node) => [node.id, node.data!]));
-    rowIds = [
+    const nextData = new Map(visible.map((node) => [node.id, node.data!]));
+    const nextRowIds = [
       ...new Set(
         options.getRowIds
           ? options.getRowIds()
           : visible.map((node) => node.id),
       ),
-    ].filter((id) => data.has(id));
-    columns = grid.getColumns().filter((column) => !column.hidden);
+    ].filter((id) => nextData.has(id));
+    const visibleColumns = grid.getColumns().filter((column) => !column.hidden);
+    let nextColumns = visibleColumns;
+    if (options.getColumnIds) {
+      const supplied = options.getColumnIds();
+      if (!Array.isArray(supplied))
+        throw new TypeError("Range getColumnIds must return an array");
+      const byId = new Map(visibleColumns.map((column) => [column.id, column]));
+      if (
+        supplied.length > visibleColumns.length ||
+        new Set(supplied).size !== supplied.length ||
+        supplied.some((id) => typeof id !== "string" || !byId.has(id))
+      )
+        throw new Error(
+          "Range view column IDs must be unique, existing and visible",
+        );
+      nextColumns = supplied.map((id) => byId.get(id)!);
+    }
+    // Commit the derived view only after callbacks and validation succeed.
+    observedState = nextState;
+    data = nextData;
+    rowIds = nextRowIds;
+    columns = nextColumns;
     rowIndex = new Map(rowIds.map((id, index) => [id, index]));
     columnIndex = new Map(columns.map((column, index) => [column.id, index]));
     const nextSignature = JSON.stringify([

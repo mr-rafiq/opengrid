@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   LiveViewportRowModel,
   ServerSideRowModel,
@@ -128,6 +128,7 @@ async function mockServer(
 
 /** Both providers are explicitly simulated in this browser; no backend or market data is used. */
 export function RemoteLab() {
+  const [rtl, setRtl] = useState(false);
   const model = useMemo(
     () =>
       new ServerSideRowModel<RemoteOrder>(
@@ -195,6 +196,14 @@ export function RemoteLab() {
   }, [model, live]);
   return (
     <section className="pivot-panel" aria-label="Remote data model laboratory">
+      <label>
+        <input
+          type="checkbox"
+          checked={rtl}
+          onChange={(event) => setRtl(event.target.checked)}
+        />{" "}
+        Right-to-left remote grids
+      </label>
       <div
         style={{
           display: "flex",
@@ -237,6 +246,7 @@ export function RemoteLab() {
           </p>
         </div>
         <ServerDataGrid
+          direction={rtl ? "rtl" : "ltr"}
           model={model}
           columns={remoteColumns}
           height={270}
@@ -253,6 +263,7 @@ export function RemoteLab() {
           second.
         </p>
         <LiveViewportDataGrid
+          direction={rtl ? "rtl" : "ltr"}
           model={live}
           columns={remoteColumns}
           height={270}

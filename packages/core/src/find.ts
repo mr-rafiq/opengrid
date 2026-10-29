@@ -3,6 +3,8 @@ import type { CellPosition } from "./ranges.js";
 
 export interface FindOptions {
   getRowIds?: () => string[];
+  /** Ordered visible view subset; overrides includeHidden when supplied. */
+  getColumnIds?: () => readonly string[];
   includeHidden?: boolean;
   caseSensitive?: boolean;
   /** Skip covered/presentation-only cells before evaluating their value getters. */
@@ -46,10 +48,37 @@ export function createFindModel<T>(
   options: FindOptions = {},
 ): FindModel {
   if (
+    options.getColumnIds !== undefined &&
+    typeof options.getColumnIds !== "function"
+  )
+    throw new TypeError("Find getColumnIds must be a function");
+  if (
     options.isCellSearchable !== undefined &&
     typeof options.isCellSearchable !== "function"
   )
     throw new TypeError("Find isCellSearchable must be a function");
+  function viewColumns() {
+    const available = grid.getColumns();
+    if (!options.getColumnIds)
+      return available.filter(
+        (column) => options.includeHidden || !column.hidden,
+      );
+    const supplied = options.getColumnIds();
+    if (!Array.isArray(supplied))
+      throw new TypeError("Find getColumnIds must return an array");
+    const visible = available.filter((column) => !column.hidden);
+    const byId = new Map(visible.map((column) => [column.id, column]));
+    if (
+      supplied.length > visible.length ||
+      new Set(supplied).size !== supplied.length ||
+      supplied.some((id) => typeof id !== "string" || !byId.has(id))
+    )
+      throw new Error(
+        "Find view column IDs must be unique, existing and visible",
+      );
+    return supplied.map((id) => byId.get(id)!);
+  }
+  if (options.getColumnIds) viewColumns();
   let snapshot = freezeSnapshot("", [], -1),
     observedState = grid.getState(),
     disposed = false;
@@ -74,8 +103,10 @@ export function createFindModel<T>(
   }
   function compute(query: string, resetActive = false) {
     if (disposed) return;
-    observedState = grid.getState();
+    const nextState = grid.getState();
+    const columns = viewColumns();
     if (!query) {
+      observedState = nextState;
       publish("", [], -1);
       return;
     }
@@ -90,9 +121,6 @@ export function createFindModel<T>(
           : allNodes.map((node) => node.id),
       ),
     ].filter((id) => data.has(id));
-    const columns = grid
-      .getColumns()
-      .filter((column) => options.includeHidden || !column.hidden);
     const needle = options.caseSensitive ? query : query.toLocaleLowerCase();
     const matches: CellPosition[] = [];
     for (const rowId of ids)
@@ -121,6 +149,7 @@ export function createFindModel<T>(
     const retained = active
       ? matches.findIndex((match) => cellKey(match) === cellKey(active))
       : -1;
+    observedState = nextState;
     publish(query, matches, matches.length ? Math.max(0, retained) : -1);
   }
   function refresh() {

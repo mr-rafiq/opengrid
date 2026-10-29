@@ -28,6 +28,7 @@ import { CalculatedLab } from "./calculated-lab";
 import { SpanLab } from "./span-lab";
 import { RowSpanLab } from "./row-span-lab";
 import { LocaleLab } from "./locale-lab";
+import { DirectionLab } from "./direction-lab";
 interface Holding {
   id: string;
   company: string;
@@ -190,6 +191,7 @@ function App() {
   const [spansOpen, setSpansOpen] = useState(false);
   const [rowSpansOpen, setRowSpansOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
+  const [directionOpen, setDirectionOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -735,6 +737,15 @@ function App() {
             Localization lab
           </button>
           {localeOpen && <LocaleLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setDirectionOpen(!directionOpen)}
+            aria-expanded={directionOpen}
+          >
+            RTL direction lab
+          </button>
+          {directionOpen && <DirectionLab />}
         </section>
         <section className="pivot-panel">
           <button

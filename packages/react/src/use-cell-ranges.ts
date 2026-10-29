@@ -33,6 +33,7 @@ const interactive = (target: EventTarget | null) =>
 export function useCellRanges<T>({
   model,
   rowIds,
+  columnIds,
   enabled,
   viewport,
   getFocusedCell,
@@ -43,6 +44,7 @@ export function useCellRanges<T>({
 }: {
   model: GridModel<T>;
   rowIds: string[];
+  columnIds?: readonly string[];
   enabled: boolean;
   viewport: RefObject<HTMLDivElement | null>;
   getFocusedCell: () => CellPosition | undefined;
@@ -53,6 +55,20 @@ export function useCellRanges<T>({
 }) {
   const ids = useRef(rowIds);
   ids.current = rowIds;
+  const columnOrder = useRef(columnIds);
+  columnOrder.current = columnIds;
+  function currentColumnIds() {
+    const definitions = model.getColumns();
+    if (columnOrder.current === undefined)
+      return definitions
+        .filter((column) => !column.hidden)
+        .map((column) => column.id);
+    const hidden = new Set(
+      definitions.filter((column) => column.hidden).map((column) => column.id),
+    );
+    // A model notification can precede the render that removes a newly hidden ID.
+    return columnOrder.current.filter((id) => !hidden.has(id));
+  }
   const focused = useRef(getFocusedCell);
   focused.current = getFocusedCell;
   const message = useRef(onMessage);
@@ -69,7 +85,10 @@ export function useCellRanges<T>({
       setController(null);
       return;
     }
-    const next = createCellRangeModel(model, { getRowIds: () => ids.current });
+    const next = createCellRangeModel(model, {
+      getRowIds: () => ids.current,
+      getColumnIds: currentColumnIds,
+    });
     setController(next);
     return () => {
       next.dispose();
@@ -84,14 +103,9 @@ export function useCellRanges<T>({
   const indices = useMemo(
     () => ({
       rows: new Map(rowIds.map((id, index) => [id, index])),
-      columns: new Map(
-        model
-          .getColumns()
-          .filter((c) => !c.hidden)
-          .map((c, index) => [c.id, index]),
-      ),
+      columns: new Map(currentColumnIds().map((id, index) => [id, index])),
     }),
-    [model, gridState, rowIds],
+    [model, gridState, rowIds, columnIds],
   );
   const range = snapshot.range;
   const bounds = range
@@ -174,6 +188,8 @@ export function useCellRanges<T>({
       const dx = current.x > right - 25 ? 24 : current.x < left + 25 ? -24 : 0;
       if (dy || dx) {
         container.scrollTop += dy;
+        // dx is physical screen direction. Native negative RTL scrollLeft already
+        // moves leftward when dx is negative; do not invert it a second time.
         container.scrollLeft += dx;
         extendAt(
           Math.max(left + 2, Math.min(right - 2, current.x)),
@@ -316,12 +332,12 @@ export function useCellRanges<T>({
   }
   function selectAll() {
     if (!controller) return;
-    const columns = model.getColumns().filter((c) => !c.hidden);
+    const columns = currentColumnIds();
     const rows = ids.current;
     if (rows.length && columns.length)
       controller.setRange(
-        { rowId: rows[0], columnId: columns[0].id },
-        { rowId: rows.at(-1)!, columnId: columns.at(-1)!.id },
+        { rowId: rows[0], columnId: columns[0] },
+        { rowId: rows.at(-1)!, columnId: columns.at(-1)! },
       );
   }
   function isEnd(position: CellPosition) {

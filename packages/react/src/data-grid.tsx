@@ -28,6 +28,15 @@ import type { GridMessage } from "./locale.js";
 import { useCellRanges } from "./use-cell-ranges.js";
 import { useFind } from "./use-find.js";
 import { CellNotesStore, getBuiltinRowReorderReason } from "@opengrid/core";
+import {
+  getInlineColumnOrder,
+  normalizeScrollLeft,
+  denormalizeScrollLeft,
+  createDirectionLayout,
+  getInlineArrowDelta,
+  physicalToInlineDelta,
+} from "./direction.js";
+import type { GridDirection } from "./direction.js";
 import { AdvancedFilterBuilder } from "./advanced-filter-builder.js";
 import { CellNoteDialog } from "./cell-note-dialog.js";
 import { RowEditDialog } from "./row-edit-dialog.js";
@@ -67,6 +76,7 @@ export interface CellContext<T> {
 }
 export interface DataGridProps<T> {
   model: GridModel<T>;
+  direction?: GridDirection;
   height?: number;
   rowHeight?: number;
   getRowHeight?: (node: RowNode<T>) => number;
@@ -204,6 +214,7 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 /** A row- and column-virtualized grid with optional variable row heights and detail rows. The supplied model owns data and persisted state. */
 export function DataGrid<T>({
   model,
+  direction = "ltr",
   height = 480,
   rowHeight = 38,
   getRowHeight,
@@ -278,11 +289,15 @@ export function DataGrid<T>({
     Object.prototype.hasOwnProperty.call(state.columnPinning, column.id)
       ? state.columnPinning[column.id]
       : column.pinned;
-  const columns = [
-    ...ordered.filter((c) => pinOf(c) === "left"),
-    ...ordered.filter((c) => !pinOf(c)),
-    ...ordered.filter((c) => pinOf(c) === "right"),
-  ];
+  const columns = getInlineColumnOrder(
+    ordered.map((column) => ({
+      ...column,
+      hidden: false,
+      pinned: pinOf(column),
+    })),
+    direction,
+  ).map((index) => ordered[index]);
+  const columnIds = columns.map((column) => column.id);
   const rowModel = model.getRowModel();
   const hierarchical =
     Boolean(renderDetail) ||
@@ -332,7 +347,11 @@ export function DataGrid<T>({
     pinned: pinOf(column),
   }));
   const spanPlanFor = useMemo(() => {
-    const ordinary = createColumnSpanPlan(spanColumns, { kind: "group" });
+    const ordinary = createColumnSpanPlan(
+      spanColumns,
+      { kind: "group" },
+      { direction },
+    );
     const cache = new Map<number, ReturnType<typeof createColumnSpanPlan<T>>>();
     // Find can visit the entire resident view. Retain only a bounded recent window,
     // and build plans lazily for rendered rows or explicit navigation/search targets.
@@ -349,15 +368,19 @@ export function DataGrid<T>({
       let plan = cache.get(row);
       if (plan) cache.delete(row);
       else
-        plan = createColumnSpanPlan(spanColumns, {
-          kind: "row",
-          row: node.data,
-        });
+        plan = createColumnSpanPlan(
+          spanColumns,
+          {
+            kind: "row",
+            row: node.data,
+          },
+          { direction },
+        );
       cache.set(row, plan);
       if (cache.size > 256) cache.delete(cache.keys().next().value!);
       return plan;
     };
-  }, [model, state, projection, hasColumnSpans]);
+  }, [model, state, projection, hasColumnSpans, direction]);
   function ownerAt(row: number, leaf: number) {
     return getColumnSpanOwner(spanPlanFor(row), leaf);
   }
@@ -378,7 +401,7 @@ export function DataGrid<T>({
     width: widthOf(column),
     pinned: pinOf(column),
   }));
-  const groupDepth = computeHeaderGroups(groupedColumns).length;
+  const groupDepth = computeHeaderGroups(groupedColumns, { direction }).length;
   const headerRows = groupDepth + 2;
   const headerHeight = headerRows * 38;
   const viewport = useRef<HTMLDivElement>(null);
@@ -416,7 +439,28 @@ export function DataGrid<T>({
   } | null>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const previousDirection = useRef(direction);
   const [viewportWidth, setViewportWidth] = useState(1024);
+  function scrollMaximum(container: HTMLElement) {
+    return Math.max(
+      0,
+      (container.scrollWidth || totalWidth) -
+        (container.clientWidth || viewportWidth),
+    );
+  }
+  function readInlineScroll(container: HTMLElement) {
+    return normalizeScrollLeft(
+      container.scrollLeft,
+      scrollMaximum(container),
+      direction,
+    );
+  }
+  function writeInlineScroll(container: HTMLElement, value: number) {
+    const maximum = scrollMaximum(container);
+    const offset = Math.max(0, Math.min(maximum, value));
+    container.scrollLeft = denormalizeScrollLeft(offset, maximum, direction);
+    return offset;
+  }
   const [focusedFilterColumnId, setFocusedFilterColumnId] = useState<
     string | null
   >(null);
@@ -481,6 +525,7 @@ export function DataGrid<T>({
       pinned: pinOf(column),
     })),
     {
+      direction,
       scrollLeft,
       viewportWidth,
       leadingWidth: selectionWidth,
@@ -785,6 +830,7 @@ export function DataGrid<T>({
   const ranges = useCellRanges({
     model,
     rowIds: dataRowIds,
+    columnIds,
     enabled: effectiveCellSelection,
     viewport,
     headerHeight,
@@ -799,14 +845,19 @@ export function DataGrid<T>({
       setAnnouncement(message);
     },
   });
-  const finder = useFind(model, dataRowIds, (position) => {
-    const row = projection.indexOf(position.rowId);
-    return (
-      row >= 0 &&
-      ownerColumnId(row, position.columnId) === position.columnId &&
-      ownerRowAt(row, position.columnId) === row
-    );
-  });
+  const finder = useFind(
+    model,
+    dataRowIds,
+    (position) => {
+      const row = projection.indexOf(position.rowId);
+      return (
+        row >= 0 &&
+        ownerColumnId(row, position.columnId) === position.columnId &&
+        ownerRowAt(row, position.columnId) === row
+      );
+    },
+    columnIds,
+  );
   const findMatches = useMemo(
     () =>
       new Set(
@@ -928,12 +979,31 @@ export function DataGrid<T>({
   useLayoutEffect(() => {
     const container = viewport.current;
     if (!container) return;
-    const maximum = Math.max(0, totalWidth - viewportWidth);
-    if (container.scrollLeft > maximum) {
-      container.scrollLeft = maximum;
-      setScrollLeft(maximum);
+    const flipped = previousDirection.current !== direction;
+    previousDirection.current = direction;
+    let offset = flipped ? scrollLeft : readInlineScroll(container);
+    if (flipped) {
+      const index = columns.findIndex((column) => column.id === focus.columnId);
+      const span = ownerAt(focusRow, index);
+      if (span && !span.pinned) {
+        offset = createDirectionLayout({
+          direction,
+          viewportWidth: container.clientWidth || viewportWidth,
+          contentWidth: totalWidth,
+          scrollOffset: offset,
+          leadingWidth: selectionWidth,
+          leftPinnedWidth: columns
+            .filter((column) => pinOf(column) === "left")
+            .reduce((sum, column) => sum + widthOf(column), 0),
+          rightPinnedWidth: columns
+            .filter((column) => pinOf(column) === "right")
+            .reduce((sum, column) => sum + widthOf(column), 0),
+        }).scrollToReveal(span.offset + selectionWidth, span.width);
+      }
     }
-  }, [totalWidth, viewportWidth]);
+    const clamped = writeInlineScroll(container, offset);
+    if (clamped !== scrollLeft) setScrollLeft(clamped);
+  }, [totalWidth, viewportWidth, direction]);
   useLayoutEffect(() => {
     const container = viewport.current;
     if (!container) return;
@@ -1133,24 +1203,28 @@ export function DataGrid<T>({
       const target = columns[column];
       if (target && !projection.rows[row].fullWidth && !pinOf(target)) {
         const span = ownerAt(row, column);
-        const left = (span?.offset ?? 0) + selectionWidth;
-        const targetWidth = span?.width ?? widthOf(target);
-        const leftPinned = columns
-          .filter((c) => pinOf(c) === "left")
-          .reduce((x, c) => x + widthOf(c), selectionWidth);
-        const rightPinned = columns
-          .filter((c) => pinOf(c) === "right")
-          .reduce((x, c) => x + widthOf(c), 0);
-        if (left < container.scrollLeft + leftPinned)
-          container.scrollLeft = Math.max(0, left - leftPinned);
-        else if (
-          left + targetWidth >
-          container.scrollLeft + viewportWidth - rightPinned
-        )
-          container.scrollLeft =
-            left + targetWidth - viewportWidth + rightPinned;
+        const layout = createDirectionLayout({
+          direction,
+          viewportWidth: container.clientWidth || viewportWidth,
+          contentWidth: totalWidth,
+          scrollOffset: readInlineScroll(container),
+          leadingWidth: selectionWidth,
+          leftPinnedWidth: columns
+            .filter((c) => pinOf(c) === "left")
+            .reduce((sum, c) => sum + widthOf(c), 0),
+          rightPinnedWidth: columns
+            .filter((c) => pinOf(c) === "right")
+            .reduce((sum, c) => sum + widthOf(c), 0),
+        });
+        writeInlineScroll(
+          container,
+          layout.scrollToReveal(
+            (span?.offset ?? 0) + selectionWidth,
+            span?.width ?? widthOf(target),
+          ),
+        );
       }
-      setScrollLeft(container.scrollLeft);
+      setScrollLeft(readInlineScroll(container));
     }
     pendingFocus.current = takeFocus;
     setFocus({ rowId: rows[row].id, columnId: columns[column]?.id ?? "" });
@@ -1164,22 +1238,34 @@ export function DataGrid<T>({
       Object.assign(style, {
         position: "sticky",
         left: span
-          ? (span.leftOffset ?? 0) + selectionWidth
+          ? (span.leftOffset ?? 0) + (direction === "ltr" ? selectionWidth : 0)
           : columns
-              .slice(0, columns.indexOf(column))
+              .slice(
+                direction === "ltr" ? 0 : columns.indexOf(column) + 1,
+                direction === "ltr" ? columns.indexOf(column) : undefined,
+              )
               .filter((c) => pinOf(c) === "left")
-              .reduce((x, c) => x + widthOf(c), selectionWidth),
+              .reduce(
+                (x, c) => x + widthOf(c),
+                direction === "ltr" ? selectionWidth : 0,
+              ),
         zIndex: 2,
       });
     if (pin === "right")
       Object.assign(style, {
         position: "sticky",
         right: span
-          ? (span.rightOffset ?? 0)
+          ? (span.rightOffset ?? 0) + (direction === "rtl" ? selectionWidth : 0)
           : columns
-              .slice(columns.indexOf(column) + 1)
+              .slice(
+                direction === "rtl" ? 0 : columns.indexOf(column) + 1,
+                direction === "rtl" ? columns.indexOf(column) : undefined,
+              )
               .filter((c) => pinOf(c) === "right")
-              .reduce((x, c) => x + widthOf(c), 0),
+              .reduce(
+                (x, c) => x + widthOf(c),
+                direction === "rtl" ? selectionWidth : 0,
+              ),
         zIndex: 2,
       });
     return style;
@@ -1591,21 +1677,20 @@ export function DataGrid<T>({
         targetRow--;
         break;
       case "ArrowLeft":
-        if (node.children?.length && state.expanded.includes(node.id)) {
+      case "ArrowRight": {
+        const delta = getInlineArrowDelta(event.key, direction);
+        if (
+          node.children?.length &&
+          ((delta < 0 && state.expanded.includes(node.id)) ||
+            (delta > 0 && !state.expanded.includes(node.id)))
+        ) {
           model.toggleExpanded(node.id);
           event.preventDefault();
           return;
         }
-        targetCol--;
+        targetCol = delta > 0 ? (ownerAt(row, col)?.end ?? col + 1) : col - 1;
         break;
-      case "ArrowRight":
-        if (node.children?.length && !state.expanded.includes(node.id)) {
-          model.toggleExpanded(node.id);
-          event.preventDefault();
-          return;
-        }
-        targetCol = ownerAt(row, col)?.end ?? col + 1;
-        break;
+      }
       case "Home":
         targetCol = 0;
         if (event.ctrlKey || event.metaKey) targetRow = 0;
@@ -2077,7 +2162,7 @@ export function DataGrid<T>({
                 }}
                 style={{
                   position: "sticky",
-                  left: 0,
+                  insetInlineStart: 0,
                   width: viewportWidth,
                   minWidth: viewportWidth,
                   height: "100%",
@@ -2197,6 +2282,7 @@ export function DataGrid<T>({
                   </div>
                 )}
                 {getColumnSpanWindow(spanPlanFor(row), {
+                  direction,
                   scrollLeft,
                   viewportWidth,
                   leadingWidth: selectionWidth,
@@ -2434,7 +2520,9 @@ export function DataGrid<T>({
                                 >
                                   {state.expanded.includes(node.id)
                                     ? "\u25be"
-                                    : "\u25b8"}
+                                    : direction === "rtl"
+                                      ? "\u25c2"
+                                      : "\u25b8"}
                                 </button>
                               ) : null}
                             </span>
@@ -2503,7 +2591,7 @@ export function DataGrid<T>({
                 )}
                 style={{
                   position: "sticky",
-                  left: 0,
+                  insetInlineStart: 0,
                   width: viewportWidth,
                   height: "100%",
                   overflow: "auto",
@@ -2525,7 +2613,12 @@ export function DataGrid<T>({
   }
 
   return (
-    <section className={`og-root ${className}`} lang={locale}>
+    <section
+      className={`og-root ${className}`}
+      lang={locale}
+      dir={direction}
+      data-direction={direction}
+    >
       {(hasColumnSpans || hasRowSpans) && (
         <p className="og-span-help" role="status">
           {t(hasRowSpans ? "grid.rowSpanHelp" : "grid.columnSpanHelp")}
@@ -2723,7 +2816,14 @@ export function DataGrid<T>({
                       onClick={() =>
                         model.moveColumn(
                           column.id,
-                          Math.max(0, state.columnOrder.indexOf(column.id) - 1),
+                          clamp(
+                            (state.columnOrder.indexOf(column.id) < 0
+                              ? index
+                              : state.columnOrder.indexOf(column.id)) +
+                              (direction === "rtl" ? 1 : -1),
+                            0,
+                            allColumns.length - 1,
+                          ),
                         )
                       }
                     >
@@ -2737,11 +2837,13 @@ export function DataGrid<T>({
                       onClick={() =>
                         model.moveColumn(
                           column.id,
-                          Math.min(
-                            allColumns.length - 1,
+                          clamp(
                             (state.columnOrder.indexOf(column.id) < 0
                               ? index
-                              : state.columnOrder.indexOf(column.id)) + 1,
+                              : state.columnOrder.indexOf(column.id)) +
+                              (direction === "rtl" ? -1 : 1),
+                            0,
+                            allColumns.length - 1,
                           ),
                         )
                       }
@@ -2843,6 +2945,7 @@ export function DataGrid<T>({
       )}
       <div
         className="og-viewport"
+        dir={direction}
         ref={viewport}
         style={{ height: safeHeight }}
         role={hierarchical ? "treegrid" : "grid"}
@@ -2859,13 +2962,9 @@ export function DataGrid<T>({
         onScroll={(event) => {
           if (event.target !== event.currentTarget) return;
           setScrollTop(event.currentTarget.scrollTop);
-          const left = Math.min(
-            Math.max(0, totalWidth - viewportWidth),
-            event.currentTarget.scrollLeft,
-          );
-          if (event.currentTarget.scrollLeft !== left)
-            event.currentTarget.scrollLeft = left;
-          setScrollLeft(left);
+          const offset = readInlineScroll(event.currentTarget);
+          writeInlineScroll(event.currentTarget, offset);
+          setScrollLeft(offset);
         }}
       >
         <div
@@ -2880,6 +2979,8 @@ export function DataGrid<T>({
         >
           {groupDepth > 0 && (
             <HeaderGroupRows
+              direction={direction}
+              scrollLeft={scrollLeft}
               columns={groupedColumns}
               entries={columnEntries}
               leadingWidth={selectionWidth}
@@ -3003,7 +3104,10 @@ export function DataGrid<T>({
                           model.resizeColumn(
                             column.id,
                             widthOf(column) +
-                              (event.key === "ArrowRight" ? 10 : -10),
+                              physicalToInlineDelta(
+                                event.key === "ArrowRight" ? 10 : -10,
+                                direction,
+                              ),
                           );
                         }
                       }}
@@ -3015,7 +3119,11 @@ export function DataGrid<T>({
                         const move = (pointer: PointerEvent) =>
                           model.resizeColumn(
                             column.id,
-                            width + pointer.clientX - startX,
+                            width +
+                              physicalToInlineDelta(
+                                pointer.clientX - startX,
+                                direction,
+                              ),
                           );
                         const stop = () => {
                           window.removeEventListener("pointermove", move);
@@ -3234,7 +3342,7 @@ export function DataGrid<T>({
                 setScrollTop(0);
               }}
             >
-              {"\u2190"}
+              {direction === "rtl" ? "\u2192" : "\u2190"}
             </button>
             <button
               type="button"
@@ -3246,7 +3354,7 @@ export function DataGrid<T>({
                 setScrollTop(0);
               }}
             >
-              {"\u2192"}
+              {direction === "rtl" ? "\u2190" : "\u2192"}
             </button>
           </div>
         )}

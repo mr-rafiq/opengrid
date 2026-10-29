@@ -1,3 +1,6 @@
+import { assertGridDirection } from "./direction.js";
+import type { GridDirection } from "./direction.js";
+
 export interface WindowColumn {
   width: number;
   pinned?: "left" | "right" | null;
@@ -6,6 +9,9 @@ export type ColumnWindowEntry =
   | { kind: "column"; index: number }
   | { kind: "spacer"; key: string; width: number };
 export interface ColumnWindowOptions {
+  /** Supplied columns are in inline order: left/center/right in LTR, right/center/left in RTL. */
+  direction?: GridDirection;
+  /** Positive distance from inline-start in either direction; never a native RTL scrollLeft. */
   scrollLeft: number;
   viewportWidth: number;
   leadingWidth?: number;
@@ -26,11 +32,13 @@ export function getColumnWindow(
   )
     throw new RangeError("Column widths must be finite nonnegative numbers");
   const {
+    direction = "ltr",
     scrollLeft,
     viewportWidth,
     leadingWidth = 0,
     overscan = 200,
   } = options;
+  assertGridDirection(direction);
   if (
     ![scrollLeft, viewportWidth, leadingWidth, overscan].every(
       Number.isFinite,
@@ -42,11 +50,15 @@ export function getColumnWindow(
     throw new RangeError(
       "Column window dimensions must be finite and nonnegative",
     );
-  const leftPinned = columns
-    .filter((column) => column.pinned === "left")
+  const startPinned = columns
+    .filter(
+      (column) => column.pinned === (direction === "rtl" ? "right" : "left"),
+    )
     .reduce((sum, column) => sum + column.width, leadingWidth);
-  const rightPinned = columns
-    .filter((column) => column.pinned === "right")
+  const endPinned = columns
+    .filter(
+      (column) => column.pinned === (direction === "rtl" ? "left" : "right"),
+    )
     .reduce((sum, column) => sum + column.width, 0);
   const totalWidth = columns.reduce(
     (sum, column) => sum + column.width,
@@ -56,8 +68,8 @@ export function getColumnWindow(
     Math.max(0, scrollLeft),
     Math.max(0, totalWidth - viewportWidth),
   );
-  const left = scroll + leftPinned;
-  const right = Math.max(left + 1, scroll + viewportWidth - rightPinned);
+  const left = scroll + startPinned;
+  const right = Math.max(left + 1, scroll + viewportWidth - endPinned);
   const retained = new Set(options.retainIndices ?? []);
   const result: ColumnWindowEntry[] = [];
   let position = leadingWidth,
