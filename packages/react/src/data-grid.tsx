@@ -97,6 +97,8 @@ import {
   type HierarchySelectionMode,
 } from "./use-hierarchy-selection.js";
 import { SelectionCheckbox } from "./selection-checkbox.js";
+import { useGridContextMenu } from "./use-grid-context-menu.js";
+import type { GridContextMenuOptions } from "./context-menu-items.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -132,6 +134,8 @@ export interface DataGridProps<T> {
   /** Multiple-selection subtrees include source parents; filtered actions retain hidden selections. */
   hierarchySelection?: HierarchySelectionMode;
   cellSelection?: boolean;
+  /** Real-row commands via right-click, ContextMenu or Shift+F10. Ctrl-right-click keeps the browser menu. */
+  contextMenu?: boolean | GridContextMenuOptions<NoInfer<T>>;
   onCellRangeChange?: (range: CellRange | null) => void;
   editorOptions?: Record<string, EditorConfig>;
   renderEditor?: CellEditorRenderer<T>;
@@ -275,6 +279,7 @@ export function DataGrid<T>({
   selectionMode = "multiple",
   hierarchySelection = "self",
   cellSelection = true,
+  contextMenu = true,
   onCellRangeChange,
   editorOptions = {},
   renderEditor,
@@ -1063,6 +1068,43 @@ export function DataGrid<T>({
       rows[focusRow]?.kind === "row" && !projection.rows[focusRow]?.fullWidth
         ? { rowId: rows[focusRow].id, columnId: focus.columnId }
         : undefined,
+    onMessage: (message, failed) => {
+      setError(failed ? message : "");
+      setAnnouncement(message);
+    },
+  });
+  const cellMenu = useGridContextMenu({
+    model,
+    state,
+    setting: contextMenu,
+    policyKey: `${selectionMode}:${hierarchySelection}:${editMode}:${notes !== false}`,
+    editing: Boolean(editing || rowEditing || noteEditing),
+    controller: ranges.controller,
+    rowIds: dataRowIds,
+    columnIds,
+    selectionMode,
+    notes: notes !== false,
+    onEdit: (node, column) => {
+      const index = projection.indexOf(node.id);
+      const currentColumn = columns.find((item) => item.id === column.id);
+      if (index >= 0 && currentColumn) startEdit(rows[index], currentColumn);
+    },
+    onNote: openNote,
+    onSelect: toggleSelectedNode,
+    onFocus: (position) => {
+      ownsCellFocus.current = true;
+      setFocus(position);
+      cells.current
+        .get(keyOf(projection.indexOf(position.rowId), position.columnId))
+        ?.focus({ preventScroll: true });
+    },
+    onRestoreFocus: (position) => {
+      if (!focusMatch(position)) {
+        if (rows.length && columns.length) focusAt(0, 0);
+        else viewport.current?.focus({ preventScroll: true });
+      }
+    },
+    onExportCsv: downloadCsv,
     onMessage: (message, failed) => {
       setError(failed ? message : "");
       setAnnouncement(message);
@@ -2010,6 +2052,32 @@ export function DataGrid<T>({
   ) {
     if (event.target !== event.currentTarget) return;
     if (
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10"))
+    ) {
+      const rect = event.currentTarget.getBoundingClientRect();
+      const check = hierarchy.resolved?.getState(node.id);
+      if (
+        cellMenu.open(
+          node,
+          column,
+          event.currentTarget,
+          { x: rect.left, y: rect.bottom },
+          hierarchy.enabled
+            ? check?.mixed
+              ? "mixed"
+              : (check?.checked ?? false)
+            : selected.has(node.id),
+        )
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        return;
+      }
+    }
+    if (
       rowDragging &&
       event.altKey &&
       (event.key === "ArrowUp" || event.key === "ArrowDown")
@@ -2780,7 +2848,17 @@ export function DataGrid<T>({
                       aria-invalid={formulaError ? true : undefined}
                       aria-description={formulaError?.message}
                       aria-keyshortcuts={
-                        rowDragging ? "Alt+ArrowUp Alt+ArrowDown" : undefined
+                        [
+                          contextMenu !== false ? "Shift+F10 ContextMenu" : "",
+                          rowDragging ? "Alt+ArrowUp Alt+ArrowDown" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" ") || undefined
+                      }
+                      aria-haspopup={
+                        contextMenu !== false && node.kind === "row"
+                          ? "menu"
+                          : undefined
                       }
                       aria-selected={
                         effectiveCellSelection
@@ -2844,6 +2922,35 @@ export function DataGrid<T>({
                           columnId: column.id,
                         })
                       }
+                      onContextMenu={(event) => {
+                        if (
+                          event.defaultPrevented ||
+                          event.ctrlKey ||
+                          (event.nativeEvent as globalThis.PointerEvent)
+                            .pointerType === "touch" ||
+                          (event.target instanceof Element &&
+                            (event.target.closest(
+                              '[role="grid"],[role="treegrid"]',
+                            ) !== viewport.current ||
+                              event.target.closest(
+                                'dialog,[role="dialog"],button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]',
+                              )))
+                        )
+                          return;
+                        touchTaps.onContextMenu();
+                        if (
+                          cellMenu.open(
+                            node,
+                            column,
+                            event.currentTarget,
+                            { x: event.clientX, y: event.clientY },
+                            hierarchy.enabled && subtreeSelection?.mixed
+                              ? "mixed"
+                              : isSelected,
+                          )
+                        )
+                          event.preventDefault();
+                      }}
                       onClick={(event) => {
                         if (
                           event.target instanceof Element &&
@@ -3853,6 +3960,7 @@ export function DataGrid<T>({
           }}
         />
       )}
+      {cellMenu.render}
       {noteEditing && notes !== false && (
         <CellNoteDialog
           store={notesStore}

@@ -130,6 +130,14 @@ describe("quoted TSV", () => {
     ).toBe("'=SUM(A1)\t'+x\t'-x\t'@x\t\"' \t=1\"\t-12\t-5");
     expect(serializeTsv([["=1"]], { neutralizeFormulas: false })).toBe("=1");
   });
+  it("neutralizes formula-like object and array text after one conversion while preserving primitive numbers", () => {
+    const convert = vi.fn(() => " \t=COMMAND()"),
+      wrapped = { toString: convert };
+    expect(parseTsv(serializeTsv([[wrapped, ["=1"], -12, -5n]]))).toEqual([
+      ["' \t=COMMAND()", "'=1", "-12", "-5"],
+    ]);
+    expect(convert).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("cell range identity and selection", () => {

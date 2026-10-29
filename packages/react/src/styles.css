@@ -896,3 +896,82 @@
 .og-rich-select-notice {
   color: var(--og-muted, #536c80);
 }
+
+.og-context-menu-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  min-width: min(240px, calc(100vw - 8px));
+  width: max-content;
+  max-width: min(360px, calc(100vw - 8px));
+  overflow: auto;
+  padding: 6px;
+  border: 1px solid var(--og-border, #cbd8e1);
+  border-radius: 9px;
+  background: var(--og-bg, #fff);
+  color: var(--og-text, #162838);
+  box-shadow: 0 12px 36px #08182f33;
+  font: inherit;
+  z-index: 50;
+}
+.og-context-menu-popup[popover]:not(:popover-open) {
+  display: none;
+}
+.og-context-menu-popup [role="menu"] {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  outline: none;
+}
+.og-context-menu-popup button[role^="menuitem"] {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 34px;
+  border: 0;
+  border-radius: 4px;
+  padding: 6px 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.og-context-menu-popup button[role^="menuitem"]:focus-visible {
+  outline: 2px solid var(--og-accent, #008f80);
+  outline-offset: -2px;
+}
+.og-context-menu-popup button[role^="menuitem"]:hover,
+.og-context-menu-popup button[role^="menuitem"]:focus {
+  background: var(--og-selected, #e2f3ee);
+}
+.og-context-menu-popup button[role^="menuitem"]:disabled {
+  color: var(--og-muted, #536c80);
+  cursor: not-allowed;
+  background: transparent;
+}
+.og-context-menu-check {
+  flex: 0 0 14px;
+  text-align: center;
+}
+.og-context-menu-shortcut {
+  margin-inline-start: auto;
+  padding-inline-start: 12px;
+  font-size: 0.85em;
+  color: var(--og-muted, #536c80);
+  white-space: nowrap;
+}
+.og-context-menu-popup [role="separator"] {
+  border-top: 1px solid var(--og-border, #cbd8e1);
+  margin: 4px 0;
+}
+.og-context-menu-popup > p {
+  max-width: 320px;
+  margin: 6px 8px;
+  font-size: 0.9em;
+}
+.og-context-menu-popup [role="alert"] {
+  color: var(--og-danger, #a22836);
+  overflow-wrap: anywhere;
+}

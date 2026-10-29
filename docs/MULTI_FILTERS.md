@@ -74,7 +74,7 @@ Definitions require one to four ordinary dense records, unique nonempty IDs of a
 
 Each child receives only its slot through `filter`, `getFilter`, `onFilterChange` and `onClear`. The supplied model provides resident data reads. Custom controls own their private invalid drafts; the parent can commit only successfully staged models. Invalid emitted models retain the last good draft and block parent Apply until corrected or cleared.
 
-`getFilter` is the authoritative synchronous source when supplied. The parent fences stale source snapshots, reentrant root callbacks and same-event invalid emissions. Closed/SSR controls do not read the source or render child components. Changing model, column ID/type/field, child IDs/order or component types closes old work. Label-only changes retain the session. Built-in messages participate in the 440-key English/Spanish locale schema and inherit layout direction.
+`getFilter` is the authoritative synchronous source when supplied. The parent fences stale source snapshots, reentrant root callbacks and same-event invalid emissions. Closed/SSR controls do not read the source or render child components. Changing model, column ID/type/field, child IDs/order or component types closes old work. Label-only changes retain the session. Built-in messages participate in the shared typed English/Spanish locale schema and inherit layout direction.
 
 ## Bounds and remaining gaps
 

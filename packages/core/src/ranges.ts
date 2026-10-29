@@ -41,7 +41,7 @@ const DEFAULT_MAX_CELLS = 100_000;
 const MAX_TEXT_LENGTH = 10_000_000;
 const spreadsheetFormula = /^[\s\u0000-\u001f]*[=+\-@]/u;
 
-/** Quote TSV fields losslessly; neutralize formula-like strings, never numeric negatives. */
+/** Quote TSV fields; neutralize formula-like converted text, never primitive numeric negatives. */
 export function serializeTsv(
   rows: readonly (readonly unknown[])[],
   options: { neutralizeFormulas?: boolean } = {},
@@ -53,8 +53,9 @@ export function serializeTsv(
           let result = value == null ? "" : String(value);
           if (
             options.neutralizeFormulas !== false &&
-            typeof value === "string" &&
-            (spreadsheetFormula.test(value) || /^[\t\r\n]/u.test(value))
+            typeof value !== "number" &&
+            typeof value !== "bigint" &&
+            (spreadsheetFormula.test(result) || /^[\t\r\n]/u.test(result))
           )
             result = "'" + result;
           return /[\t\r\n"]/u.test(result)

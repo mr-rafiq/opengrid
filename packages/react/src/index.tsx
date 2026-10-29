@@ -1,4 +1,18 @@
 export * from "./data-grid.js";
+export { GridContextMenu } from "./context-menu.js";
+export type { GridContextMenuProps } from "./context-menu.js";
+export {
+  prepareContextMenuItems,
+  CONTEXT_MENU_LIMITS,
+  GridContextMenuError,
+} from "./context-menu-items.js";
+export type {
+  GridContextMenuContext,
+  GridContextMenuItem,
+  GridContextMenuAction,
+  GridContextMenuSeparator,
+  GridContextMenuOptions,
+} from "./context-menu-items.js";
 export { MultiFilter, createMultiFilter } from "./multi-filter.js";
 export type {
   MultiFilterProps,

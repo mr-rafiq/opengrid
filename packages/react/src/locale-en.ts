@@ -1,5 +1,12 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "contextMenu.changed":
+    "The grid changed while preparing the menu. Open it again.",
+  "contextMenu.title": (params, _format) =>
+    `Commands for ${params.column}, row ${params.rowId}`,
+  "contextMenu.failed": "Unable to complete the menu command.",
+  "contextMenu.running": "Running command…",
+  "contextMenu.copyCell": "Copy cell",
   "multiFilter.title": (params, _format) =>
     `Combined filters for ${params.column}`,
   "multiFilter.help":

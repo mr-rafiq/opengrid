@@ -31,6 +31,7 @@ import { CombinedSpanLab } from "./combined-span-lab";
 import { RichEditorLab } from "./rich-editor-lab";
 import { HierarchyLab } from "./hierarchy-lab";
 import { MultiFilterLab } from "./multi-filter-lab";
+import { ContextMenuLab } from "./context-menu-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
@@ -202,6 +203,7 @@ function App() {
   const [richEditorOpen, setRichEditorOpen] = useState(false);
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
   const [multiFilterOpen, setMultiFilterOpen] = useState(false);
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
@@ -780,6 +782,15 @@ function App() {
             Independent multi-filter lab
           </button>
           {multiFilterOpen && <MultiFilterLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setContextMenuOpen(!contextMenuOpen)}
+            aria-expanded={contextMenuOpen}
+          >
+            Context commands lab
+          </button>
+          {contextMenuOpen && <ContextMenuLab />}
         </section>
         <section className="pivot-panel">
           <button

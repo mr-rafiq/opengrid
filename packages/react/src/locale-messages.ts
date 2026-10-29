@@ -1,5 +1,10 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "contextMenu.changed": undefined;
+  "contextMenu.title": { column: string; rowId: string };
+  "contextMenu.failed": undefined;
+  "contextMenu.running": undefined;
+  "contextMenu.copyCell": undefined;
   "multiFilter.title": { column: string };
   "multiFilter.help": undefined;
   "multiFilter.unreadable": undefined;
@@ -488,6 +493,11 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "contextMenu.changed": {},
+  "contextMenu.title": { column: "string", rowId: "string" },
+  "contextMenu.failed": {},
+  "contextMenu.running": {},
+  "contextMenu.copyCell": {},
   "multiFilter.title": { column: "string" },
   "multiFilter.help": {},
   "multiFilter.unreadable": {},
