@@ -29,6 +29,8 @@ export { ColumnConditionFilter } from "./column-condition-filter.js";
 export type { ColumnConditionFilterProps } from "./column-condition-filter.js";
 export type {
   DataGridSizingController,
+  FitColumnsOptions,
+  FitColumnsReport,
   ColumnSizingSnapshot,
   AutoSizeOptions,
   AutoSizeReport,

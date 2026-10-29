@@ -75,6 +75,25 @@ export interface ResolvedColumnWidths {
   readonly overflow: number;
   readonly unusedWidth: number;
 }
+export interface FitColumnWidthsOptions {
+  readonly availableWidth: number;
+  readonly leadingWidth?: number;
+  /** Retained only for excluded columns; eligible ratios use configured widths. */
+  readonly columnWidths?: Readonly<Record<string, number>>;
+  readonly excludeColumnIds?: readonly string[];
+  readonly maxColumns?: number;
+  readonly maxWork?: number;
+}
+export interface FittedColumnWidths {
+  readonly widths: Readonly<Record<string, number>>;
+  readonly columnIds: readonly string[];
+  readonly fittedColumnIds: readonly string[];
+  readonly excludedColumnIds: readonly string[];
+  readonly totalWidth: number;
+  readonly availableWidth: number;
+  readonly overflow: number;
+  readonly unusedWidth: number;
+}
 const MAX_COLUMNS = 10000,
   MAX_WORK = 1000000;
 function dimension(value: number, name: string): void {
@@ -319,5 +338,84 @@ export function resolveColumnWidths(
     overflow: available === undefined ? 0 : Math.max(0, totalWidth - available),
     unusedWidth:
       available === undefined ? 0 : Math.max(0, available - totalWidth),
+  });
+}
+
+/** Explicit proportional sizing, independent of manual widths and flex weights. */
+export function fitColumnWidths(
+  columns: readonly WidthColumn[],
+  options: FitColumnWidthsOptions,
+): FittedColumnWidths {
+  if (!options || typeof options !== "object")
+    throw new TypeError("Fit options must include availableWidth");
+  dimension(options.availableWidth, "availableWidth");
+  // Validate original metadata/overrides before deriving any allocation inputs.
+  const initial = resolveColumnWidths(columns, {
+    columnWidths: options.columnWidths,
+    maxColumns: options.maxColumns,
+    maxWork: options.maxWork,
+  });
+  const excluded = new Set<string>();
+  if (options.excludeColumnIds !== undefined) {
+    const ids = options.excludeColumnIds;
+    if (!Array.isArray(ids) || ids.length > MAX_COLUMNS)
+      throw new TypeError(
+        "Fit exclusions must be a bounded array of column IDs",
+      );
+    const known = new Set(columns.map((column) => column.id));
+    for (let index = 0; index < ids.length; index++) {
+      const descriptor = Object.getOwnPropertyDescriptor(ids, String(index));
+      if (
+        !descriptor ||
+        !("value" in descriptor) ||
+        typeof descriptor.value !== "string" ||
+        !known.has(descriptor.value) ||
+        excluded.has(descriptor.value)
+      )
+        throw new TypeError(
+          "Fit exclusions must be unique known column IDs without holes or accessors",
+        );
+      excluded.add(descriptor.value);
+    }
+  }
+  const allocation = resolveColumnWidths(
+    columns.map((column) => {
+      const bounds = getColumnWidthConstraints(column);
+      return {
+        id: column.id,
+        hidden: column.hidden,
+        minWidth: bounds.minWidth,
+        maxWidth: bounds.maxWidth,
+        width:
+          excluded.has(column.id) && !column.hidden
+            ? initial.widths[column.id]
+            : bounds.width,
+        // A zero configured ratio remains zero; a zero minimum is explicit opt-in.
+        flex:
+          !excluded.has(column.id) && bounds.width > 0
+            ? bounds.width
+            : undefined,
+      };
+    }),
+    {
+      availableWidth: options.availableWidth,
+      leadingWidth: options.leadingWidth,
+      maxColumns: options.maxColumns,
+      maxWork: options.maxWork,
+    },
+  );
+  return Object.freeze({
+    widths: allocation.widths,
+    columnIds: allocation.columnIds,
+    fittedColumnIds: Object.freeze(
+      initial.columnIds.filter((id) => !excluded.has(id)),
+    ),
+    excludedColumnIds: Object.freeze(
+      initial.columnIds.filter((id) => excluded.has(id)),
+    ),
+    totalWidth: allocation.totalWidth,
+    availableWidth: options.availableWidth,
+    overflow: allocation.overflow,
+    unusedWidth: allocation.unusedWidth,
   });
 }

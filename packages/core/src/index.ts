@@ -119,6 +119,9 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         : { groupPath: Object.freeze([...column.groupPath]) }),
     };
   });
+  const columnWidthDefaults: Record<string, number> = Object.create(null);
+  for (const column of columns) columnWidthDefaults[column.id] = column.width;
+  Object.freeze(columnWidthDefaults);
   const cacheEnabled =
     options.valueCache === undefined ? false : options.valueCache;
   if (typeof cacheEnabled !== "boolean")
@@ -748,6 +751,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       emit();
     },
     getColumns,
+    getColumnWidthDefaults: () => columnWidthDefaults,
     getValue,
     expireValueCache() {
       clearValueCache();

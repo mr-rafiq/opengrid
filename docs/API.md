@@ -384,7 +384,7 @@ Pointer resizing previews local geometry and commits a changed width once on rel
 
 ## Column sizing
 
-DataGrid accepts sizingRef for explicit rendered-text sizing, resolved-width snapshots and manual-override reset. Column.flex enables constrained measured-container allocation. See [column sizing](COLUMN_SIZING.md) for exact signatures, reports, budgets and limitations.
+DataGrid accepts sizingRef for explicit proportional sizeColumnsToFit, rendered-text sizing, resolved-width snapshots and manual-override reset. GridModel.getColumnWidthDefaults returns frozen original widths; core fitColumnWidths provides the pure constrained proportional allocation. Column.flex enables constrained measured-container allocation. See [column sizing](COLUMN_SIZING.md) for exact signatures, reports, budgets and limitations.
 
 ## Column condition filters
 

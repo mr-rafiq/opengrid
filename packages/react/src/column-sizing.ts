@@ -1,4 +1,10 @@
-import { clampColumnWidth, type Column, type GridModel } from "@opengrid/core";
+import {
+  clampColumnWidth,
+  fitColumnWidths,
+  type FittedColumnWidths,
+  type Column,
+  type GridModel,
+} from "@opengrid/core";
 
 export interface AutoSizeOptions {
   includeHeader?: boolean;
@@ -31,6 +37,7 @@ export interface AutoSizeReport {
   readonly cancelReason?: AutoSizeCancelReason;
 }
 export interface DataGridSizingController {
+  sizeColumnsToFit(options?: FitColumnsOptions): FitColumnsReport;
   autoSizeColumns(
     ids?: readonly string[],
     options?: AutoSizeOptions,
@@ -38,12 +45,24 @@ export interface DataGridSizingController {
   getWidths(): Readonly<Record<string, number>>;
   resetWidths(ids?: readonly string[]): void;
 }
+export interface FitColumnsOptions {
+  /** Omit to use the mounted viewport's usable client width. */
+  readonly availableWidth?: number;
+  readonly excludeColumnIds?: readonly string[];
+}
+export interface FitColumnsReport {
+  readonly cancelled: boolean;
+  readonly cancelReason?: "disposed" | "busy" | "unavailable" | "stale";
+  readonly allocation?: FittedColumnWidths;
+  readonly changedColumnIds: readonly string[];
+}
 /** Private DataGrid integration input; every value is read again before publication. */
 export interface ColumnSizingSnapshot<T> {
   readonly model: GridModel<T>;
   readonly viewport: HTMLElement | null;
   readonly columns: readonly Column<T>[];
   readonly widths: Readonly<Record<string, number>>;
+  readonly leadingWidth?: number;
   readonly viewToken: unknown;
   readonly busy?: boolean;
   readonly customRenderer?: boolean;
@@ -300,6 +319,87 @@ export function createColumnSizingController<T>(
     }
   }
   return Object.freeze({
+    sizeColumnsToFit(options: FitColumnsOptions = {}): FitColumnsReport {
+      if (!options || typeof options !== "object" || Array.isArray(options))
+        throw new TypeError("Fit options must be a record");
+      if (
+        options.availableWidth !== undefined &&
+        (typeof options.availableWidth !== "number" ||
+          !Number.isFinite(options.availableWidth) ||
+          options.availableWidth < 0 ||
+          options.availableWidth > Number.MAX_SAFE_INTEGER)
+      )
+        throw new RangeError(
+          "Fit width must be a finite nonnegative safe dimension",
+        );
+      const cancelled = (
+        reason: NonNullable<FitColumnsReport["cancelReason"]>,
+      ): FitColumnsReport =>
+        Object.freeze({
+          cancelled: true,
+          cancelReason: reason,
+          changedColumnIds: Object.freeze([]),
+        });
+      if (disposed) return cancelled("disposed");
+      const context = getSnapshot(),
+        root = context.viewport,
+        state = context.model.getState();
+      if (context.busy) return cancelled("busy");
+      if (
+        !root?.isConnected ||
+        !root.getClientRects().length ||
+        root.clientWidth <= 0
+      )
+        return cancelled("unavailable");
+      const clientWidth = root.clientWidth;
+      const defaults = context.model.getColumnWidthDefaults();
+      const allocation = fitColumnWidths(
+        context.columns.map((column) => ({
+          ...column,
+          width: defaults[column.id],
+        })),
+        {
+          availableWidth: options.availableWidth ?? clientWidth,
+          leadingWidth: context.leadingWidth,
+          columnWidths: context.widths,
+          excludeColumnIds: options.excludeColumnIds,
+        },
+      );
+      cancel("superseded");
+      const latest = getSnapshot();
+      if (disposed) return cancelled("disposed");
+      if (latest.busy) return cancelled("busy");
+      if (
+        latest.model !== context.model ||
+        context.model.getState() !== state ||
+        latest.viewport !== root ||
+        !root.isConnected ||
+        root.clientWidth !== clientWidth ||
+        !Object.is(latest.viewToken, context.viewToken) ||
+        latest.leadingWidth !== context.leadingWidth
+      )
+        return cancelled("stale");
+      const next = Object.assign(
+        Object.create(null),
+        state.columnWidths,
+      ) as Record<string, number>;
+      const changed: string[] = [];
+      // Freeze excluded flex columns at their existing rendered width too: otherwise
+      // their subsequent flex pass could violate the explicit fixed-width allocation.
+      for (const id of allocation.columnIds) {
+        const width = allocation.widths[id];
+        if (!Object.hasOwn(next, id) || next[id] !== width) {
+          next[id] = width;
+          changed.push(id);
+        }
+      }
+      if (changed.length) context.model.setState({ columnWidths: next });
+      return Object.freeze({
+        cancelled: false,
+        allocation,
+        changedColumnIds: Object.freeze(changed),
+      });
+    },
     getWidths() {
       const widths = getSnapshot().widths,
         snapshot = Object.create(null) as Record<string, number>;

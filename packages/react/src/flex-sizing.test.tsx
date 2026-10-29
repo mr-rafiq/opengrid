@@ -41,6 +41,58 @@ afterEach(() => {
 });
 
 describe("React flex geometry", () => {
+  it.each(["ltr", "rtl"] as const)(
+    "fits all visible columns with selection controls and pinned geometry in %s",
+    (direction) => {
+      let width = 744,
+        measure = () => {};
+      vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockImplementation(
+        () => width,
+      );
+      vi.spyOn(HTMLElement.prototype, "getClientRects").mockReturnValue([
+        { width: 744 },
+      ] as unknown as DOMRectList);
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(callback: () => void) {
+            measure = callback;
+          }
+          observe() {}
+          disconnect() {}
+        },
+      );
+      const grid = model(),
+        ref = createRef<DataGridSizingController>(),
+        changed = vi.fn();
+      grid.subscribe(changed);
+      render(
+        <DataGrid
+          model={grid}
+          sizingRef={ref}
+          toolbar={false}
+          direction={direction}
+        />,
+      );
+      let report: ReturnType<DataGridSizingController["sizeColumnsToFit"]>;
+      act(() => {
+        report = ref.current!.sizeColumnsToFit();
+      });
+      expect(report!.cancelled).toBe(false);
+      const fitted = ref.current!.getWidths();
+      expect(fitted.b).toBeCloseTo(fitted.c, 10);
+      expect(fitted.a + fitted.b + fitted.c + 44).toBeCloseTo(width, 10);
+      expect(parseFloat(cell("a").style.width)).toBeCloseTo(fitted.a, 10);
+      expect(changed).toHaveBeenCalledTimes(1);
+      act(() => {
+        width = 1044;
+        measure();
+      });
+      expect(ref.current!.getWidths()).toEqual(fitted);
+      act(() => ref.current!.resetWidths());
+      expect(ref.current!.getWidths()).toEqual({ a: 100, b: 300, c: 600 });
+    },
+  );
   it("keeps retained commands bound to committed widths while a replacement render suspends", async () => {
     vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(700);
     const original = model(),

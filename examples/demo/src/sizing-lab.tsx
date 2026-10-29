@@ -1,7 +1,11 @@
 import { useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { createGrid, type Column } from "@opengrid/core";
-import { DataGrid, type DataGridSizingController } from "@opengrid/react";
+import {
+  DataGrid,
+  type DataGridSizingController,
+  type FitColumnsReport,
+} from "@opengrid/react";
 
 type Item = {
   id: string;
@@ -62,11 +66,13 @@ export function SizingLab() {
     return createGrid({ columns, rows, getRowId: (row) => row.id });
   }, []);
   const sizing = useRef<DataGridSizingController>(null);
+  const reportRequest = useRef(0);
   const [width, setWidth] = useState(960),
     [direction, setDirection] = useState<"ltr" | "rtl">("ltr");
   const [wide, setWide] = useState(false),
     [report, setReport] = useState("No measurement requested.");
-  const readWidths = () =>
+  const readWidths = () => {
+    reportRequest.current++;
     setReport(
       JSON.stringify(
         {
@@ -77,8 +83,29 @@ export function SizingLab() {
         2,
       ),
     );
+  };
   async function fit(ids?: readonly string[]) {
+    const request = ++reportRequest.current;
     const result = await sizing.current?.autoSizeColumns(ids);
+    if (request !== reportRequest.current) return;
+    setReport(
+      JSON.stringify(
+        {
+          result,
+          widths: sizing.current?.getWidths(),
+          manual: model.getState().columnWidths,
+        },
+        null,
+        2,
+      ),
+    );
+  }
+  function fitGrid(excludeColumnIds?: readonly string[]) {
+    reportRequest.current++;
+    let result: FitColumnsReport | undefined;
+    flushSync(() => {
+      result = sizing.current?.sizeColumnsToFit({ excludeColumnIds });
+    });
     setReport(
       JSON.stringify(
         {
@@ -98,7 +125,9 @@ export function SizingLab() {
         Flex columns share measured space. Manual resize and explicit autosizing
         take ownership until reset. Text sizing samples only currently rendered
         default cells and leaf headers; scroll to row 400 to include its longer
-        value.
+        value. Size to grid instead scales configured width proportions and
+        freezes the resulting widths until reset; it includes unrendered visible
+        columns.
       </p>
       <div className="explorer-controls">
         <button
@@ -118,6 +147,12 @@ export function SizingLab() {
         </button>
         <button type="button" onClick={() => void fit(["description"])}>
           Fit description
+        </button>
+        <button type="button" onClick={() => fitGrid()}>
+          Size to grid
+        </button>
+        <button type="button" onClick={() => fitGrid(["record"])}>
+          Size keeping Record
         </button>
         <button
           type="button"

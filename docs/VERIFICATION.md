@@ -1,5 +1,15 @@
 # Verification record
 
+## Explicit proportional size-to-fit
+
+The complete `npm run check` passed strict TypeScript, **1,326 tests in 74 files in 134.39 seconds**, all three ESM/declaration package builds and the production demo. All runners used one worker. Focused allocation/controller/React tests passed **73 cases in four files in 4.78 seconds**. This includes immutable original widths through restored/manual layout state, configured ratios independent of flex weights, exclusions, leading controls, hidden-state preservation, fractional min/max redistribution, overflow/unused space, bounded rejection, special IDs and generated constrained allocation checks. React cases verify one publication, repeat/no-op behavior, pending text-command ownership, stale-plan guards, data undo/redo preservation, actual pin/selection geometry in both directions and reset to flex.
+
+The model now exposes frozen configured-width defaults because `getColumns()` deliberately projects manual state. The pure fit function accepts configured columns; the React command obtains those defaults before planning. All visible widths, including excluded flex columns, take persistent ownership together. This explicit command does not establish continuous content sizing, automatic initial-fit strategies, group resizing or per-command bound overrides. The column-sizing parity family remains Partial.
+
+Built ESM and SSR checks passed immutable defaults, manual-independent ratios, leading controls, preserved edit history, invalid-input rejection, RTL markup and controller exports. The complete Chromium suite passed **73 scenarios in 3.0 minutes**. An additional same-event browser regression then reproduced an older cancelled text request replacing a newer demo fit report; report sequence ownership corrected that demo-only race. Afterward, all **six sizing browser scenarios passed in 14.6 seconds**, including the new supersession regression. The RTL/reset screenshot was visually inspected and its displayed widths match layout.
+
+After the demo correction, strict TypeScript passed again, the production Pages artifact generated **44 documentation routes** plus landing/demo/404, and all **nine production site checks passed in 10.9 seconds**. These checks cover generated links, deep routes, mobile navigation, search/copy and serious/critical axe findings.
+
 ## Typed column conditions and stable modal filters
 
 The complete `npm run check` passed strict TypeScript, **1,294 tests in 73 files in 132.91 seconds**, all three ESM/declaration package builds and the production demo with one worker. The complete Chromium suite passed **71 scenarios in 3.0 minutes**, also with one worker. Focused guard tests passed 203 cases in ten files; five DataGrid integration cases include fresh remote-query guards and nested-popup clipboard containment. Six condition/set-list browser flows passed together in 25.8 seconds before the full browser run.
@@ -9,6 +19,8 @@ Built-package ESM and React SSR checks verified detached frozen groups, exact Bi
 Flat groups contain at most 16 scalar conditions; nested expressions remain the separate advanced-filter AST. Remote providers still own predicate execution. Independent multi-filter panels, relative/day-based date semantics, remote distinct-value lists and complete column/context menus remain open.
 
 The production Pages build generated **44 documentation routes**, landing page, demo and genuine 404. All **nine** production site/browser checks passed in **11.2 seconds**, including deep links, generated documentation links, mobile navigation, search/copy interactions and composed accessibility checks.
+
+Published commit `c9e7d90bf991ae5a7e9eebe4a22b1d305c3fe2b7` passed [CI run 40922559809](https://github.com/mr-rafiq/opengrid/actions/runs/40922559809) and [Pages run 40922559807](https://github.com/mr-rafiq/opengrid/actions/runs/40922559807), including deployment. The public guide returned HTTP 200. Live Chromium checks passed staged atomic AND publication, row-update draft retention, explicit external-conflict replacement, unsafe BigInt rejection/exact quoted membership, native touch controls, stable Spanish/RTL modality and the same focused draft DOM. Existing set-list dialogs also retained modality/focus after direction changes. Composed axe found no serious/critical violations, no runtime errors were observed, and the deployed Spanish/RTL screenshot was visually inspected.
 
 ## Editable fixed-sheet formulas
 

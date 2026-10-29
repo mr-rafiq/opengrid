@@ -990,6 +990,7 @@ export function DataGrid<T>({
     viewport: viewport.current,
     columns: allColumns,
     widths: resolvedColumnWidths.widths,
+    leadingWidth: selectionWidth,
     viewToken: sizingViewToken,
     busy: Boolean(editing || rowEditing || noteEditing || draggingRowId),
     customRenderer: Boolean(renderCell),

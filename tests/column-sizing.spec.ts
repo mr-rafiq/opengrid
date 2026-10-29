@@ -32,6 +32,111 @@ async function widths(grid: Locator) {
       ),
     );
 }
+
+test("a newer fit command owns the demo report after cancelling pending text measurement", async ({
+  page,
+}) => {
+  const { region, errors } = await setup(page);
+  await region.evaluate((element) => {
+    const buttons = [...element.querySelectorAll("button")];
+    buttons
+      .find((button) => button.textContent?.trim() === "Fit description")!
+      .click();
+    buttons
+      .find((button) => button.textContent?.trim() === "Size to grid")!
+      .click();
+  });
+  await expect(region.getByTestId("sizing-report")).toContainText(
+    '"allocation"',
+  );
+  expect(errors).toEqual([]);
+});
+
+test("size-to-grid uses configured proportions, fixes exclusions, survives RTL and resets to flex", async ({
+  page,
+}) => {
+  const { region, grid, errors } = await setup(page);
+  const report = region.getByTestId("sizing-report");
+  const fit = region.getByRole("button", { name: "Size to grid", exact: true });
+  await fit.click();
+  let result = JSON.parse(await report.innerText());
+  const first = result.widths;
+  expect(result.result.cancelled).toBe(false);
+  expect(result.result.allocation.overflow).toBe(0);
+  expect(result.result.allocation.unusedWidth).toBeCloseTo(0, 6);
+  expect(first.amount).toBe(320);
+  expect(first.description / first.record).toBeCloseTo(1.6, 6);
+  for (const [id, width] of Object.entries(first))
+    expect((await widths(grid))[id]).toBeCloseTo(width as number, 0);
+  const separator = grid.getByRole("separator", {
+    name: "Resize Description",
+    exact: true,
+  });
+  await separator.focus();
+  await separator.press("ArrowRight");
+  await fit.click();
+  expect(JSON.parse(await report.innerText()).widths).toEqual(first);
+  await region
+    .getByRole("button", { name: "Direction RTL", exact: true })
+    .click();
+  await fit.click();
+  expect(JSON.parse(await report.innerText()).widths).toEqual(first);
+  await region
+    .getByRole("button", { name: "Container 640px", exact: true })
+    .click();
+  await region
+    .getByRole("button", { name: "Read widths", exact: true })
+    .click();
+  expect(JSON.parse(await report.innerText()).widths).toEqual(first);
+  await fit.click();
+  result = JSON.parse(await report.innerText());
+  expect(result.widths.record).toBeLessThan(first.record);
+  expect(result.widths.description).toBeCloseTo(result.widths.amount, 8);
+  expect(result.result.allocation.totalWidth).toBe(
+    await grid.evaluate((node) => node.clientWidth),
+  );
+  const fixedRecord = result.widths.record;
+  await region
+    .getByRole("button", { name: "Size keeping Record", exact: true })
+    .click();
+  expect(JSON.parse(await report.innerText()).widths.record).toBe(fixedRecord);
+  await region
+    .getByRole("button", { name: "Reset widths", exact: true })
+    .click();
+  result = JSON.parse(await report.innerText());
+  expect(result.manual).toEqual({});
+  expect(result.widths.record).toBe(100);
+  expect(result.widths.description).toBeCloseTo(result.widths.amount * 2, 8);
+  await region.screenshot({ path: "test-results/sizing-fit-rtl.png" });
+  expect(errors).toEqual([]);
+});
+
+test("size-to-grid includes visible columns outside the mounted horizontal window", async ({
+  page,
+}) => {
+  const { region, grid, errors } = await setup(page);
+  await region
+    .getByRole("button", { name: "Distant columns", exact: true })
+    .click();
+  expect(
+    await grid.locator('[role="columnheader"][data-og-size-column-id]').count(),
+  ).toBeLessThan(15);
+  await region
+    .getByRole("button", { name: "Size to grid", exact: true })
+    .click();
+  const result = JSON.parse(
+    await region.getByTestId("sizing-report").innerText(),
+  );
+  expect(Object.keys(result.manual)).toHaveLength(15);
+  expect(result.result.allocation.columnIds).toHaveLength(15);
+  expect(result.manual.extra11).toBeGreaterThanOrEqual(40);
+  expect(result.result.allocation.overflow).toBe(0);
+  expect(result.result.allocation.totalWidth).toBeCloseTo(
+    await grid.evaluate((node) => node.clientWidth),
+    8,
+  );
+  expect(errors).toEqual([]);
+});
 test("flex follows real container space, preserves physical pins in RTL and restores after keyboard resize", async ({
   page,
 }) => {

@@ -133,6 +133,8 @@ export interface GridModel<T> {
     position: "before" | "after",
   ): string | undefined;
   getColumns(): Column<T>[];
+  /** Frozen configured widths, independent of restored/manual layout state. */
+  getColumnWidthDefaults(): Readonly<Record<string, number>>;
   getValue(row: T, columnId: string): unknown;
   expireValueCache(): void;
   getFilteredRows(): T[];

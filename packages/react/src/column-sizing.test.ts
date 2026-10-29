@@ -133,6 +133,151 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+describe("explicit size-to-fit controller", () => {
+  function setup() {
+    const f = fixture([
+      { id: "a", field: "value", width: 100, pinned: "left", editable: true },
+      { id: "b", field: "value", width: 200, flex: 9 },
+      { id: "c", field: "value", width: 300, pinned: "right" },
+      { id: "hidden", field: "value", width: 200, hidden: true },
+    ]);
+    vi.spyOn(f.root, "clientWidth", "get").mockReturnValue(1200);
+    return f;
+  }
+  it("publishes all visible widths atomically, preserves hidden state and is repeatable", () => {
+    const f = setup();
+    f.model.setState({ columnWidths: { a: 900, hidden: 250 } });
+    const notifications = vi.fn();
+    f.model.subscribe(notifications);
+    const report = f.controller.sizeColumnsToFit();
+    expect(report.cancelled).toBe(false);
+    expect(report.allocation!.widths).toEqual({ a: 200, b: 400, c: 600 });
+    expect(report.changedColumnIds).toEqual(["a", "b", "c"]);
+    expect(f.model.getState().columnWidths).toEqual({
+      a: 200,
+      b: 400,
+      c: 600,
+      hidden: 250,
+    });
+    expect(notifications).toHaveBeenCalledTimes(1);
+    expect(Object.isFrozen(report)).toBe(true);
+    expect(Object.isFrozen(report.changedColumnIds)).toBe(true);
+    expect(f.controller.sizeColumnsToFit().changedColumnIds).toEqual([]);
+    expect(notifications).toHaveBeenCalledTimes(1);
+    f.controller.resetWidths();
+    expect(f.model.getState().columnWidths).toEqual({});
+  });
+  it("holds excluded flex geometry and supports an explicit target width", () => {
+    const f = setup();
+    f.model.resizeColumn("b", 150);
+    const result = f.controller.sizeColumnsToFit({
+      availableWidth: 650,
+      excludeColumnIds: ["b"],
+    });
+    expect(result.allocation!.widths).toEqual({ a: 125, b: 150, c: 375 });
+    expect(result.allocation!.excludedColumnIds).toEqual(["b"]);
+    expect(f.model.getState().columnWidths).toEqual({ a: 125, b: 150, c: 375 });
+  });
+  it("adds ownership even when pixels are unchanged, and leaves data history intact", () => {
+    const f = setup();
+    expect(
+      f.controller.sizeColumnsToFit({ availableWidth: 600 }).changedColumnIds,
+    ).toEqual(["a", "b", "c"]);
+    expect(f.model.getState().columnWidths).toEqual({ a: 100, b: 200, c: 300 });
+    expect(f.model.undo()).toBe(false);
+  });
+  it("cancels pending text work before any competing width publication", async () => {
+    const f = setup();
+    f.sample("b", "Pending text");
+    const pending = f.controller.autoSizeColumns(["b"]);
+    const fit = f.controller.sizeColumnsToFit();
+    expect(fit.cancelled).toBe(false);
+    expect((await pending).cancelReason).toBe("superseded");
+    expect(f.model.getState().columnWidths.b).toBe(400);
+  });
+  it("preserves an existing edit undo/redo transaction through layout changes", () => {
+    const f = setup();
+    expect(f.model.editCell("row", "a", "edited")).toBeUndefined();
+    f.controller.sizeColumnsToFit();
+    expect(f.model.undo()).toBe(true);
+    expect(f.model.getRow("row")!.value).toBe("source must not be read");
+    expect(f.model.getState().columnWidths).toEqual({ a: 200, b: 400, c: 600 });
+    expect(f.model.redo()).toBe(true);
+    expect(f.model.getRow("row")!.value).toBe("edited");
+  });
+  it("does not write during busy or disposed contexts", () => {
+    const f = setup(),
+      write = vi.spyOn(f.model, "setState");
+    f.busy();
+    expect(f.controller.sizeColumnsToFit().cancelReason).toBe("busy");
+    f.controller.dispose();
+    expect(f.controller.sizeColumnsToFit().cancelReason).toBe("disposed");
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("leaves a valid pending text command running after invalid fit input", async () => {
+    const f = setup();
+    f.sample("b", "Pending text");
+    const pending = f.controller.autoSizeColumns(["b"]);
+    expect(() =>
+      f.controller.sizeColumnsToFit({ excludeColumnIds: ["unknown"] }),
+    ).toThrow();
+    expect((await pending).cancelled).toBe(false);
+  });
+  it("requires a connected visible positive-width viewport even with an explicit target", () => {
+    const f = setup(),
+      write = vi.spyOn(f.model, "setState");
+    vi.spyOn(f.root, "clientWidth", "get").mockReturnValue(0);
+    expect(
+      f.controller.sizeColumnsToFit({ availableWidth: 900 }).cancelReason,
+    ).toBe("unavailable");
+    f.root.remove();
+    expect(f.controller.sizeColumnsToFit().cancelReason).toBe("unavailable");
+    f.setRoot(null);
+    expect(f.controller.sizeColumnsToFit().cancelReason).toBe("unavailable");
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("rejects invalid commands before state publication", () => {
+    const f = setup(),
+      write = vi.spyOn(f.model, "setState");
+    expect(() =>
+      f.controller.sizeColumnsToFit({ availableWidth: NaN }),
+    ).toThrow();
+    expect(() =>
+      f.controller.sizeColumnsToFit({ excludeColumnIds: ["unknown"] }),
+    ).toThrow();
+    expect(() =>
+      f.controller.sizeColumnsToFit({ excludeColumnIds: ["a", "a"] }),
+    ).toThrow();
+    expect(write).not.toHaveBeenCalled();
+  });
+  it("guards view replacement, model updates and resize during synchronous planning", () => {
+    for (const change of ["view", "model", "resize"] as const) {
+      const f = setup();
+      let reads = 0;
+      const controller = createColumnSizingController(() => {
+        reads++;
+        if (reads === 2) {
+          if (change === "model") f.model.setQuickFilter("source changed");
+          if (change === "resize")
+            vi.spyOn(f.root, "clientWidth", "get").mockReturnValue(800);
+        }
+        return {
+          model: f.model,
+          viewport: f.root,
+          columns: f.model.getColumns(),
+          widths: { a: 100, b: 200, c: 300 },
+          leadingWidth: 44,
+          viewToken: change === "view" && reads === 2 ? 2 : 1,
+        };
+      });
+      dispose.push(() => controller.dispose());
+      const write = vi.spyOn(f.model, "setState");
+      expect(controller.sizeColumnsToFit().cancelReason).toBe("stale");
+      expect(write).not.toHaveBeenCalled();
+    }
+  });
+});
+
 describe("bounded rendered default-text sizing", () => {
   it("skips transformed or zoomed ancestor metrics instead of mixing CSS and viewport pixels", async () => {
     const f = fixture();
