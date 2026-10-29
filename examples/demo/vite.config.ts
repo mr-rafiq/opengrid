@@ -5,6 +5,9 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
+      "@opengrid/export": fileURLToPath(
+        new URL("../../packages/export/src/index.ts", import.meta.url),
+      ),
       "@opengrid/core": fileURLToPath(
         new URL("../../packages/core/src/index.ts", import.meta.url),
       ),

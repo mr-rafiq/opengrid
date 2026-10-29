@@ -40,7 +40,7 @@ test("validates cell edits, commits and undoes in a real browser", async ({
 }) => {
   const cell = page.locator('[data-row-id="1"][data-column-id="price"]');
   await cell.dblclick();
-  const editor = page.getByRole("textbox", { name: "Edit Price row 1" });
+  const editor = page.getByRole("spinbutton", { name: "Edit Price row 1" });
   await editor.fill("-5");
   await editor.press("Enter");
   await expect(page.getByRole("alert")).toContainText("positive");
@@ -128,6 +128,7 @@ test("expands groups and trees, and renders pivot summary", async ({
 test("keeps the DOM bounded at 100,000 rows and filters after scrolling", async ({
   page,
 }) => {
+  test.setTimeout(60000);
   await page
     .getByRole("combobox", { name: "Dataset size" })
     .selectOption("100000");

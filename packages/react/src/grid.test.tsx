@@ -114,7 +114,7 @@ describe("React DataGrid", () => {
     const grid = model();
     render(<DataGrid model={grid} />);
     fireEvent.keyDown(cell("a", "amount"), { key: "F2" });
-    let editor = screen.getByRole("textbox", { name: "Edit Amount row a" });
+    let editor = screen.getByRole("spinbutton", { name: "Edit Amount row a" });
     fireEvent.change(editor, { target: { value: "-2" } });
     fireEvent.keyDown(editor, { key: "Enter" });
     expect(screen.getByRole("alert").textContent).toBe(
@@ -123,10 +123,10 @@ describe("React DataGrid", () => {
     expect(grid.getRows()[0].amount).toBe(12);
     fireEvent.keyDown(editor, { key: "Escape" });
     expect(
-      screen.queryByRole("textbox", { name: "Edit Amount row a" }),
+      screen.queryByRole("spinbutton", { name: "Edit Amount row a" }),
     ).toBeNull();
     fireEvent.keyDown(cell("a", "amount"), { key: "Enter" });
-    editor = screen.getByRole("textbox", { name: "Edit Amount row a" });
+    editor = screen.getByRole("spinbutton", { name: "Edit Amount row a" });
     fireEvent.change(editor, { target: { value: "42" } });
     fireEvent.keyDown(editor, { key: "Enter" });
     expect(grid.getRows()[0].amount).toBe(42);
@@ -238,7 +238,8 @@ describe("React DataGrid", () => {
     );
     const viewport = screen.getByRole("grid");
     fireEvent.scroll(viewport, { target: { scrollTop: 12000 } });
-    expect(cell("0", "name")).toBeNull();
+    expect(cell("0", "name")).toBeTruthy(); // Retained logical focus keeps its DOM target.
+    expect(cell("1", "name")).toBeNull(); // Other offscreen rows remain virtualized.
     act(() => grid.setQuickFilter("Record 399"));
     expect(cell("399", "name")).toBeTruthy();
     expect(viewport.scrollTop).toBe(0);

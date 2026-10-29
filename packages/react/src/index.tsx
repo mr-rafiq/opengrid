@@ -7,7 +7,37 @@ import {
   useState,
 } from "react";
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
-import type { Column, GridModel, RowNode } from "@opengrid/core";
+import type {
+  Column,
+  GridModel,
+  RowNode,
+  CellPosition,
+  CellRange,
+} from "@opengrid/core";
+import { useCellRanges } from "./use-cell-ranges.js";
+import {
+  CellEditor,
+  type CellEditorProps,
+  type CellEditorRenderer,
+  type EditorOption,
+  type EditorType,
+} from "./editors.js";
+export * from "./editors.js";
+export * from "./charts.js";
+
+export interface EditorConfig {
+  type?: EditorType;
+  options?: readonly EditorOption[];
+  asyncOptions?: (signal?: AbortSignal) => Promise<readonly EditorOption[]>;
+}
+import { getColumnWindow } from "./column-window.js";
+import type { ColumnWindowEntry } from "./column-window.js";
+export { getColumnWindow } from "./column-window.js";
+export type {
+  WindowColumn,
+  ColumnWindowEntry,
+  ColumnWindowOptions,
+} from "./column-window.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -19,7 +49,13 @@ export interface DataGridProps<T> {
   height?: number;
   rowHeight?: number;
   overscan?: number;
+  columnOverscan?: number;
+  virtualizeColumns?: boolean;
   selectionMode?: "single" | "multiple" | "none";
+  cellSelection?: boolean;
+  onCellRangeChange?: (range: CellRange | null) => void;
+  editorOptions?: Record<string, EditorConfig>;
+  renderEditor?: CellEditorRenderer<T>;
   ariaLabel?: string;
   toolbar?: boolean;
   pagination?: boolean;
@@ -45,6 +81,15 @@ interface Editing {
 const text = (value: unknown) => (value == null ? "" : String(value));
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
+const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
+  <div
+    key={entry.key}
+    role="presentation"
+    aria-hidden="true"
+    className="og-column-spacer"
+    style={{ width: entry.width, minWidth: entry.width, flexShrink: 0 }}
+  />
+);
 
 /** A fixed-row-height grid. The supplied model owns data and persisted state. */
 export function DataGrid<T>({
@@ -52,7 +97,13 @@ export function DataGrid<T>({
   height = 480,
   rowHeight = 38,
   overscan = 6,
+  columnOverscan = 200,
+  virtualizeColumns = true,
   selectionMode = "multiple",
+  cellSelection = true,
+  onCellRangeChange,
+  editorOptions = {},
+  renderEditor,
   ariaLabel = "Data grid",
   toolbar = true,
   pagination = true,
@@ -104,6 +155,8 @@ export function DataGrid<T>({
   const cells = useRef(new Map<string, HTMLDivElement>());
   const dragCleanup = useRef<(() => void) | undefined>(undefined);
   const [scrollTop, setScrollTop] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(1024);
   const [focus, setFocus] = useState<FocusCell>({
     row: 0,
     columnId: columns[0]?.id ?? "",
@@ -121,6 +174,25 @@ export function DataGrid<T>({
   const safeOverscan = Number.isFinite(overscan)
     ? Math.max(0, Math.floor(overscan))
     : 6;
+  const columnEntries = getColumnWindow(
+    columns.map((column) => ({
+      width: widthOf(column),
+      pinned: pinOf(column),
+    })),
+    {
+      scrollLeft,
+      viewportWidth,
+      leadingWidth: selectionWidth,
+      overscan: Number.isFinite(columnOverscan)
+        ? Math.max(0, columnOverscan)
+        : 200,
+      enabled: virtualizeColumns,
+      retainIndices: [
+        columns.findIndex((column) => column.id === focus.columnId),
+        columns.findIndex((column) => column.id === editing?.columnId),
+      ],
+    },
+  );
   const first = Math.min(
     Math.max(0, rows.length - 1),
     Math.max(
@@ -133,11 +205,71 @@ export function DataGrid<T>({
     rows.length,
     first + Math.ceil(safeHeight / safeRowHeight) + safeOverscan * 2 + 2,
   );
+  const renderedRowIndices = Array.from(
+    { length: Math.max(0, last - first) },
+    (_, index) => first + index,
+  );
+  for (const retained of [
+    focus.row,
+    editing ? rows.findIndex((node) => node.id === editing.rowId) : -1,
+  ]) {
+    if (
+      retained >= 0 &&
+      retained < rows.length &&
+      !renderedRowIndices.includes(retained)
+    )
+      renderedRowIndices.push(retained);
+  }
+  renderedRowIndices.sort((a, b) => a - b);
   const selected = new Set(state.selected);
   const keyOf = (row: number, id: string) => JSON.stringify([row, id]);
   const pageCount = model.getPageCount();
+  const ranges = useCellRanges({
+    model,
+    rowIds: rows.filter((node) => node.kind === "row").map((node) => node.id),
+    enabled: cellSelection,
+    viewport,
+    getFocusedCell: () =>
+      rows[focus.row]?.kind === "row"
+        ? { rowId: rows[focus.row].id, columnId: focus.columnId }
+        : undefined,
+    onMessage: (message, failed) => {
+      setError(failed ? message : "");
+      setAnnouncement(message);
+    },
+  });
+  useEffect(() => {
+    onCellRangeChange?.(ranges.range);
+  }, [onCellRangeChange, ranges.range]);
 
   useEffect(() => () => dragCleanup.current?.(), []);
+  useLayoutEffect(() => {
+    const container = viewport.current;
+    if (!container) return;
+    const measure = () => {
+      if (container.clientWidth > 0) setViewportWidth(container.clientWidth);
+    };
+    measure();
+    const observer =
+      typeof ResizeObserver !== "undefined"
+        ? new ResizeObserver(measure)
+        : undefined;
+    observer?.observe(container);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const container = viewport.current;
+    if (!container) return;
+    const maximum = Math.max(0, totalWidth - viewportWidth);
+    if (container.scrollLeft > maximum) {
+      container.scrollLeft = maximum;
+      setScrollLeft(maximum);
+    }
+  }, [totalWidth, viewportWidth]);
   useLayoutEffect(() => {
     const container = viewport.current;
     if (!container) return;
@@ -176,10 +308,25 @@ export function DataGrid<T>({
     }
   });
 
-  function focusAt(row: number, column: number) {
+  function focusAt(
+    row: number,
+    column: number,
+    extend = false,
+    anchor?: CellPosition,
+  ) {
     if (!rows.length || !columns.length) return;
     row = clamp(row, 0, rows.length - 1);
     column = clamp(column, 0, columns.length - 1);
+    if (extend && !ranges.controller?.getSnapshot().range) {
+      if (anchor) ranges.select(anchor);
+      else if (rows[focus.row]?.kind === "row")
+        ranges.select({ rowId: rows[focus.row].id, columnId: focus.columnId });
+    }
+    if (rows[row].kind === "row")
+      ranges.select(
+        { rowId: rows[row].id, columnId: columns[column].id },
+        extend,
+      );
     const container = viewport.current;
     if (container) {
       const top = row * safeRowHeight;
@@ -207,11 +354,12 @@ export function DataGrid<T>({
           container.scrollLeft = Math.max(0, left - leftPinned);
         else if (
           left + widthOf(target) >
-          container.scrollLeft + container.clientWidth - rightPinned
+          container.scrollLeft + viewportWidth - rightPinned
         )
           container.scrollLeft =
-            left + widthOf(target) - container.clientWidth + rightPinned;
+            left + widthOf(target) - viewportWidth + rightPinned;
       }
+      setScrollLeft(container.scrollLeft);
     }
     pendingFocus.current = true;
     setFocus({ row, columnId: columns[column].id });
@@ -282,6 +430,95 @@ export function DataGrid<T>({
     setEditing(null);
     setError("");
   }
+  function renderEditorControl(
+    node: RowNode<T>,
+    column: Column<T>,
+    row: number,
+    index: number,
+  ) {
+    if (!editing || !node.data) return null;
+    const config = editorOptions[column.id] ?? {};
+    const props: CellEditorProps<T> = {
+      row: node.data,
+      column,
+      value: editing.draft,
+      label: `Edit ${column.header ?? column.id} row ${node.id}`,
+      editorType: config.type,
+      options: config.options,
+      asyncOptions: config.asyncOptions,
+      error: error || undefined,
+      errorId,
+      inlineValidation: false,
+      onChange: (value) => {
+        const next = { ...editing, draft: value };
+        editingRef.current = next;
+        setEditing(next);
+        setError("");
+      },
+      onCommit: () => {
+        const accepted = commitEdit();
+        if (accepted) focusAt(row, index);
+        return accepted;
+      },
+      onCancel: () => {
+        cancelEdit();
+        focusAt(row, index);
+      },
+      onBlur: commitEdit,
+      onKeyDown: (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          event.stopPropagation();
+          cancelEdit();
+          focusAt(row, index);
+        }
+        if (
+          event.key === "Enter" &&
+          (config.type !== "largeText" || event.ctrlKey || event.metaKey)
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (commitEdit()) focusAt(Math.min(rows.length - 1, row + 1), index);
+        }
+        if (event.key === "Tab") {
+          if (commitEdit()) {
+            event.preventDefault();
+            const next = index + (event.shiftKey ? -1 : 1);
+            focusAt(
+              row + (next < 0 ? -1 : next >= columns.length ? 1 : 0),
+              (next + columns.length) % columns.length,
+            );
+          } else event.preventDefault();
+        }
+      },
+    };
+    const content = renderEditor ? (
+      renderEditor(props)
+    ) : (
+      <CellEditor {...props} />
+    );
+    if (config.type !== "largeText") return content;
+    const rect = cells.current
+      .get(keyOf(row, column.id))
+      ?.getBoundingClientRect();
+    const width = Math.max(260, rect?.width ?? 260),
+      screenWidth = typeof window === "undefined" ? 1200 : window.innerWidth,
+      screenHeight = typeof window === "undefined" ? 800 : window.innerHeight;
+    return (
+      <div
+        className="og-editor-popup"
+        style={{
+          position: "fixed",
+          width,
+          height: 120,
+          left: Math.max(0, Math.min(rect?.left ?? 0, screenWidth - width - 8)),
+          top: Math.max(0, Math.min(rect?.top ?? 0, screenHeight - 130)),
+        }}
+      >
+        {content}
+      </div>
+    );
+  }
 
   function onCellKey(
     event: KeyboardEvent<HTMLDivElement>,
@@ -293,6 +530,24 @@ export function DataGrid<T>({
     const col = columns.indexOf(column);
     let targetRow = row;
     let targetCol = col;
+    if (cellSelection && (event.ctrlKey || event.metaKey)) {
+      const key = event.key.toLowerCase();
+      if (key === "a") {
+        event.preventDefault();
+        ranges.selectAll();
+        return;
+      }
+      if (key === "d" || key === "r") {
+        event.preventDefault();
+        ranges.fill(key === "d" ? "down" : "right");
+        return;
+      }
+    }
+    if (cellSelection && event.key === "Escape") {
+      event.preventDefault();
+      ranges.clear();
+      return;
+    }
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
       event.preventDefault();
       const changed = event.shiftKey ? model.redo() : model.undo();
@@ -378,7 +633,10 @@ export function DataGrid<T>({
         return;
     }
     event.preventDefault();
-    focusAt(targetRow, targetCol);
+    focusAt(targetRow, targetCol, event.shiftKey, {
+      rowId: node.id,
+      columnId: column.id,
+    });
   }
 
   const visibleLeafIds = rows
@@ -412,7 +670,10 @@ export function DataGrid<T>({
         Use arrow keys to navigate cells, Home and End to move across a row,
         Control Home and End to reach the first or last cell. Press Enter or F2
         to edit, Escape to cancel, Space to select a row. Shift click headers
-        for multiple sort columns.
+        for multiple sort columns. Shift and arrow keys extend a cell range.
+        Control or Command A selects visible data cells; C copies and V pastes.
+        Control or Command D fills down, R fills right. Drag the range corner to
+        fill, or Alt-drag to extend a numeric series.
       </p>
       {toolbar && (
         <div className="og-toolbar" role="toolbar" aria-label="Grid tools">
@@ -430,6 +691,31 @@ export function DataGrid<T>({
             />
           </label>
           <div className="og-toolbar-actions">
+            {cellSelection && (
+              <>
+                <button
+                  type="button"
+                  onClick={ranges.copyToClipboard}
+                  aria-label="Copy selected cells"
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={ranges.pasteFromClipboard}
+                  aria-label="Paste cells"
+                >
+                  Paste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => ranges.fill("down")}
+                  aria-label="Fill down selected cells"
+                >
+                  Fill down
+                </button>
+              </>
+            )}
             <button
               type="button"
               onClick={() => {
@@ -531,8 +817,15 @@ export function DataGrid<T>({
         aria-describedby={helpId}
         aria-rowcount={rows.length + 2}
         aria-colcount={columns.length + (selectionWidth ? 1 : 0)}
-        aria-multiselectable={selectionMode === "multiple" || undefined}
-        onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
+        aria-multiselectable={
+          selectionMode === "multiple" || cellSelection || undefined
+        }
+        onCopy={ranges.onCopy}
+        onPaste={ranges.onPaste}
+        onScroll={(event) => {
+          setScrollTop(event.currentTarget.scrollTop);
+          setScrollLeft(event.currentTarget.scrollLeft);
+        }}
       >
         <div
           className="og-header"
@@ -557,7 +850,10 @@ export function DataGrid<T>({
                 )}
               </div>
             )}
-            {columns.map((column, index) => {
+            {columnEntries.map((entry) => {
+              if (entry.kind === "spacer") return columnGap(entry);
+              const index = entry.index,
+                column = columns[index];
               const sort = state.sorting.find(
                 (sort) => sort.columnId === column.id,
               );
@@ -681,46 +977,51 @@ export function DataGrid<T>({
                 style={{ width: selectionWidth, minWidth: selectionWidth }}
               />
             )}
-            {columns.map((column, index) => (
-              <div
-                role="gridcell"
-                key={column.id}
-                aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
-                className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
-                style={cellStyle(column)}
-              >
-                {column.filterable !== false && (
-                  <input
-                    aria-label={`Filter ${column.header ?? column.id}`}
-                    placeholder={
-                      column.type === "number" || column.type === "bigint"
-                        ? "= value"
-                        : "Filter..."
-                    }
-                    value={text(state.filters[column.id]?.value)}
-                    onChange={(event) => {
-                      model.setFilter(
-                        column.id,
-                        event.target.value
-                          ? {
-                              op:
-                                column.type === "number" ||
-                                column.type === "bigint" ||
-                                column.type === "boolean" ||
-                                column.type === "date"
-                                  ? "equals"
-                                  : "contains",
-                              value: event.target.value,
-                            }
-                          : undefined,
-                      );
-                      if (viewport.current) viewport.current.scrollTop = 0;
-                      setScrollTop(0);
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+            {columnEntries.map((entry) => {
+              if (entry.kind === "spacer") return columnGap(entry);
+              const index = entry.index,
+                column = columns[index];
+              return (
+                <div
+                  role="gridcell"
+                  key={column.id}
+                  aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
+                  className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
+                  style={cellStyle(column)}
+                >
+                  {column.filterable !== false && (
+                    <input
+                      aria-label={`Filter ${column.header ?? column.id}`}
+                      placeholder={
+                        column.type === "number" || column.type === "bigint"
+                          ? "= value"
+                          : "Filter..."
+                      }
+                      value={text(state.filters[column.id]?.value)}
+                      onChange={(event) => {
+                        model.setFilter(
+                          column.id,
+                          event.target.value
+                            ? {
+                                op:
+                                  column.type === "number" ||
+                                  column.type === "bigint" ||
+                                  column.type === "boolean" ||
+                                  column.type === "date"
+                                    ? "equals"
+                                    : "contains",
+                                value: event.target.value,
+                              }
+                            : undefined,
+                        );
+                        if (viewport.current) viewport.current.scrollTop = 0;
+                        setScrollTop(0);
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         <div
@@ -732,8 +1033,8 @@ export function DataGrid<T>({
             minWidth: "100%",
           }}
         >
-          {rows.slice(first, last).map((node, offset) => {
-            const row = first + offset;
+          {renderedRowIndices.map((row) => {
+            const node = rows[row];
             const isSelected = selected.has(node.id);
             return (
               <div
@@ -779,7 +1080,10 @@ export function DataGrid<T>({
                     )}
                   </div>
                 )}
-                {columns.map((column, index) => {
+                {columnEntries.map((entry) => {
+                  if (entry.kind === "spacer") return columnGap(entry);
+                  const index = entry.index,
+                    column = columns[index];
                   const value = node.data
                     ? model.getValue(node.data, column.id)
                     : node.aggregates?.[column.id];
@@ -796,6 +1100,11 @@ export function DataGrid<T>({
                       role="gridcell"
                       aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                       aria-readonly={!column.editable || node.kind !== "row"}
+                      aria-selected={
+                        cellSelection
+                          ? ranges.contains(node.id, column.id)
+                          : undefined
+                      }
                       tabIndex={
                         focus.row === row && focus.columnId === column.id
                           ? 0
@@ -808,75 +1117,32 @@ export function DataGrid<T>({
                       }}
                       data-row-id={node.id}
                       data-column-id={column.id}
-                      className={`og-cell ${pinOf(column) ? "og-pinned" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
+                      className={`og-cell ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
                       style={cellStyle(column)}
                       title={display}
                       onFocus={(event) => {
                         if (event.target === event.currentTarget)
                           setFocus({ row, columnId: column.id });
                       }}
-                      onClick={() => {
+                      onPointerDown={(event) =>
+                        ranges.begin(event, {
+                          rowId: node.id,
+                          columnId: column.id,
+                        })
+                      }
+                      onClick={(event) => {
                         setFocus({ row, columnId: column.id });
+                        if (event.detail === 0)
+                          ranges.select(
+                            { rowId: node.id, columnId: column.id },
+                            event.shiftKey,
+                          );
                       }}
                       onDoubleClick={() => startEdit(node, column)}
                       onKeyDown={(event) => onCellKey(event, node, column, row)}
                     >
                       {isEditing ? (
-                        <input
-                          className="og-editor"
-                          aria-label={`Edit ${column.header ?? column.id} row ${node.id}`}
-                          aria-invalid={error ? true : undefined}
-                          aria-describedby={error ? errorId : undefined}
-                          ref={(element) => {
-                            if (element && document.activeElement !== element) {
-                              element.focus();
-                              element.select();
-                            }
-                          }}
-                          value={editing.draft}
-                          onChange={(event) => {
-                            const next = {
-                              ...editing,
-                              draft: event.target.value,
-                            };
-                            editingRef.current = next;
-                            setEditing(next);
-                            setError("");
-                          }}
-                          onBlur={() => commitEdit()}
-                          onKeyDown={(event) => {
-                            if (event.key === "Escape") {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              cancelEdit();
-                              focusAt(row, index);
-                            }
-                            if (event.key === "Enter") {
-                              event.preventDefault();
-                              event.stopPropagation();
-                              if (commitEdit())
-                                focusAt(
-                                  Math.min(rows.length - 1, row + 1),
-                                  index,
-                                );
-                            }
-                            if (event.key === "Tab") {
-                              if (commitEdit()) {
-                                event.preventDefault();
-                                const next = index + (event.shiftKey ? -1 : 1);
-                                focusAt(
-                                  row +
-                                    (next < 0
-                                      ? -1
-                                      : next >= columns.length
-                                        ? 1
-                                        : 0),
-                                  (next + columns.length) % columns.length,
-                                );
-                              } else event.preventDefault();
-                            }
-                          }}
-                        />
+                        renderEditorControl(node, column, row, index)
                       ) : (
                         <>
                           {index === 0 && (
@@ -916,6 +1182,23 @@ export function DataGrid<T>({
                               display
                             )}
                           </span>
+                          {cellSelection &&
+                            ranges.isEnd({
+                              rowId: node.id,
+                              columnId: column.id,
+                            }) && (
+                              <button
+                                type="button"
+                                className="og-fill-handle"
+                                tabIndex={-1}
+                                aria-label="Drag to fill cells; Alt-drag extends a numeric series"
+                                onPointerDown={ranges.fillHandle}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  if (event.detail === 0) ranges.fill("down");
+                                }}
+                              />
+                            )}
                         </>
                       )}
                     </div>
@@ -939,6 +1222,13 @@ export function DataGrid<T>({
       <div className="og-statusbar">
         <span>
           {model.getFilteredRows().length.toLocaleString()} rows
+          {ranges.selectedCellCount > 0 && (
+            <>
+              {" "}
+              {"\u00b7"} {ranges.selectedCellCount.toLocaleString()} cells
+              selected
+            </>
+          )}
           {state.selected.length > 0 && (
             <>
               {" "}

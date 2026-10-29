@@ -12,7 +12,8 @@
     "noEmit": true,
     "paths": {
       "@opengrid/core": ["./packages/core/src/index.ts"],
-      "@opengrid/react": ["./packages/react/src/index.tsx"]
+      "@opengrid/react": ["./packages/react/src/index.tsx"],
+      "@opengrid/export": ["./packages/export/src/index.ts"]
     }
   },
   "include": ["packages", "examples", "tests", "*.ts"]

@@ -22,7 +22,13 @@ OpenGrid's architecture and implementation choices are independent engineering d
 | [PDF Export](https://www.ag-grid.com/react-data-grid/pdf-export/)                                                                                            | PDF generation is a native documented feature area in this target.                        | Keep a real PDF exporter on the roadmap; print CSS is a different capability.                    |
 | [Integrated Charts](https://www.ag-grid.com/react-data-grid/integrated-charts/) / [Sparklines](https://www.ag-grid.com/react-data-grid/sparklines-overview/) | Charting and in-cell charts are documented separately.                                    | A demo chart or custom renderer is not full library-level chart support.                         |
 
-## Evidence limits
+## OpenGrid implementation evidence
+
+Current source now includes client ranges/TSV/fill, both-axis React windowing, typed/async/custom editors, hierarchical server-side and live viewport stores, an AST/dependency formula engine, a reactive SVG chart panel, and optional real XLSX/PDF output. These are original implementation observations, distinct from AG Grid documentation observations above. The [API guide](API.md) links their contracts; [feature parity](FEATURE_PARITY.md) records supported subsets and [verification](VERIFICATION.md) records executed commands.
+
+The remote tests use provider fixtures, not a production backend or an automatically server-bound React grid. Formula tests establish the implemented language/dependency behavior, not Excel compatibility or formula-aware cell editing. Export tests inspect actual bytes through independent readers; this does not add native import or unrestricted PDF Unicode support. Chart tests establish the supported SVG projections, not full chart parity. Automated keyboard/ARIA checks do not establish manual screen-reader usability.
+
+## Remaining evidence limits
 
 No AG Grid runtime scenarios were recorded in this pass. Documentation establishes described capabilities, not internal algorithms, performance, edge-case behavior or accessibility outcomes. OpenGrid tests establish only their executed cases. A browser engine passing a keyboard test does not establish screen-reader usability.
 

@@ -17,11 +17,11 @@ npm ci
 npm run dev
 ```
 
-Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows; switch to grouped or tree views, edit prices and shares, pin and resize columns, select rows, inspect a pivot summary and export CSV. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
+Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows and a 130-column schema. Try grouped/tree views, cell ranges, validated paste, fill, native editors, charts, the formula lab, and genuine XLSX/PDF downloads. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
 
 ## React quick start
 
-The two packages are workspace packages. **They have not been published to npm**, and their npm names have not been reserved or checked for availability. Use the workspace or local tarballs from `npm pack -w @opengrid/core` and `npm pack -w @opengrid/react` after building.
+The three packages are workspace packages. **They have not been published to npm**, and their npm names have not been reserved or checked for availability. Use the workspace or local tarballs from `npm pack -w @opengrid/core`, `npm pack -w @opengrid/react`, and optionally `npm pack -w @opengrid/export` after building.
 
 ```tsx
 import { useMemo } from "react";
@@ -74,16 +74,25 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Stable multi-column sort and typed text, numeric, date, boolean, BigInt and membership filter predicates; quick search and pagination.
 - Editable fields with parsers, validators, atomic batch changes and bounded undo/redo; add/update/remove transactions.
 - Single/multiple row selection, column resize/reorder/hide/pin and configuration chooser.
-- Fixed-height row virtualization, keyboard navigation, ARIA attributes and validation announcements.
+- Fixed-size row and column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
+- Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
+- Native text/number/date/checkbox/select/multiline editors, asynchronous choices and typed custom-editor hooks.
 - Expandable grouping and path-based trees, built-in/custom aggregates and a standalone pivot utility.
 - CSV with RFC 4180 escaping and spreadsheet formula neutralization; basic SVG sparklines.
-- Standalone safe arithmetic formulas and a flat infinite-block data loader with deduplication, invalidation, cancellation, retry and bounded LRU cache.
+- A safe formula dependency engine with A1/local references, ranges, lazy IF, aggregates, targeted invalidation, cycle diagnostics and resource limits.
+- Separate flat infinite, hierarchical server block and live viewport strategies with cache/refresh/retry/stale-request handling.
+- Model/range-linked bar, line and scatter SVG charts with configuration controls, an underlying data table and SVG export.
+- Optional real XLSX/PDF output with typed workbook cells, multiple sheets, tables/frozen headers and paginated PDF reports.
 
-The browser grid currently uses the client-side model. The infinite loader is an independent building block. Grouped server-side and live viewport models, XLSX/PDF, integrated chart tooling, rectangular ranges/fill/clipboard, rich editors, spanning, and many other advanced features remain on the roadmap. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
+The primary browser grid uses the client-side model. Remote strategies currently expose provider APIs; binding limitations are documented separately. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, spanning, master/detail and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
+
+Detailed guides: [ranges/API](docs/API.md), [remote models](docs/REMOTE_MODELS.md), [formulas](docs/FORMULAS.md), [editors](docs/EDITORS.md), [charts](docs/CHARTS.md), and [exports](docs/EXPORTS.md).
 
 ## Keyboard controls
 
 Arrow keys move between cells. Home/End move across a row; Ctrl/Cmd+Home/End reach the first/last cell on the rendered page. Page Up/Down move by the visible area. Enter/F2 or double-click starts an edit, Escape cancels, and Enter/Tab commits. Space toggles a row. Shift-click a header for multiple sort keys. Focus a column separator and use Left/Right to resize. The column chooser provides keyboard-operable move/pin/hide controls.
+
+Shift-click or Shift+navigation extends a cell rectangle. Ctrl/Cmd+A selects visible data cells, C copies and V pastes. Ctrl/Cmd+D fills down and R fills right. Drag the range corner to repeat values; Alt-drag extends a numeric series. Multiline editors commit with Ctrl/Cmd+Enter. Clipboard permission failures are reported in the grid.
 
 ## Development and verification
 

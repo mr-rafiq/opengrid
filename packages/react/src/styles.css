@@ -267,6 +267,28 @@
   outline-offset: -2px;
   z-index: 3;
 }
+.og-row .og-cell.og-range-selected {
+  background: color-mix(in srgb, var(--og-accent) 12%, var(--og-bg));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--og-accent) 40%, transparent);
+}
+.og-root .og-fill-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 1px solid var(--og-bg);
+  border-radius: 0;
+  background: var(--og-accent);
+  cursor: crosshair;
+  z-index: 5;
+}
+.og-toolbar-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .og-cell-content {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -421,4 +443,32 @@
   .og-pagination {
     gap: 8px;
   }
+}
+.og-cell.og-editing {
+  overflow: visible;
+  z-index: 8 !important;
+}
+.og-editor-shell {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.og-editor-popup {
+  z-index: 30;
+  background: var(--og-bg);
+  border: 1px solid var(--og-accent);
+  box-shadow: 0 8px 25px #122a4730;
+  padding: 6px;
+}
+.og-editor-loading,
+.og-editor-load-error {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 220px;
+  padding: 8px;
+  background: var(--og-bg);
+  border: 1px solid var(--og-border);
+  z-index: 20;
+  white-space: normal;
 }

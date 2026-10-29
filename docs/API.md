@@ -82,7 +82,7 @@ model.selectRows(["p1"]);
 
 Sorts are stable, with blank values last in both directions. Comparators can be supplied per column. Column filters combine with AND. Quick-search terms also combine with AND and search formatted column text. Text comparisons are case-insensitive. Supported operators are `contains`, `equals`, `notEqual`, `startsWith`, `endsWith`, `gt`, `gte`, `lt`, `lte`, `in`, `between`, `blank`, and `notBlank`. The React floating input intentionally exposes only contains/equality; use the model API for other operators.
 
-Selection stores stable row IDs. Unknown selection IDs are discarded; removed rows are cleared from selection. There is no selected-cell-range or hierarchical cascade model.
+Row selection stores stable IDs. Unknown IDs are discarded; removed rows are cleared. The separate cell-range controller supports one rectangular range; hierarchical row-selection cascade remains absent.
 
 ## Column state and persistence
 
@@ -152,6 +152,8 @@ const matches = findCells(
 
 `evaluateFormula` supports numbers, `[column]` references via the supplied resolver, arithmetic, parentheses, unary signs and SUM/MIN/MAX/AVG. It rejects invalid syntax, nonfinite values, division by zero, excessive nesting and long expressions. It never evaluates JavaScript. It has no cell ranges, row references, dependency graph, cycle handling or spreadsheet compatibility.
 
+The newer **`FormulaEngine`** is a separate export with an AST, A1/absolute and current-row references, rectangular ranges, built-in aggregate/comparison/IF expressions, dependency graphs, targeted invalidation, memoization, cycle detection and typed errors. The application registers formulas explicitly with `setFormula`; raw strings do not silently execute. It is standalone: no automatic grid edit binding, formula editor, autocomplete, structural rewrite or copy/fill reference adjustment. Read the [formula API](FORMULAS.md) for syntax, error data, resource budgets and reference identity. Do not infer the small helper's limits apply to this engine, or that the larger engine changes ordinary cell text semantics.
+
 `findCells(rows, columns, query)` returns zero-based row coordinates and column IDs for formatted visible-column matches. It does not change selection, scroll, highlight or provide next/previous UI.
 
 `getVirtualWindow(count, scrollTop, height, rowHeight, overscan?)` returns `{ start, end, offset, totalHeight }`, where end is exclusive. Dimensions must be finite/valid; heights are fixed.
@@ -181,27 +183,81 @@ loader.dispose();
 
 This loader is independent of `DataGrid`; an application must integrate its rows and count. `loadBlock(index)` deduplicates concurrent requests, clones responses and uses a bounded LRU cache. `setQuery` invalidates old generations and cancels pending requests; late results reject with `AbortError`. A failed request can be retried by calling it again. Responses require an exact nonnegative integer `rowCount`; unknown counts are unsupported. `invalidate()` clears the cache and cancels pending work. This is neither grouped server-side processing nor a live viewport subscription.
 
+### Hierarchical server-side and live viewport models
+
+**`ServerSideRowModel<T>`** forwards sort/filter/group/aggregate/pivot query descriptors to a provider, caches validated blocks by group route and block index, exposes stable subscription snapshots, cancels stale generations, refreshes/retries routes and applies atomic updates to already-loaded node IDs. The provider computes the requested operations; updates change the cache, not a backend. Add/remove/reorder persistence requires an application server write and refresh.
+
+**`LiveViewportRowModel<T>`** subscribes to a buffered absolute-index window, merges server-pushed rows/counts, validates batches, retains overlap, rejects stale-generation callbacks, retries failures and invokes synchronous/asynchronous cleanup. The application supplies its transport and backend; no WebSocket service or reconnect/backoff framework is bundled.
+
+Both are independent store/provider APIs, not automatic `DataGrid` remote binding. Loading/error placeholders, recursive remote expansion, result-column rendering, server selection and persistence integration remain application work. See [remote model contracts](REMOTE_MODELS.md) for request/response shapes and examples.
+
+## Cell ranges, clipboard and fill
+
+```ts
+import { createCellRangeModel } from "@opengrid/core";
+
+const ranges = createCellRangeModel(model);
+ranges.setRange({ rowId: "p1", columnId: "price" });
+const tsv = ranges.copy();
+const pasteError = ranges.paste("20");
+const fillError = ranges.fill("down");
+ranges.clear();
+ranges.dispose();
+```
+
+`CellRange` is `{ anchor: { rowId, columnId }, focus: { rowId, columnId } }`. The controller exposes `getSnapshot`, `subscribe`, `setRange`, `extend`, `clear`, `contains`, `getCells`, `copy`, `paste`, `fill`, `fillRange`, `refresh` and `dispose`. It supports one rectangle over visible columns and displayed data rows, excluding generated group headers. An optional `getRowIds` callback can further restrict order/scope; the React integration supplies **current-page visible data-row IDs**, so selection/fill cannot silently span another page or collapsed descendants. Invalidated endpoints clear the range.
+
+`copy({ formatted? })` serializes quoted TSV. `paste(tsv, anchor?)` parses bounded text and submits one atomic edit batch; malformed TSV, ragged/beyond-boundary blocks, read-only cells or validation errors reject without partial writes. `fill('down'|'right')` repeats the leading row/column into the selection. `fillRange(source, target, 'copy'|'series')` extends a source rectangle; series mode recognizes numeric/BigInt progressions. No multi-range selection, rich HTML clipboard or formula-reference rewriting is supplied. Successful paste/fill is one undo unit.
+
+`parseTsv` and `serializeTsv` are exported independently. Default limits bound selections/parser output to 100,000 cells and clipboard input to 10 million characters. Formula-like strings are neutralized on serialization by default; raw numeric negatives remain numeric text. Native browser clipboard access remains permission/secure-context dependent, and the React controls surface failures rather than claiming success.
+
 ## CSV
 
 `model.exportCsv()` serializes visible columns and filtered/sorted rows. `{ allRows: true }` exports source order without filters; `{ selectedOnly: true }` limits either scope by selected IDs. It does not export synthetic group rows or only the current page. Headers and cells are always quoted; quote characters are doubled. Formula-like string prefixes are neutralized with a leading apostrophe, including whitespace/control-character cases. The result is CSV, not XLSX. The React toolbar's download currently requests all source rows.
 
+## Optional XLSX and PDF package
+
+`@opengrid/export` exports `exportXlsx`, `exportWorkbook` and `exportPdf`, returning promises of actual `Uint8Array` file bytes. Its dynamically loaded ExcelJS/pdf-lib dependencies stay out of the neutral core. Read [export options and examples](EXPORTS.md) before relying on format support.
+
+Both default to filtered/sorted data rows and visible columns; group collapse/pagination do not restrict them. `selectedOnly` requires a matching `getRowId` callback. XLSX defaults to raw typed values; PDF defaults to formatters. Exporters do not infer custom React cell DOM content or initiate downloads themselves.
+
+XLSX supports multiple sheets, typed cells, widths/colors/number formats, freeze panes, tables and explicitly opted-in formula descriptors. BigInt is written as exact decimal text. Ordinary formula-like text stays a string. Images/notes/hyperlinks/protection/group layout and native import remain absent. PDF provides A4/Letter pagination, wrapping/repeated headers and page numbers, using WinAnsi Helvetica; unsupported Unicode/CJK/RTL text rejects. No custom fonts, images, links, watermarks or horizontal pagination are supplied.
+
 ## React adapter
 
-| Prop                     | Default / purpose                                                                      |
-| ------------------------ | -------------------------------------------------------------------------------------- |
-| `model`                  | Required `GridModel<T>`.                                                               |
-| `height`                 | `480` pixels for grid viewport; toolbar/status add space outside it.                   |
-| `rowHeight`              | `38`, fixed pixel row height.                                                          |
-| `overscan`               | `6` rows around the visible window.                                                    |
-| `selectionMode`          | `multiple`; also `single` or `none`.                                                   |
-| `ariaLabel`              | `Data grid`; use a task-specific name.                                                 |
-| `toolbar` / `pagination` | Both `true`; disable pagination for a single virtualized display model.                |
-| `className`              | Additional root CSS class.                                                             |
-| `renderCell`             | `(context: { value, row, column }) => ReactNode` for data cells.                       |
-| `onCellEdit`             | Receives attempted `{ rowId, columnId, value, error? }`; value is the raw input draft. |
+| Prop                     | Default / purpose                                                                                      |
+| ------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `model`                  | Required `GridModel<T>`.                                                                               |
+| `height`                 | `480` pixels for grid viewport; toolbar/status add space outside it.                                   |
+| `rowHeight`              | `38`, fixed pixel row height.                                                                          |
+| `overscan`               | `6` rows around the visible window.                                                                    |
+| `columnOverscan`         | `200` pixels around the horizontal window.                                                             |
+| `virtualizeColumns`      | `true`; retain pinned/focused columns while windowing other fixed-width columns.                       |
+| `selectionMode`          | `multiple`; also `single` or `none`.                                                                   |
+| `cellSelection`          | `true`; enables one rectangular range, clipboard and fill interactions independently of row selection. |
+| `onCellRangeChange`      | Receives `CellRange` or `null`; pass it to a sibling chart when desired.                               |
+| `editorOptions`          | Per-column `{ type?, options?, asyncOptions? }` configuration.                                         |
+| `renderEditor`           | Custom `CellEditorRenderer<T>`; keep the supplied draft/commit/cancel/error contract.                  |
+| `ariaLabel`              | `Data grid`; use a task-specific name.                                                                 |
+| `toolbar` / `pagination` | Both `true`; disable pagination for a single virtualized display model.                                |
+| `className`              | Additional root CSS class.                                                                             |
+| `renderCell`             | `(context: { value, row, column }) => ReactNode` for data cells.                                       |
+| `onCellEdit`             | Receives attempted `{ rowId, columnId, value, error? }`; value is the raw input draft.                 |
 
 Arrow keys move cell focus; Home/End move across a row; Control/Command Home/End move to grid bounds; Page keys move a viewport. Enter/F2 start editing; Escape cancels; Space selects rows; Control/Command Z and Shift Z undo/redo. Shift-click headers adds sort keys. Resize separators support Arrow keys. Column chooser buttons provide keyboard alternatives to dragging. Group/tree rows expand with Enter or Left/Right navigation where applicable.
 
+With cell selection enabled, Shift+navigation extends the rectangle; Control/Command+A selects current-page data cells; C/V use clipboard events; D fills down and R fills right. Dragging selects a rectangle with edge auto-scroll; dragging its corner repeats values, and Alt-drag requests numeric series extension. Toolbar copy/paste buttons use native clipboard APIs and show permission failures. Editing inputs retain their native selection/clipboard behavior.
+
+Both row and column windows retain logical ARIA coordinates. `getColumnWindow(columns, options)` is exported for fixed-width horizontal projection, returning rendered-column and spacer entries; pinned and explicitly retained indexes always render. These mechanisms do not support variable row heights, spans or RTL layout.
+
+`CellEditor` provides text, number, date, checkbox, select and textarea controls. BigInt uses text to preserve precision. Async select providers receive an AbortSignal, reject stale responses and expose retry; rich search, virtualized options and multi-select are not implemented. Large text uses the grid's editing host rather than variable row heights. See [editor contracts](EDITORS.md) for custom-host keyboard/error/lifecycle requirements.
+
 `Sparkline` accepts `values: number[]`, optional width (`100`), height (`28`), label (`Trend`) and color (`currentColor`). It renders a labeled SVG line, omitting nonfinite points; it has no tooltips, axes, area/bar modes or integrated chart state. Provide a meaningful text label and, where necessary, a separate accessible data representation.
+
+### Integrated charts
+
+`GridChart` renders a model-reactive SVG bar/line/scatter panel with labeled controls, legend, a table of displayed points and SVG download. Supply `model`, optional `range`, `xColumnId`, `yColumnIds`, `type`, `aggregation`, `height`, `maxPoints` and `ariaLabel`. `computeGridChartData` exports the same pure bounded projection. Numeric values must be finite JavaScript numbers; BigInts/numeric strings are not coerced. Bar/line charts aggregate repeated categories, while scatter plots individual numeric-X rows.
+
+Without a range, charting uses all filtered rows; a range restricts eligible visible rows/columns and invalid endpoints yield an empty chart. Pass a new range prop when the grid's `onCellRangeChange` fires. The chart does not own selection or silently broaden invalid ranges. Point limiting uses deterministic uniform sampling, which can miss intermediate extrema; the panel reports sampling. No full chart persistence, pivot configuration, cross-filtering, zoom/pan, date axis or PNG/JPEG export is supplied. See [chart behavior and limits](CHARTS.md).
 
 Automated browser checks and ARIA attributes do not establish screen-reader conformance. Manual screen-reader verification remains an explicit gap.

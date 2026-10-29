@@ -2,6 +2,10 @@ export * from "./types.js";
 export * from "./analytics.js";
 export * from "./datasource.js";
 export * from "./formulas.js";
+export * from "./ranges.js";
+export * from "./server-side.js";
+export * from "./viewport.js";
+export * from "./formula-engine.js";
 import { aggregateValues } from "./analytics.js";
 import type {
   Column,

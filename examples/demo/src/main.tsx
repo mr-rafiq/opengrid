@@ -1,14 +1,10 @@
 import React, { useMemo, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
-import {
-  createGrid,
-  pivot,
-  evaluateFormula,
-  type Column,
-} from "@opengrid/core";
-import { DataGrid } from "@opengrid/react";
+import { createGrid, pivot, type Column, type CellRange } from "@opengrid/core";
+import { DataGrid, GridChart } from "@opengrid/react";
 import "@opengrid/react/styles.css";
 import "./page.css";
+import { FormulaLab } from "./formula-lab";
 interface Holding {
   id: string;
   company: string;
@@ -63,7 +59,13 @@ const columns: Column<Holding>[] = [
     editable: true,
   },
   { id: "symbol", field: "symbol", header: "Ticker", width: 110 },
-  { id: "sector", field: "sector", header: "Sector", width: 150 },
+  {
+    id: "sector",
+    field: "sector",
+    header: "Sector",
+    width: 150,
+    editable: true,
+  },
   { id: "region", field: "region", header: "Region", width: 150 },
   {
     id: "price",
@@ -94,10 +96,7 @@ const columns: Column<Holding>[] = [
     header: "Market value",
     width: 155,
     type: "number",
-    valueGetter: (row) =>
-      evaluateFormula("=[price]*[shares]", (key) =>
-        Number(row[key as keyof Holding]),
-      ),
+    valueGetter: (row) => row.price * row.shares,
     valueFormatter: money,
     aggregate: "sum",
   },
@@ -121,6 +120,7 @@ const columns: Column<Holding>[] = [
     id: "trend",
     header: "7-day trend",
     width: 145,
+    pinned: "right",
     valueGetter: (r) => r.price,
   },
 ];
@@ -129,11 +129,33 @@ function App() {
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
   const [dark, setDark] = useState(false);
   const [pivotOpen, setPivotOpen] = useState(false);
+  const [chartOpen, setChartOpen] = useState(false);
+  const [formulaOpen, setFormulaOpen] = useState(false);
+  const [chartRange, setChartRange] = useState<CellRange | null>(null);
+  const [wide, setWide] = useState(false);
+  const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
+  const [exportError, setExportError] = useState("");
+  const activeColumns = useMemo(
+    () =>
+      wide
+        ? [
+            ...columns,
+            ...Array.from({ length: 120 }, (_, i): Column<Holding> => ({
+              id: `metric${i + 1}`,
+              header: `Metric ${i + 1}`,
+              width: 120,
+              type: "number",
+              valueGetter: (r) => Math.round(r.price * (i + 1) * 100) / 100,
+            })),
+          ]
+        : columns,
+    [wide],
+  );
   const model = useMemo(
     () =>
       createGrid({
         rows: makeRows(size),
-        columns,
+        columns: activeColumns,
         getRowId: (r) => r.id,
         getTreePath: mode === "tree" ? (r) => r.path : undefined,
         initialState: {
@@ -141,7 +163,7 @@ function App() {
           groupBy: mode === "group" ? ["sector"] : [],
         },
       }),
-    [size, mode],
+    [size, mode, activeColumns],
   );
   const state = useSyncExternalStore(
     model.subscribe,
@@ -164,6 +186,49 @@ function App() {
     a.download = "opengrid-holdings.csv";
     a.click();
     URL.revokeObjectURL(url);
+  }
+  async function downloadDocument(format: "xlsx" | "pdf") {
+    setExporting(format);
+    setExportError("");
+    try {
+      const { exportXlsx, exportPdf } = await import("@opengrid/export");
+      const options = {
+        selectedOnly: state.selected.length > 0,
+        getRowId: (row: Holding) => row.id,
+      };
+      const bytes =
+        format === "xlsx"
+          ? await exportXlsx(model, {
+              ...options,
+              sheetName: "Portfolio",
+              table: true,
+              freezeColumns: 1,
+            })
+          : await exportPdf(model, {
+              ...options,
+              columnIds: ["company", "sector", "price", "shares", "value"],
+              orientation: "landscape",
+            });
+      const url = URL.createObjectURL(
+        new Blob([new Uint8Array(bytes)], {
+          type:
+            format === "xlsx"
+              ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              : "application/pdf",
+        }),
+      );
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `opengrid-portfolio.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      setExportError(
+        error instanceof Error ? error.message : "Document export failed",
+      );
+    } finally {
+      setExporting(null);
+    }
   }
   return (
     <div className={dark ? "workspace dark" : "workspace"}>
@@ -207,10 +272,25 @@ function App() {
               with {size.toLocaleString()} rows.
             </p>
           </div>
-          <button className="primary" onClick={download}>
-            ↓ Export CSV
-          </button>
+          <div className="export-actions">
+            <button className="primary" onClick={download}>
+              ↓ Export CSV
+            </button>
+            <button
+              disabled={exporting !== null}
+              onClick={() => downloadDocument("xlsx")}
+            >
+              {exporting === "xlsx" ? "Preparing XLSX..." : "Export XLSX"}
+            </button>
+            <button
+              disabled={exporting !== null}
+              onClick={() => downloadDocument("pdf")}
+            >
+              {exporting === "pdf" ? "Preparing PDF..." : "Export PDF"}
+            </button>
+          </div>
         </header>
+        {exportError && <div role="alert">{exportError}</div>}
         <section className="summary">
           <article>
             <span>PORTFOLIO UNIVERSE</span>
@@ -241,6 +321,9 @@ function App() {
               <span className="tag">v0.1 preview</span>
             </div>
             <div className="view-controls">
+              <button aria-pressed={wide} onClick={() => setWide(!wide)}>
+                Wide schema
+              </button>
               <label>
                 Rows{" "}
                 <select
@@ -284,6 +367,16 @@ function App() {
           </div>
           <DataGrid
             model={model}
+            onCellRangeChange={setChartRange}
+            editorOptions={{
+              sector: {
+                type: "select",
+                options: [...new Set(companies.map((c) => c[2]))].map(
+                  (value) => ({ value, label: value }),
+                ),
+              },
+              company: { type: "largeText" },
+            }}
             height={480}
             className={dark ? "og-dark" : ""}
             pagination={mode === "flat"}
@@ -363,6 +456,34 @@ function App() {
             </table>
           </section>
         )}
+        <section className="pivot-panel">
+          <button
+            onClick={() => setChartOpen(!chartOpen)}
+            aria-expanded={chartOpen}
+          >
+            Chart data
+          </button>
+          {chartOpen && (
+            <GridChart
+              model={model}
+              range={chartRange}
+              xColumnId="sector"
+              yColumnIds={["value"]}
+              ariaLabel="Portfolio analysis"
+            />
+          )}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setFormulaOpen(!formulaOpen)}
+            aria-expanded={formulaOpen}
+          >
+            Formula lab
+          </button>
+          {formulaOpen && (
+            <FormulaLab model={model} getRowId={(row) => row.id} />
+          )}
+        </section>
         <footer>
           <span>Built for developers who want control.</span>
           <span>

@@ -25,9 +25,13 @@ Browser installation may need network access. Record environmental failures accu
 
 ## Changes and tests
 
-Keep data algorithms in `packages/core`, browser interactions in `packages/react`, and application-specific examples in `examples/demo`. Add regression tests for observable behavior, especially cross-feature interactions. Examples include sorting after an edit, filtering after a transaction, focus after scrolling to an offscreen row, and pin offsets after column resizing.
+Keep algorithms/provider stores in `packages/core`, browser interactions/editors/charts in `packages/react`, optional file generation in `packages/export`, and application-specific examples in `examples/demo`. Add regression tests for observable cross-feature behavior: sorting after edits, filtering after transactions, two-axis focus after scrolling, pinned offsets, page-bound ranges and whole-batch undo.
+
+Remote changes need provider fixtures for stale generations, malformed responses, retries, refresh and cleanup. Distinguish cache updates from backend persistence and standalone provider stores from React integration. Formula changes need dependency invalidation/cycle/budget tests; edited strings must never become executable formulas without explicit opt-in. Reference rewriting and structural migration need their own semantics and tests.
 
 Use stable row and column IDs. Preserve input data ownership, exact BigInt values, atomic invalid-edit rejection, and safe CSV escaping. Do not use `eval` or `new Function` for data expressions. Exporters must produce the advertised format; CSV renamed to XLSX is not an Excel exporter.
+
+XLSX/PDF changes need independent format-reader checks as well as browser download tests. Preserve dependency notices and formula-string safety; keep WinAnsi/custom-font limitations explicit. Clipboard changes must test quoted/malformed TSV, protected cells, bounds, permission failures and atomic rollback. Chart changes must document sampling and numeric precision rather than implying financial/statistical fidelity.
 
 For a new feature, include its public API, working example where useful, meaningful tests, limitations, and a ledger update linked to relevant evidence. A stub, type definition or extension callback does not justify marking the complete feature implemented. Status rows may be partial when the supported subset is described precisely.
 

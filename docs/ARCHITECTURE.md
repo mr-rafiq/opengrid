@@ -1,60 +1,64 @@
 # Architecture
 
-OpenGrid separates data processing from browser rendering. It is an original implementation with a deliberately small public API; AG Grid documentation is a behavior reference, not a source-code dependency or API-compatibility contract.
+OpenGrid separates data processing, provider lifecycles, browser interaction and optional file generation. It is an original implementation with its own API. AG Grid documentation informs user-facing requirements; it is not a code dependency or compatibility contract.
 
-## Packages
+## Packages and ownership
 
-| Location         | Responsibility                                                                                                 | Boundary                                                                                       |
-| ---------------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| `packages/core`  | Typed column definitions, grid state, client row processing, edits/history, transactions and CSV serialization | No React, browser DOM or network dependencies.                                                 |
-| `packages/react` | Rendering, focus/edit sessions, row windowing, pin layout, controls and CSS                                    | Consumes `GridModel<T>`; data mutations go through the model.                                  |
-| `examples/demo`  | Interactive application showing supported capabilities                                                         | Example-specific data, charts or controls are not library features unless exported and tested. |
-| `tests`          | Browser integration and cross-feature behavior                                                                 | Tests exercise public user interactions and built package behavior where appropriate.          |
+| Location          | Responsibility                                                                                                           | Boundary                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| `packages/core`   | Client grid, state, edits/history, transactions, grouping/tree, ranges/TSV, analytics, remote stores and formula engines | No React/DOM or bundled backend/transport.                                          |
+| `packages/react`  | DataGrid, both-axis windowing, focus, typed/custom editors, range/clipboard/fill interaction, charts/sparklines and CSS  | Data mutations go through core; chart data is projected from the model.             |
+| `packages/export` | Real XLSX/PDF bytes through dynamically loaded ExcelJS/pdf-lib                                                           | Optional package; no automatic writes/downloads; document limits explicit.          |
+| `examples/demo`   | Interactive composition of library modules and example data                                                              | Application controls are not automatically DataGrid features.                       |
+| `tests`           | Real-browser integration and downloads                                                                                   | Provider fixture/component tests remain separate from backend/browser verification. |
 
-`packages/core/src/types.ts` is the shared model contract. Callers supply a stable `getRowId`; row positions are display coordinates and must not become data identities. Column IDs identify state even when columns move or become hidden. `RowNode<T>` distinguishes leaf data from generated group nodes.
+`types.ts` defines the client `GridModel<T>`. Stable row and column IDs carry identity across sort/filter/reorder. Positions are display coordinates, not identity. A `RowNode` distinguishes source data from synthetic groups. Ranges, remote stores and formulas have additional contracts in their own modules; they are not all serialized inside `GridState`.
 
-## Data flow
+## Client data and rendering flow
 
 ```mermaid
 flowchart LR
-  Input[Rows and typed columns] --> Core[Core model]
-  State[Sort / filters / grouping / page / column state] --> Core
-  Core --> Nodes[Displayed row nodes]
-  Nodes --> React[React adapter and virtual window]
-  React --> Actions[User actions]
-  Actions --> Core
-  Core --> Subscriber[Subscription notification]
-  Subscriber --> React
+  Rows[Resident rows and typed columns] --> Model[Client GridModel]
+  State[Sort / filter / group / page / column state] --> Model
+  Model --> Nodes[Expanded display nodes]
+  Nodes --> Windows[Row and column windows]
+  Windows --> UI[React grid / editor / range interaction]
+  UI --> Actions[Core edits and state operations]
+  Actions --> Model
+  Model --> Charts[Reactive chart projection]
+  Model --> Export[Optional XLSX/PDF export]
 ```
 
-The intended client-side pipeline is source rows → quick/column filters → stable multi-key sort → grouping or path tree → expansion flattening → pagination → rendering window. Integration tests must establish the actual ordering and document any deviation. Pagination acts on the displayed row model; it is not a server datasource. Rendering fewer DOM nodes does not reduce source-row storage.
+The client pipeline filters, stably sorts, builds groups or a path tree, flattens expanded nodes and applies pagination before the rendering window. Pagination counts displayed group nodes as well as data rows. The React range controller uses visible data-row IDs from the current page. Chart/export row policies differ intentionally and are documented in [charts](CHARTS.md) and [exports](EXPORTS.md); they must not silently inherit DOM-window limits.
 
-## State and ownership
+Rows remain resident regardless of DOM window size. Horizontal windowing creates spacers for omitted columns while preserving total width, logical ARIA indices and pinned/focused columns. Fixed sizes are required; variable heights, spanning and RTL are outside this strategy. Offscreen keyboard navigation scrolls and restores focus after the target cell mounts.
 
-The model owns row data and data-only view state. React owns transient focus, pointer interaction and edit input. Consumers should retain one model instance per grid and subscribe rather than recreate it during every render. State snapshots contain IDs and values, not callbacks or rendered React elements. Persistence applications must encode BigInt filter values explicitly because native JSON does not serialize BigInt.
+## State, edits and ranges
 
-Callbacks such as getters, formatters, comparators, parsers, validators and aggregators are consumer code. They should be deterministic and side-effect-free; the grid may call them repeatedly. They do not constitute a safe expression language. Do not evaluate user-provided JavaScript to implement calculated columns or formulas.
+The client model owns data and view state; React owns transient focus, editor drafts and pointer interactions. Retain one model per grid and subscribe through stable snapshots. Snapshot consumers must not mutate returned state or borrowed row payloads. JSON persistence needs explicit BigInt encoding and a future migration/version policy.
 
-Edits should parse and validate before publication. A batch either commits all edits or none, with one undo unit. Transactions use stable IDs and require defined duplicate/missing-ID policy. External data replacement and transaction history behavior must be covered by tests rather than inferred from an API name.
+Parsers/validators run before publication. A batch commits all changes or none and forms one undo unit. Paste/fill reuse that path so protected/invalid/out-of-bounds operations do not partially write. Transactions use stable IDs; replacing rows and applying client transactions clear edit history. Range selection is one rectangle, separate from row selection, with endpoint invalidation after schema/view changes.
 
-## Rendering and accessibility
+Native editor controls use string drafts; BigInt is not converted through Number. The React host owns final keyboard navigation and commits. Async option providers receive cancellation and request-identity guards; failures expose retry. Custom editors must preserve draft/commit/cancel/error semantics. See [editors](EDITORS.md).
 
-The initial rendering strategy uses fixed row heights. The virtual window includes an overscan buffer; offscreen keyboard movement must scroll first and restore focus when the target cell mounts. Pinned columns use computed offsets from effective widths and order. ARIA positions must describe the logical grid, not the index within the current DOM window.
+## Distinct remote provider stores
 
-Roving tab stops, labeled controls, visible focus, edit cancellation, validation feedback and expansion semantics are responsibilities of the React adapter. Automated checks are useful evidence but do not establish screen-reader compatibility. Manual assistive-technology results require browser, reader, OS, version and scenario records.
+`InfiniteDataSource` is a flat cached block loader. `ServerSideRowModel` is a hierarchical route/block store that forwards sort/filter/group/aggregate/pivot queries, validates results and supports cache refresh/retry plus atomic updates to loaded nodes. `LiveViewportRowModel` owns a buffered absolute-index subscription and server-pushed rows/counts. Each controls cancellation, stale generations, validation and cleanup according to its own contract.
 
-## Extension seams and missing systems
+These primitives are standalone. They do not make the client `DataGrid` a complete server renderer. Applications still bind loaded nodes/placeholders/errors, expansion/result columns, selection, transport and backend persistence. A loaded-node cache update is not an HTTP write. Provider-fixture tests establish store behavior, not production service availability. See [remote models](REMOTE_MODELS.md).
 
-The public callback seams support custom values and cell content today only when implemented and verified in the parity ledger. Future row-model providers need their own request/cancellation/cache lifecycle. Infinite flat blocks, grouped server-side requests and viewport live subscriptions must remain distinct strategies. A generic fetch callback is not sufficient for all three.
+## Formula and analysis modules
 
-Formula parsing, end-user calculated columns, pivot schemas, clipboard ranges, XLSX/PDF and integrated chart state should be separate modules with explicit serialization and resource ownership. Avoid inflating the core with chart/export dependencies. CSV export must neutralize formula-like prefixes by default. Actual XLSX output requires OOXML; actual PDF output requires PDF bytes and document-level tests.
+`FormulaEngine` parses an original AST language, records dependencies, memoizes results, invalidates affected dependents and returns typed errors under resource budgets. Formula registration is explicit; arbitrary edited/pasted strings never silently execute. Constructor row/column order binds positional references to stable cells. Structural migration, formula-aware editors and fill/reference rewrites remain outside the engine. The older `evaluateFormula` helper remains a smaller independent arithmetic utility. See [formulas](FORMULAS.md).
 
-## Verification layers
+Pivoting is a client projection utility plus server query/metadata forwarding, not a complete interactive grid pivot mode. `GridChart` is a model-reactive SVG panel with finite-number projection, bounded sampling, controls/table and SVG export. It has no full chart persistence/cross-filtering/pivot-chart framework. These are meaningful slices with explicit boundaries, not aliases for complete parity.
 
-1. Pure core tests cover order, filtering, precision, group/tree identity, edit atomicity, history and export safety.
-2. React tests cover rendered semantics and controlled interactions.
-3. Real-browser tests cover scrolling, focus through virtualization/pinning, pointer resize, downloads and integration.
-4. Packaging checks build declarations/ESM and verify imports from packed artifacts.
-5. Manual audits cover screen readers, touch, contrast and product behavior beyond automated coverage.
+## Optional document output
 
-The [feature ledger](FEATURE_PARITY.md) is the support boundary. Planned interfaces and design descriptions here must never be presented as shipped capabilities.
+`@opengrid/export` reads model values and returns actual OOXML/PDF bytes. It does not scrape React renderers. Dependencies load on demand. Ordinary XLSX formula-like strings stay strings; formula descriptors require explicit opt-in. PDF's standard Helvetica path supports WinAnsi, rejecting unsupported text rather than silently corrupting it. CSV/TSV keep formula-prefix safeguards. File validation uses independent ZIP/PDF readers; native import remains absent.
+
+## Verification and accessibility
+
+Core tests cover algorithms, precision, atomicity, formula graphs and provider lifecycles. Component tests cover editors, charts, ranges and logical windows. Browser tests cover real scrolling/focus, pointer/keyboard behavior, clipboard and downloads. Packaging verifies ESM/declarations and optional dependency boundaries. The [verification record](VERIFICATION.md) owns executed results.
+
+Named controls, visible focus, logical positions, live errors and keyboard alternatives are necessary but do not establish screen-reader conformance. Manual reader/browser/OS scenarios, touch and broader cross-browser evidence remain gaps. The [feature ledger](FEATURE_PARITY.md) defines the supported subsets; full AG Grid parity is not claimed.

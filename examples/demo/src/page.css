@@ -429,3 +429,19 @@ footer a {
 .dark .summary i {
   color: #96cfac;
 }
+.export-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.export-actions > button:not(.primary) {
+  padding: 11px 13px;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  font-size: 12px;
+}
+.export-actions > button:disabled {
+  opacity: 0.5;
+}
