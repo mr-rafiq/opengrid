@@ -15,3 +15,6 @@ export * from "./column-spans.js";
 export * from "./row-spans.js";
 export * from "./locale.js";
 export * from "./direction.js";
+
+export { SetListFilter } from "./set-list-filter.js";
+export type { SetListFilterProps } from "./set-list-filter.js";

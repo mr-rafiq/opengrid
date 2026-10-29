@@ -437,6 +437,59 @@ export const esMessages = Object.freeze({
     `; hay ${_format.number(params.count)} ${_format.plural(params.count, { one: "columna de resultados dinámicos disponible", other: "columnas de resultados dinámicos disponibles" })} del servidor`,
   "remote.serverPage": (params, _format) =>
     `Página del servidor ${_format.number(params.page)} de ${params.pages}`,
+  "setList.values": "Valores",
+  "setList.title": (params, _format) => "Valores de " + params.column,
+  "setList.help":
+    "Las opciones proceden de todas las filas residentes. La búsqueda solo limita las opciones. Los cambios quedan pendientes hasta Aplicar. Los demás filtros de columna, búsqueda y filtros avanzados siguen combinados con este filtro.",
+  "setList.modelRequired":
+    "Se necesita un modelo de cuadrícula residente para elegir valores.",
+  "setList.indexFailed":
+    "No se pudieron generar las opciones. Se conservó el filtro aplicado.",
+  "setList.readFailed":
+    "No se pudo inspeccionar este filtro dentro de los límites admitidos. Se conservó el filtro aplicado.",
+  "setList.applyFailed":
+    "No se pudieron aplicar estos valores. Siga editando o cancele.",
+  "setList.conflict":
+    "El filtro aplicado cambió mientras se editaba este borrador. Recargue el filtro aplicado para descartar el borrador o cancele. Aplicar no está disponible hasta entonces.",
+  "setList.unsupported":
+    "El filtro aplicado no es una lista de valores. Límpielo aquí y pulse Aplicar para reemplazarlo, o cancele para conservarlo.",
+  "setList.removed": (params, _format) =>
+    _format.number(params.count) +
+    " valores seleccionados desaparecieron del origen. Revise el borrador antes de aplicarlo.",
+  "setList.search": "Buscar valores",
+  "setList.searchLimit": "La búsqueda se limita a 256 caracteres.",
+  "setList.choices": "Opciones de valores",
+  "setList.selectMatches": "Seleccionar todos los valores coincidentes",
+  "setList.blank": "(Vacío o no válido)",
+  "setList.entryCount": (params, _format) =>
+    "(" + _format.number(params.count) + " filas)",
+  "setList.invalidHint": (params, _format) =>
+    "Incluye " +
+    _format.number(params.count) +
+    " valores no válidos para el tipo",
+  "setList.empty": "No hay valores coincidentes",
+  "setList.summary": (params, _format) =>
+    _format.number(params.selected) +
+    " de " +
+    _format.number(params.total) +
+    " valores seleccionados de " +
+    _format.number(params.rows) +
+    " filas residentes",
+  "setList.pages": "Páginas de opciones de valores",
+  "setList.page": (params, _format) =>
+    "Página " +
+    _format.number(params.page) +
+    " de " +
+    _format.number(params.pages),
+  "setList.reload": "Recargar el filtro aplicado",
+  "setList.apply": "Aplicar",
+  "setList.choiceIdentity": (params, _format) =>
+    params.type + ": " + params.value,
+  "setList.typeBigInt": "Entero",
+  "setList.typeNumber": "Número",
+  "setList.typeBoolean": "Booleano",
+  "setList.typeText": "Texto",
+  "setList.typeDate": "Fecha",
 } satisfies GridMessages);
 export const esES: GridLocale = Object.freeze({
   id: "es-ES",

@@ -1373,6 +1373,7 @@ export function DataGrid<T>({
         {Component ? (
           <Component
             column={column}
+            model={model}
             filter={filter}
             label={label}
             onFilterChange={(filter) => applyColumnFilter(column.id, filter)}

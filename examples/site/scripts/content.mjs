@@ -63,6 +63,7 @@ const labels = {
   "third-party-notices": "Dependency notices",
   "pinned-full-width-rows": "Pinned & full-width rows",
   "custom-filters": "Custom column filters",
+  "set-filters": "Set-list filters",
   "calculated-columns": "Calculated columns",
 };
 const order = [
@@ -84,6 +85,7 @@ const order = [
   "advanced-filters",
   "filter-builder",
   "custom-filters",
+  "set-filters",
   "find-notes",
   "notes-ui",
   "remote-models",
@@ -125,6 +127,7 @@ const section = (slug) =>
           "advanced-filters",
           "filter-builder",
           "custom-filters",
+          "set-filters",
           "find-notes",
           "notes-ui",
           "pinned-full-width-rows",

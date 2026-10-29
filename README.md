@@ -100,6 +100,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Conditional column spans with pin-boundary clipping, owner-aware keyboard editing/Find and bounded horizontal virtualization.
 - Compiled read-only calculated columns feeding real sort/filter/group/export pipelines, with same-row dependencies and an add/edit authoring example.
 - Controlled custom React filter components and inclusive number/BigInt/ISO-date bounds, preserving valid model filters through invalid drafts and virtualization.
+- Searchable resident set-list panels with bounded paged checkboxes, exact typed membership, staged Apply/Cancel and incoming data/filter reconciliation.
 
 The main browser grid uses the client-side model; separate read-only server and live-viewport React bindings preserve provider order and lifecycle. One cell rectangle is supported; fill extends down/right, and invalid/protected paste rejects the whole transaction. Formula reference rewriting, advanced chart types, full spreadsheet/PDF styling, combined two-dimensional spans and other capabilities remain incomplete. See the ledger for exact scope. Automated accessibility checks are not screen-reader verification.
 
@@ -114,6 +115,8 @@ Read the [column span guide](docs/COLUMN_SPANS.md) for merged cell behavior, the
 Use [managed row moving](docs/ROW_DRAGGING_UI.md) for pointer and keyboard interaction and the [core reorder API](docs/ROW_REORDER.md) for multi-ID operations.
 
 Use the [calculated-column factory](docs/CALCULATED_COLUMNS.md) for compiled derived values, and [custom filter components](docs/CUSTOM_FILTERS.md) to provide controlled React filter interfaces.
+
+Use [resident set-list filters](docs/SET_FILTERS.md) for staged checkbox choices, search, exact BigInt/date identity and update conflicts. Tree/remote value lists and independent multi-filter panels remain open.
 
 ## Keyboard controls
 

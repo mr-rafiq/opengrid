@@ -413,6 +413,57 @@ export const enMessages = Object.freeze({
     `; ${_format.number(params.count)} server pivot result columns available`,
   "remote.serverPage": (params, _format) =>
     `Server page ${_format.number(params.page)} of ${params.pages}`,
+  "setList.values": "Values",
+  "setList.title": (params, _format) => "Values for " + params.column,
+  "setList.help":
+    "Choices come from all resident rows. Search narrows choices only. Changes are staged until Apply. Other column, quick and advanced filters remain combined with this filter.",
+  "setList.modelRequired":
+    "A resident grid model is required to choose values.",
+  "setList.indexFailed":
+    "Unable to build the value choices. The applied filter was preserved.",
+  "setList.readFailed":
+    "This filter could not be inspected within the supported limits. The applied filter was preserved.",
+  "setList.applyFailed":
+    "Unable to apply these values. Keep editing or cancel.",
+  "setList.conflict":
+    "The applied filter changed while this draft was being edited. Reload the applied filter to discard the draft, or Cancel. Apply is unavailable until then.",
+  "setList.unsupported":
+    "The applied filter is not a value list. Clear it here and Apply to replace it, or Cancel to preserve it.",
+  "setList.removed": (params, _format) =>
+    _format.number(params.count) +
+    " selected values disappeared from the source. Review the draft before applying.",
+  "setList.search": "Search values",
+  "setList.searchLimit": "Search is limited to 256 characters.",
+  "setList.choices": "Value choices",
+  "setList.selectMatches": "Select all matching values",
+  "setList.blank": "(Blank or invalid)",
+  "setList.entryCount": (params, _format) =>
+    "(" + _format.number(params.count) + " rows)",
+  "setList.invalidHint": (params, _format) =>
+    "Includes " + _format.number(params.count) + " invalid typed values",
+  "setList.empty": "No matching value choices",
+  "setList.summary": (params, _format) =>
+    _format.number(params.selected) +
+    " of " +
+    _format.number(params.total) +
+    " values selected from " +
+    _format.number(params.rows) +
+    " resident rows",
+  "setList.pages": "Value choice pages",
+  "setList.page": (params, _format) =>
+    "Page " +
+    _format.number(params.page) +
+    " of " +
+    _format.number(params.pages),
+  "setList.reload": "Reload applied filter",
+  "setList.apply": "Apply",
+  "setList.choiceIdentity": (params, _format) =>
+    params.type + ": " + params.value,
+  "setList.typeBigInt": "Integer",
+  "setList.typeNumber": "Number",
+  "setList.typeBoolean": "Boolean",
+  "setList.typeText": "Text",
+  "setList.typeDate": "Date",
 } satisfies GridMessages);
 export const enUS: GridLocale = Object.freeze({
   id: "en-US",

@@ -1,10 +1,12 @@
 import { useEffect, useId, useState } from "react";
-import type { Column, Filter } from "@opengrid/core";
+import type { Column, Filter, GridModel } from "@opengrid/core";
 import { gridMessage, useGridLocale } from "./locale.js";
 import type { GridMessage } from "./locale.js";
 
 export interface ColumnFilterProps<T> {
   column: Column<T>;
+  /** Resident source model, supplied by DataGrid to data-dependent filter panels. */
+  model?: GridModel<T>;
   filter?: Filter;
   label: string;
   onFilterChange: (filter?: Filter) => void;

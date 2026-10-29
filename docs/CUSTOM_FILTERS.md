@@ -11,6 +11,7 @@ Each component receives `ColumnFilterProps<T>`:
 ```ts
 interface ColumnFilterProps<T> {
   column: Column<T>;
+  model?: GridModel<T>;
   filter?: Filter;
   label: string;
   onFilterChange: (filter?: Filter) => void;
@@ -19,6 +20,8 @@ interface ColumnFilterProps<T> {
 ```
 
 The grid binds the callbacks to that component's column and current model.
+It also supplies the optional resident `model` for data-dependent controls such
+as the [staged set-list filter](SET_FILTERS.md).
 Updates use `model.setFilter`, which resets pagination, and reset the vertical
 scroll position. Keep the component type stable between renders. Components
 mount and update through React and may use hooks with normal cleanup; changing

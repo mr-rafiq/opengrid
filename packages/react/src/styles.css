@@ -653,6 +653,37 @@
   align-items: center;
   gap: 5px;
 }
+.og-set-list-filter {
+  width: 100%;
+}
+.og-set-list-filter > button {
+  width: 100%;
+}
+.og-set-list-dialog::backdrop {
+  background: #102b3d55;
+}
+.og-set-list-dialog label > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.og-set-list-dialog button,
+.og-set-list-dialog input[type="text"] {
+  min-height: 32px;
+}
+.og-root .og-set-list-dialog input[type="checkbox"],
+.og-set-list-dialog input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex-shrink: 0;
+}
+@media (pointer: coarse) {
+  .og-root .og-set-list-dialog input[type="checkbox"],
+  .og-set-list-dialog input[type="checkbox"] {
+    width: 24px;
+    height: 24px;
+  }
+}
 @media (pointer: coarse) {
   .og-root input[type="checkbox"] {
     width: 24px;

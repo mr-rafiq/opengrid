@@ -1,6 +1,6 @@
 # Localization
 
-Built-in React workflows share original English (`enUS`) and Spanish (`esES`) catalogs with 347 typed message keys, overrides and immutable notices. Grid, filters, editors/dialogs, remote bindings, charts and print controls consume the provider and retain state during language changes. This is UI localization; the unsupported boundaries below remain part of the contract.
+Built-in React workflows share original English (`enUS`) and Spanish (`esES`) catalogs with 376 typed message keys, overrides and immutable notices. Grid, filters (including the resident set-list dialog), editors/dialogs, remote bindings, charts and print controls consume the provider and retain state during language changes. This is UI localization; the unsupported boundaries below remain part of the contract.
 
 ```tsx
 import { DataGrid, GridLocaleProvider, esES } from "@opengrid/react";

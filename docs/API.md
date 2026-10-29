@@ -334,9 +334,11 @@ Schemas remain fixed per instance. Applying edited definitions recreates a model
 
 ## Custom filter components
 
-`DataGrid.filterComponents` maps column IDs to React component types accepting `ColumnFilterProps<T>`. The grid supplies the column, controlled filter, accessible label and bound `onFilterChange`/`onClear` callbacks. Components use normal React lifecycle; persisted filters survive hiding/unmounting and focused native/custom filter columns stay mounted through horizontal virtualization. The native input remains the default.
+`DataGrid.filterComponents` maps column IDs to React component types accepting `ColumnFilterProps<T>`. The grid supplies the column, optional source `model`, controlled filter, accessible label and bound `onFilterChange`/`onClear` callbacks. Components use normal React lifecycle; persisted filters survive hiding/unmounting and focused native/custom filter columns stay mounted through horizontal virtualization. The native input remains the default.
 
 `NumberRangeFilter` provides inclusive number, exact BigInt-string and ISO-date/timestamp bounds. Invalid or reversed drafts keep the last valid applied filter and show an associated error; external filter changes resynchronize the controls. Multiple independent component instances and AND/OR multi-filter panels are not implemented by this registry. See [custom filters](CUSTOM_FILTERS.md).
+
+`SetListFilter` provides searchable, paged native checkbox choices over all resident source rows, staged Apply/Cancel/Clear, explicit-empty membership and incoming data/filter reconciliation. It uses `createSetFilterIndex(model, columnId, limits?)`, with frozen scalar entries and exact canonical membership independent of formatted labels. Both index and UI enforce documented row/value/text bounds. Tree/remote lists and independent multi-filter panels remain unsupported. See [set-list identity, updates and limits](SET_FILTERS.md).
 
 ## Managed row moving
 

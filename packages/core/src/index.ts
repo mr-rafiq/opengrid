@@ -13,6 +13,15 @@ export * from "./advanced-filters.js";
 export * from "./value-transforms.js";
 export * from "./aligned-columns.js";
 export * from "./calculated-grid.js";
+export * from "./set-filter-index.js";
+export { matchesFilter } from "./filter-predicates.js";
+import {
+  isFilterBlank as blank,
+  filterText as text,
+  comparableFilterValue as comparable,
+  compileFilterPredicate,
+} from "./filter-predicates.js";
+import type { FilterPredicate } from "./filter-predicates.js";
 import { aggregateValues } from "./analytics.js";
 export { getBuiltinRowReorderReason } from "./row-reorder-status.js";
 import { createBuiltinRowReorderStatus } from "./row-reorder-status.js";
@@ -34,69 +43,8 @@ import type {
   Transaction,
 } from "./types.js";
 
-const blank = (value: unknown) =>
-  value === null || value === undefined || value === "";
-const text = (value: unknown) =>
-  value == null ? "" : String(value).toLocaleLowerCase();
 const own = <V>(record: Record<string, V>, key: string): V | undefined =>
   Object.hasOwn(record, key) ? record[key] : undefined;
-
-function comparable(value: unknown, type?: Column<unknown>["type"]): unknown {
-  if (blank(value)) return null;
-  if (type === "bigint") {
-    try {
-      return BigInt(String(value));
-    } catch {
-      return null;
-    }
-  }
-  if (type === "number") {
-    const result = Number(value);
-    return Number.isFinite(result) ? result : null;
-  }
-  if (type === "date") {
-    const result =
-      value instanceof Date ? value.getTime() : Date.parse(String(value));
-    return Number.isFinite(result) ? result : null;
-  }
-  if (type === "boolean")
-    return value === true || value === "true" || value === 1;
-  return typeof value === "string" ? text(value) : value;
-}
-
-export function matchesFilter<T>(
-  value: unknown,
-  filter: Filter,
-  column?: Column<T>,
-): boolean {
-  if (filter.op === "blank") return blank(value);
-  if (filter.op === "notBlank") return !blank(value);
-  if (filter.op === "contains") return text(value).includes(text(filter.value));
-  if (filter.op === "startsWith")
-    return text(value).startsWith(text(filter.value));
-  if (filter.op === "endsWith") return text(value).endsWith(text(filter.value));
-  const left = comparable(value, column?.type);
-  const right = comparable(filter.value, column?.type);
-  if (filter.op === "in")
-    return (
-      Array.isArray(filter.value) &&
-      filter.value.some((item) =>
-        Object.is(left, comparable(item, column?.type)),
-      )
-    );
-  if (filter.op === "equals") return Object.is(left, right);
-  if (filter.op === "notEqual") return !Object.is(left, right);
-  if (left == null || right == null) return false;
-  const a = left as string | number | bigint;
-  const b = right as string | number | bigint;
-  if (filter.op === "gt") return a > b;
-  if (filter.op === "gte") return a >= b;
-  if (filter.op === "lt") return a < b;
-  if (filter.op === "lte") return a <= b;
-  const end = comparable(filter.to, column?.type) as
-    string | number | bigint | null;
-  return filter.op === "between" && end != null && a >= b && a <= end;
-}
 
 /** RFC 4180 quoting with spreadsheet formula neutralisation enabled unconditionally. */
 export function csvCell(value: unknown): string {
@@ -360,16 +308,33 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   function sortedFiltered() {
     if (filteredCache) return filteredCache;
     const terms = text(state.quickFilter).trim().split(/\s+/u).filter(Boolean);
+    // Each calculation owns its predicates. Public filter operands (including Dates)
+    // are mutable, so predicate caches must never outlive the derived result cache.
+    const predicates = new Map<string, Map<Filter, FilterPredicate>>();
+    const testFilter = (row: T, id: string, filter: Filter): boolean => {
+      const value = getValue(row, id);
+      let columnPredicates = predicates.get(id);
+      if (!columnPredicates) {
+        columnPredicates = new Map();
+        predicates.set(id, columnPredicates);
+      }
+      let predicate = columnPredicates.get(filter);
+      if (!predicate) {
+        predicate = compileFilterPredicate(filter, requireColumn(id));
+        columnPredicates.set(filter, predicate);
+      }
+      return predicate(value);
+    };
     const filtered = rows.filter((row) => {
       if (
         !Object.entries(state.filters).every(([id, filter]) =>
-          matchesFilter(getValue(row, id), filter, requireColumn(id)),
+          testFilter(row, id, filter),
         )
       )
         return false;
       if (
         !evaluateFilterExpression(state.advancedFilter, (id, filter) =>
-          matchesFilter(getValue(row, id), filter, requireColumn(id)),
+          testFilter(row, id, filter),
         )
       )
         return false;

@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident set-list filtering
+
+Strict TypeScript, **1,116 tests in 62 files** (110.10 seconds), all three package/declaration builds and the production demo passed with one worker. The 41 new core/component cases cover canonical scalar identity, exact BigInt and negative zero, date instants, blank/invalid compatibility, source-wide counts, frozen indexes, bounded construction, cache expiry, final controlled application, cancellation, live source reconciliation and external-filter conflicts. Calculation-local membership compilation is checked against existing comparisons and actual ordinary/advanced filtering; public direct matcher behavior remains live.
+
+Three focused Chromium flows passed with one worker in **16.7 seconds**. The complete browser suite then passed **61 scenarios in 2.4 minutes**, including final-page keyboard containment, Escape/launcher focus, search-scoped selection across pages, staged Clear, live representative-label changes, retained search DOM/focus, conflict/Reload, exact large-integer choices and native touch in Spanish RTL. The modal passed a serious/critical axe scan with no runtime errors. Screenshot review prompted direction isolation for status/count text and wrapping for long labels; native checkboxes have explicit spaced accessible names and canonical disambiguation. Test fixtures use native dialog stubs compatible with this jsdom version; actual browser modal behavior is verified separately.
+
+Built ESM and React server rendering verified the new public exports, immutable indexes, exact membership, negative-zero behavior, all **376 English/Spanish catalog keys**, RTL markup and literal formatter escaping. The family remains Partial: no tree/remote distinct-value universe, cross-filter availability, Excel modes, independent multi-filter panel or full menu lifecycle is inferred.
+
+The production Pages artifact generated **41 documentation routes**, including the new set-list guide and interactive lab. All **nine production site scenarios passed in 10.8 seconds** with one worker, covering routes/assets, navigation, search/copy, responsive layout, generated links, real 404 behavior and serious/critical axe checks.
+
 ## Native drag entry and CI portability follow-up
 
 The first touch checkpoint, `0c1ac399bb9cb3400435ee85284ae27f74f96e2f`, passed its local checks but failed the existing native row auto-scroll scenario on both Linux workflows. All five new native-touch scenarios passed there. Trace review located the drag target within ten pixels of the browser's lower edge. The scenario now centers the grid away from that edge and repeats the target and outside mouse movements to reliably deliver native `dragover`, following [Playwright's manual-drag guidance](https://playwright.dev/docs/input#dragging-manually). Its original positive-scroll, outside-stop, cancellation, unchanged-row-order and accessibility assertions remain in place.
@@ -7,6 +17,8 @@ The first touch checkpoint, `0c1ac399bb9cb3400435ee85284ae27f74f96e2f`, passed i
 The grid also stops a managed row's pending auto-scroll on an outside `dragenter`, rather than continuing to use its last in-grid point while awaiting another `dragover`. Internal row transitions do not cancel scrolling, and re-entering resumes it. Focused verification passed 24 row-drag component cases and all nine repeated browser scenarios (three cases, three repetitions; 30.7 seconds), including re-entry and no-write cancellation. Strict typing, **1,075 tests in 59 files** (106.19 seconds), all package/declaration builds and the production demo passed with one worker.
 
 The complete Chromium regression suite then passed **58 scenarios with one worker in 2.2 minutes**, including all five native-touch flows and the original row auto-scroll/cancellation scenario. The production Pages build generated **40 documentation routes**, and all **nine site scenarios passed in 10.7 seconds** with one worker.
+
+Published repair `b0c8d3b91ad6ed0401735645ac94d61069b08763` passed [CI](https://github.com/mr-rafiq/opengrid/actions/runs/40878462981) and [Pages](https://github.com/mr-rafiq/opengrid/actions/runs/40878462828) for that exact commit. Live HTTPS checks verified both touch/RTL guide routes and actual native input for both-axis pan, tap/double-tap editing, an actual direction button retaining editor DOM/draft/focus, resize cancellation, source selection, cancelled/no-write fill, numeric series fill and atomic undo. Spanish Edit cell/Extend range controls were verified. Runtime errors and serious/critical axe findings were zero; the deployed screenshot was visually inspected.
 
 ## Native touch input and captured gestures
 

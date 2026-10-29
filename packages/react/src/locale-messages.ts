@@ -357,6 +357,35 @@ export interface GridMessageParams {
   "note.help": { current: number; maximum: number };
   "remote.pivotCount": { count: number };
   "remote.serverPage": { page: number; pages: string };
+  "setList.values": undefined;
+  "setList.title": { column: string };
+  "setList.help": undefined;
+  "setList.modelRequired": undefined;
+  "setList.indexFailed": undefined;
+  "setList.readFailed": undefined;
+  "setList.applyFailed": undefined;
+  "setList.conflict": undefined;
+  "setList.unsupported": undefined;
+  "setList.removed": { count: number };
+  "setList.search": undefined;
+  "setList.searchLimit": undefined;
+  "setList.choices": undefined;
+  "setList.selectMatches": undefined;
+  "setList.blank": undefined;
+  "setList.entryCount": { count: number };
+  "setList.invalidHint": { count: number };
+  "setList.empty": undefined;
+  "setList.summary": { selected: number; total: number; rows: number };
+  "setList.pages": undefined;
+  "setList.page": { page: number; pages: number };
+  "setList.reload": undefined;
+  "setList.apply": undefined;
+  "setList.choiceIdentity": { type: string; value: string };
+  "setList.typeBigInt": undefined;
+  "setList.typeNumber": undefined;
+  "setList.typeBoolean": undefined;
+  "setList.typeText": undefined;
+  "setList.typeDate": undefined;
 }
 export type GridMessageKey = keyof GridMessageParams;
 export interface GridPluralForms {
@@ -934,5 +963,34 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
     page: "number",
     pages: "string",
   },
+  "setList.values": {},
+  "setList.title": { column: "string" },
+  "setList.help": {},
+  "setList.modelRequired": {},
+  "setList.indexFailed": {},
+  "setList.readFailed": {},
+  "setList.applyFailed": {},
+  "setList.conflict": {},
+  "setList.unsupported": {},
+  "setList.removed": { count: "number" },
+  "setList.search": {},
+  "setList.searchLimit": {},
+  "setList.choices": {},
+  "setList.selectMatches": {},
+  "setList.blank": {},
+  "setList.entryCount": { count: "number" },
+  "setList.invalidHint": { count: "number" },
+  "setList.empty": {},
+  "setList.summary": { selected: "number", total: "number", rows: "number" },
+  "setList.pages": {},
+  "setList.page": { page: "number", pages: "number" },
+  "setList.reload": {},
+  "setList.apply": {},
+  "setList.choiceIdentity": { type: "string", value: "string" },
+  "setList.typeBigInt": {},
+  "setList.typeNumber": {},
+  "setList.typeBoolean": {},
+  "setList.typeText": {},
+  "setList.typeDate": {},
 });
 for (const fields of Object.values(MESSAGE_PARAM_TYPES)) Object.freeze(fields);
