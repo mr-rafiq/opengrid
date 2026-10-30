@@ -128,6 +128,13 @@ describe("server-authoritative React block binding", () => {
     );
     await screen.findByRole("button", { name: "Open group East" });
     expect(screen.getByText("1 rows at this route")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Column menu for Name" }),
+    ).toBeNull();
+    expect(
+      fireEvent.contextMenu(screen.getByRole("button", { name: "Sort Name" })),
+    ).toBe(true);
+    expect(screen.queryByRole("menu")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Open group East" }));
     await waitFor(() =>
       expect(serverCell("zebra", "name")?.textContent).toBe("zebra"),

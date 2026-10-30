@@ -32,6 +32,7 @@ import { RichEditorLab } from "./rich-editor-lab";
 import { HierarchyLab } from "./hierarchy-lab";
 import { MultiFilterLab } from "./multi-filter-lab";
 import { ContextMenuLab } from "./context-menu-lab";
+import { ColumnMenuLab } from "./column-menu-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
@@ -204,6 +205,7 @@ function App() {
   const [hierarchyOpen, setHierarchyOpen] = useState(false);
   const [multiFilterOpen, setMultiFilterOpen] = useState(false);
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
@@ -791,6 +793,15 @@ function App() {
             Context commands lab
           </button>
           {contextMenuOpen && <ContextMenuLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setColumnMenuOpen(!columnMenuOpen)}
+            aria-expanded={columnMenuOpen}
+          >
+            Column commands lab
+          </button>
+          {columnMenuOpen && <ColumnMenuLab />}
         </section>
         <section className="pivot-panel">
           <button

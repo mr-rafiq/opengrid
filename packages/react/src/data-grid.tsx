@@ -99,6 +99,9 @@ import {
 import { SelectionCheckbox } from "./selection-checkbox.js";
 import { useGridContextMenu } from "./use-grid-context-menu.js";
 import type { GridContextMenuOptions } from "./context-menu-items.js";
+import { GridContextMenuError } from "./context-menu-items.js";
+import { useColumnMenu } from "./use-column-menu.js";
+import type { GridColumnMenuOptions } from "./column-menu.js";
 
 export interface CellContext<T> {
   value: unknown;
@@ -136,6 +139,7 @@ export interface DataGridProps<T> {
   cellSelection?: boolean;
   /** Real-row commands via right-click, ContextMenu or Shift+F10. Ctrl-right-click keeps the browser menu. */
   contextMenu?: boolean | GridContextMenuOptions<NoInfer<T>>;
+  columnMenu?: boolean | GridColumnMenuOptions<NoInfer<T>>;
   onCellRangeChange?: (range: CellRange | null) => void;
   editorOptions?: Record<string, EditorConfig>;
   renderEditor?: CellEditorRenderer<T>;
@@ -280,6 +284,7 @@ export function DataGrid<T>({
   hierarchySelection = "self",
   cellSelection = true,
   contextMenu = true,
+  columnMenu = true,
   onCellRangeChange,
   editorOptions = {},
   renderEditor,
@@ -628,6 +633,33 @@ export function DataGrid<T>({
   const [focusedFilterColumnId, setFocusedFilterColumnId] = useState<
     string | null
   >(null);
+  const columnMenuButtons = useRef(new Map<string, HTMLButtonElement>());
+  const columnHeaderControls = useRef(new Map<string, HTMLDivElement>());
+  const columnFilterControls = useRef(new Map<string, HTMLDivElement>());
+  const columnChooser = useRef<HTMLDetailsElement>(null);
+  useLayoutEffect(() => {
+    if (!focusedFilterColumnId || !popupHost) return;
+    const id = focusedFilterColumnId,
+      document = popupHost.ownerDocument;
+    const track = (event: Event) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      const header = columnHeaderControls.current.get(id);
+      if (
+        header?.contains(target) ||
+        columnFilterControls.current.get(id)?.contains(target) ||
+        ownsFilterPopup(target, popupHost, id)
+      )
+        return;
+      setFocusedFilterColumnId((current) => (current === id ? null : current));
+    };
+    document.addEventListener("focusin", track, true);
+    document.addEventListener("pointerdown", track, true);
+    return () => {
+      document.removeEventListener("focusin", track, true);
+      document.removeEventListener("pointerdown", track, true);
+    };
+  }, [focusedFilterColumnId, popupHost]);
   const FilterOwner = useMemo(
     () =>
       function FilterOwner({ children }: { children: ReactNode }) {
@@ -1162,6 +1194,82 @@ export function DataGrid<T>({
     };
   }, [model]);
   useImperativeHandle(sizingRef, () => sizingController.current!, [model]);
+  const headerMenu = useColumnMenu({
+    model,
+    state,
+    columns,
+    setting: columnMenu,
+    blocked: Boolean(editing || rowEditing || noteEditing),
+    getBusy: () =>
+      Boolean(
+        editingRef.current ||
+        rowEditing ||
+        noteEditing ||
+        managedDrag.current ||
+        columnResize.isActive() ||
+        ranges.isGestureActive(),
+      ),
+    getSizing: () => sizingController.current,
+    onFocus: (id, anchor) => {
+      ownsCellFocus.current = false;
+      setFocusedFilterColumnId(id);
+      anchor.focus({ preventScroll: true });
+    },
+    onRestoreFocus: (id) => {
+      let button = columnMenuButtons.current.get(id);
+      if (!button?.isConnected || button.disabled)
+        button = [...columnMenuButtons.current.values()].find(
+          (item) => item.isConnected && !item.disabled,
+        );
+      if (button) button.focus({ preventScroll: true });
+      else viewport.current?.focus({ preventScroll: true });
+    },
+    onFilter: (id) => {
+      const container = columnFilterControls.current.get(id);
+      if (container)
+        for (const control of container.querySelectorAll<HTMLElement>(
+          "button,input,select,textarea,[tabindex]",
+        )) {
+          if (
+            control.matches(
+              ':disabled,[aria-disabled="true"],input[type="hidden"]',
+            ) ||
+            control.tabIndex < 0 ||
+            control.closest("[hidden]")
+          )
+            continue;
+          control.focus({ preventScroll: true });
+          if (
+            container.ownerDocument.activeElement !== control &&
+            !control.contains(container.ownerDocument.activeElement)
+          )
+            continue;
+          if (
+            control instanceof HTMLButtonElement &&
+            control.getAttribute("aria-haspopup") === "dialog"
+          )
+            control.click();
+          return;
+        }
+      throw new GridContextMenuError(gridMessage("columnMenu.unavailable"));
+    },
+    canChoose: toolbar,
+    onChoose: () => {
+      const chooser = columnChooser.current;
+      if (!chooser)
+        throw new GridContextMenuError(gridMessage("columnMenu.unavailable"));
+      chooser.open = true;
+      chooser
+        .querySelector<HTMLElement>(
+          "input:not(:disabled),button:not(:disabled),select:not(:disabled)",
+        )
+        ?.focus({ preventScroll: true });
+    },
+    onMessage: (message, failed) => {
+      setError(failed ? message : "");
+      setAnnouncement(message);
+    },
+  });
   const touchTaps = useTouchTaps({
     viewport,
     model,
@@ -3416,7 +3524,7 @@ export function DataGrid<T>({
             <button type="button" onClick={downloadCsv}>
               {t("grid.exportCsv")}
             </button>
-            <details className="og-chooser">
+            <details className="og-chooser" ref={columnChooser}>
               <summary>{t("grid.columns")}</summary>
               <div className="og-chooser-panel">
                 <strong>{t("grid.arrangeView")}</strong>
@@ -3710,6 +3818,14 @@ export function DataGrid<T>({
                     key={column.id}
                     role="columnheader"
                     data-og-size-column-id={column.id}
+                    ref={(element) => {
+                      if (element)
+                        columnHeaderControls.current.set(column.id, element);
+                      else columnHeaderControls.current.delete(column.id);
+                    }}
+                    data-og-column-menus={
+                      columnMenu !== false ? "true" : undefined
+                    }
                     aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                     aria-sort={
                       sort
@@ -3720,6 +3836,71 @@ export function DataGrid<T>({
                     }
                     className={`og-header-cell ${pinOf(column) ? "og-pinned" : ""}`}
                     style={cellStyle(column)}
+                    onFocusCapture={(event) => {
+                      if (
+                        event.target instanceof Element &&
+                        event.target.closest(
+                          '[role="grid"],[role="treegrid"]',
+                        ) === viewport.current
+                      ) {
+                        ownsCellFocus.current = false;
+                        setFocusedFilterColumnId(column.id);
+                      }
+                    }}
+                    onBlurCapture={(event) => {
+                      if (
+                        event.relatedTarget instanceof Node &&
+                        !event.currentTarget.contains(event.relatedTarget) &&
+                        !ownsFilterPopup(
+                          event.relatedTarget,
+                          popupHost,
+                          column.id,
+                        )
+                      )
+                        setFocusedFilterColumnId((current) =>
+                          current === column.id ? null : current,
+                        );
+                    }}
+                    onContextMenu={(event) => {
+                      if (
+                        event.defaultPrevented ||
+                        event.ctrlKey ||
+                        (event.nativeEvent as globalThis.PointerEvent)
+                          .pointerType === "touch"
+                      )
+                        return;
+                      const anchor = columnMenuButtons.current.get(column.id);
+                      if (
+                        anchor &&
+                        headerMenu.open(column, anchor, "context", {
+                          x: event.clientX,
+                          y: event.clientY,
+                        })
+                      )
+                        event.preventDefault();
+                    }}
+                    onKeyDown={(event) => {
+                      if (
+                        event.ctrlKey ||
+                        event.metaKey ||
+                        event.altKey ||
+                        (event.key !== "ContextMenu" &&
+                          !(event.shiftKey && event.key === "F10"))
+                      )
+                        return;
+                      const anchor = columnMenuButtons.current.get(column.id);
+                      if (!anchor) return;
+                      const rect = anchor.getBoundingClientRect();
+                      if (
+                        headerMenu.open(column, anchor, "keyboard", {
+                          x: rect.left,
+                          y: rect.bottom,
+                        })
+                      ) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                      }
+                    }}
                     onDragOver={(event) => event.preventDefault()}
                     onDrop={(event) => {
                       event.preventDefault();
@@ -3773,6 +3954,58 @@ export function DataGrid<T>({
                           : ""}
                       </span>
                     </button>
+                    {columnMenu !== false && (
+                      <button
+                        type="button"
+                        className="og-column-menu-trigger"
+                        ref={(element) => {
+                          if (element)
+                            columnMenuButtons.current.set(column.id, element);
+                          else columnMenuButtons.current.delete(column.id);
+                        }}
+                        aria-label={t("columnMenu.open", {
+                          column: column.header ?? column.id,
+                        })}
+                        aria-haspopup="menu"
+                        aria-expanded={headerMenu.columnId === column.id}
+                        aria-keyshortcuts="Shift+F10 ContextMenu ArrowDown"
+                        disabled={Boolean(editing || rowEditing || noteEditing)}
+                        onClick={(event) => {
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
+                          headerMenu.open(
+                            column,
+                            event.currentTarget,
+                            event.detail === 0 ? "keyboard" : "button",
+                            { x: rect.left, y: rect.bottom },
+                          );
+                        }}
+                        onKeyDown={(event) => {
+                          if (
+                            event.key !== "ArrowDown" ||
+                            event.ctrlKey ||
+                            event.metaKey ||
+                            event.altKey
+                          )
+                            return;
+                          const rect =
+                            event.currentTarget.getBoundingClientRect();
+                          if (
+                            headerMenu.open(
+                              column,
+                              event.currentTarget,
+                              "keyboard",
+                              { x: rect.left, y: rect.bottom },
+                            )
+                          ) {
+                            event.preventDefault();
+                            event.stopPropagation();
+                          }
+                        }}
+                      >
+                        <span aria-hidden="true">⋮</span>
+                      </button>
+                    )}
                     <div
                       role="separator"
                       tabIndex={0}
@@ -3844,6 +4077,11 @@ export function DataGrid<T>({
                     key={column.id}
                     aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                     className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
+                    ref={(element) => {
+                      if (element)
+                        columnFilterControls.current.set(column.id, element);
+                      else columnFilterControls.current.delete(column.id);
+                    }}
                     style={cellStyle(column)}
                     onFocusCapture={(event) => {
                       if (
@@ -3961,6 +4199,7 @@ export function DataGrid<T>({
         />
       )}
       {cellMenu.render}
+      {headerMenu.render}
       {noteEditing && notes !== false && (
         <CellNoteDialog
           store={notesStore}

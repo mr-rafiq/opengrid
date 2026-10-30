@@ -2,6 +2,8 @@
 
 OpenGrid supports fixed widths, continuous container-based flex allocation, manual resize, explicit proportional size-to-fit, and an explicit rendered-text autosizing command. These APIs are original and are not a drop-in AG Grid API.
 
+`autoSizeColumns(ids?, { includeHeader?, signal? })` supports an operation-specific `AbortSignal`. A pre-aborted request returns `cancelReason: "aborted"` without reading the view or superseding pending valid work. Abort listeners are detached on completion/cancellation; an old signal cannot cancel a newer request. [Header commands](COLUMN_MENUS.md) pass Escape cancellation to this same controller.
+
 ```tsx
 import { useRef } from "react";
 import { createGrid } from "@opengrid/core";

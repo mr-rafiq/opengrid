@@ -77,6 +77,36 @@ async function open() {
 }
 afterEach(() => cleanup());
 describe("context menu lifecycle and keyboard", () => {
+  it("preserves an equivalent grid inline offset through RTL but dismisses actual subsequent scrolling", async () => {
+    const viewport = document.createElement("div");
+    viewport.setAttribute("role", "grid");
+    viewport.setAttribute("dir", "ltr");
+    viewport.scrollLeft = 120;
+    const anchor = document.createElement("button");
+    viewport.append(anchor);
+    document.body.append(viewport);
+    const closed = vi.fn();
+    const view = render(
+      <GridContextMenu
+        context={context}
+        items={[item("inspect", "Inspect")]}
+        point={point}
+        returnFocus={anchor}
+        isCurrent={() => true}
+        onClose={closed}
+      />,
+    );
+    viewport.setAttribute("dir", "rtl");
+    viewport.scrollLeft = -120;
+    fireEvent.scroll(viewport);
+    expect(closed).not.toHaveBeenCalled();
+    viewport.scrollLeft = -121;
+    fireEvent.scroll(viewport);
+    expect(closed).toHaveBeenCalledTimes(1);
+    view.unmount();
+    viewport.remove();
+    await act(async () => {});
+  });
   it("aborts replaced standalone contexts and cannot let old completions unlock new work", async () => {
     const completions: (() => void)[] = [];
     const action = vi.fn(

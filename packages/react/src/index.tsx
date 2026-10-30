@@ -1,4 +1,17 @@
 export * from "./data-grid.js";
+export {
+  GridColumnMenu,
+  prepareColumnMenuItems,
+  COLUMN_MENU_LIMITS,
+} from "./column-menu.js";
+export type {
+  GridColumnMenuProps,
+  GridColumnMenuContext,
+  GridColumnMenuItem,
+  GridColumnMenuAction,
+  GridColumnMenuSeparator,
+  GridColumnMenuOptions,
+} from "./column-menu.js";
 export { GridContextMenu } from "./context-menu.js";
 export type { GridContextMenuProps } from "./context-menu.js";
 export {

@@ -383,6 +383,9 @@ export function ServerDataGrid<T>({
         height={height}
         ariaLabel={ariaLabel}
         toolbar={false}
+        // Resident grouping/expansion commands must not mutate the loaded-page facade.
+        // Dedicated remote header commands need their own provider query contract.
+        columnMenu={false}
         pagination={false}
         cellSelection={false}
         renderCell={({ value, row, column }) => {

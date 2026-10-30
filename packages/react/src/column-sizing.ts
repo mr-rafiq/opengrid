@@ -8,9 +8,18 @@ import {
 
 export interface AutoSizeOptions {
   includeHeader?: boolean;
+  /** Cancels only this request; an already-aborted request never supersedes current work. */
+  signal?: AbortSignal;
 }
 export type AutoSizeCancelReason =
-  "superseded" | "model" | "view" | "fonts" | "disposed" | "busy" | "limits";
+  | "superseded"
+  | "model"
+  | "view"
+  | "fonts"
+  | "disposed"
+  | "busy"
+  | "limits"
+  | "aborted";
 export type AutoSizeSkipReason =
   | "unknown"
   | "hidden"
@@ -442,6 +451,16 @@ export function createColumnSizingController<T>(
         typeof options.includeHeader !== "boolean"
       )
         throw new TypeError("includeHeader must be boolean");
+      const signal = options.signal;
+      if (
+        signal !== undefined &&
+        (!signal ||
+          typeof signal.aborted !== "boolean" ||
+          typeof signal.addEventListener !== "function" ||
+          typeof signal.removeEventListener !== "function")
+      )
+        throw new TypeError("signal must be an AbortSignal");
+      if (signal?.aborted) return frozenReport([], [], [], "aborted");
       if (ids !== undefined && Array.isArray(ids) && ids.length > MAX_COLUMNS) {
         cancel("superseded");
         return frozenReport([], [], [], "limits");
@@ -554,9 +573,11 @@ export function createColumnSizingController<T>(
       let probe: HTMLSpanElement | undefined;
       let releaseWork = () => {};
       let cleaned = false;
+      const aborted = () => invalidate("aborted");
       operation.dispose = () => {
         if (cleaned) return;
         cleaned = true;
+        signal?.removeEventListener("abort", aborted);
         releaseWork();
         unsubscribe();
         mutation?.disconnect();
@@ -596,6 +617,7 @@ export function createColumnSizingController<T>(
       }
       function valid() {
         if (operation.reason) return false;
+        if (signal?.aborted) return invalidate("aborted");
         const latest = getSnapshot();
         if (disposed) return invalidate("disposed");
         if (latest.model !== context.model || latest.model.getState() !== state)
@@ -608,9 +630,12 @@ export function createColumnSizingController<T>(
           return invalidate("view");
         if (latest.busy) return invalidate("busy");
         if (fonts?.status === "loading") return invalidate("fonts");
+        if (signal?.aborted) return invalidate("aborted");
         return !operation.reason;
       }
       try {
+        signal?.addEventListener("abort", aborted, { once: true });
+        if (signal?.aborted) invalidate("aborted");
         // A microtask checkpoint lets same-event model/view changes cancel before measurement or writes.
         await checkpoint();
         if (!valid()) return frozenReport([], [], skipped, operation.reason);

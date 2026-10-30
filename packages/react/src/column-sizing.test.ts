@@ -454,6 +454,145 @@ describe("bounded rendered default-text sizing", () => {
     dispose.push(() => fresh.dispose());
     expect((await fresh.autoSizeColumns()).cancelled).toBe(false);
   });
+  it("keeps pre-aborted sizing silent and does not supersede an authorized pending request", async () => {
+    const request = new AbortController();
+    request.abort();
+    const read = vi.fn(() => {
+      throw new Error("No source reads expected");
+    });
+    const silent = createColumnSizingController<Row>(read);
+    dispose.push(() => silent.dispose());
+    expect(
+      (await silent.autoSizeColumns(undefined, { signal: request.signal }))
+        .cancelReason,
+    ).toBe("aborted");
+    expect(read).not.toHaveBeenCalled();
+    const f = fixture();
+    f.sample("value", "Rendered pending text");
+    const pending = f.controller.autoSizeColumns();
+    expect(
+      (
+        await f.controller.autoSizeColumns(undefined, {
+          signal: request.signal,
+        })
+      ).cancelReason,
+    ).toBe("aborted");
+    expect((await pending).cancelled).toBe(false);
+  });
+  it("cancels a request from its own signal without writing and permits a fresh request", async () => {
+    const f = fixture();
+    f.sample("value", "Rendered text");
+    const write = vi.spyOn(f.model, "setState"),
+      request = new AbortController();
+    const pending = f.controller.autoSizeColumns(undefined, {
+      signal: request.signal,
+    });
+    request.abort();
+    const report = await pending;
+    expect(report.cancelReason).toBe("aborted");
+    expect(report.measured).toEqual([]);
+    expect(write).not.toHaveBeenCalled();
+    expect(
+      f.root.ownerDocument.querySelector('[style*="-100000px"]'),
+    ).toBeNull();
+    expect((await f.controller.autoSizeColumns()).cancelled).toBe(false);
+    expect(write).toHaveBeenCalledTimes(1);
+  });
+  it("releases a cancelled paint checkpoint and ignores its late callback", async () => {
+    const f = fixture();
+    for (let i = 0; i < 65; i++) f.sample("value", `Rendered sample ${i}`);
+    const frameDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        "requestAnimationFrame",
+      ),
+      cancelDescriptor = Object.getOwnPropertyDescriptor(
+        window,
+        "cancelAnimationFrame",
+      );
+    let frame!: FrameRequestCallback, entered!: () => void;
+    const scheduled = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    Object.defineProperty(window, "requestAnimationFrame", {
+      configurable: true,
+      value: (callback: FrameRequestCallback) => {
+        frame = callback;
+        entered();
+        return 1;
+      },
+    });
+    const cancelFrame = vi.fn();
+    Object.defineProperty(window, "cancelAnimationFrame", {
+      configurable: true,
+      value: cancelFrame,
+    });
+    try {
+      const write = vi.spyOn(f.model, "setState"),
+        request = new AbortController();
+      const pending = f.controller.autoSizeColumns(undefined, {
+        signal: request.signal,
+      });
+      await scheduled;
+      request.abort();
+      expect((await pending).cancelReason).toBe("aborted");
+      expect(cancelFrame).toHaveBeenCalledWith(1);
+      expect(write).not.toHaveBeenCalled();
+      frame(0);
+      await Promise.resolve();
+      expect(write).not.toHaveBeenCalled();
+      expect(
+        f.root.ownerDocument.querySelector('[style*="-100000px"]'),
+      ).toBeNull();
+    } finally {
+      if (frameDescriptor)
+        Object.defineProperty(window, "requestAnimationFrame", frameDescriptor);
+      else Reflect.deleteProperty(window, "requestAnimationFrame");
+      if (cancelDescriptor)
+        Object.defineProperty(window, "cancelAnimationFrame", cancelDescriptor);
+      else Reflect.deleteProperty(window, "cancelAnimationFrame");
+    }
+  });
+  it("isolates superseded signals from newer work and removes completed request listeners", async () => {
+    const f = fixture();
+    f.sample("value", "Rendered text");
+    const oldRequest = new AbortController(),
+      request = new AbortController();
+    const added = vi.spyOn(request.signal, "addEventListener"),
+      removed = vi.spyOn(request.signal, "removeEventListener");
+    const first = f.controller.autoSizeColumns(undefined, {
+        signal: oldRequest.signal,
+      }),
+      second = f.controller.autoSizeColumns(undefined, {
+        signal: request.signal,
+      });
+    oldRequest.abort();
+    expect((await first).cancelReason).toBe("superseded");
+    expect((await second).cancelled).toBe(false);
+    const handler = added.mock.calls.find((call) => call[0] === "abort")![1];
+    expect(removed).toHaveBeenCalledWith("abort", handler);
+    const next = f.controller.autoSizeColumns();
+    request.abort();
+    expect((await next).cancelled).toBe(false);
+  });
+  it("rejects malformed cancellation options without replacing a valid pending request", async () => {
+    const f = fixture();
+    f.sample("value", "Rendered text");
+    const pending = f.controller.autoSizeColumns();
+    const invalid = [
+      null,
+      {},
+      { aborted: "false", addEventListener() {}, removeEventListener() {} },
+      { aborted: false, addEventListener: 1, removeEventListener() {} },
+    ].map((signal) =>
+      f.controller.autoSizeColumns(undefined, {
+        signal: signal as unknown as AbortSignal,
+      }),
+    );
+    await Promise.all(
+      invalid.map((result) => expect(result).rejects.toThrow(TypeError)),
+    );
+    expect((await pending).cancelled).toBe(false);
+  });
   it("reads the viewport at command time and falls back safely for hidden or SSR roots", async () => {
     const f = fixture();
     f.sample("value", "rendered");

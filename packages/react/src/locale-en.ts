@@ -1,5 +1,29 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "columnMenu.open": (params, _format) => `Column menu for ${params.column}`,
+  "columnMenu.title": (params, _format) =>
+    `Column commands for ${params.column}`,
+  "columnMenu.sortAsc": "Sort ascending",
+  "columnMenu.sortDesc": "Sort descending",
+  "columnMenu.sortClear": "Clear this sort",
+  "columnMenu.unpin": "Unpin column",
+  "columnMenu.group": (params, _format) => `Group by ${params.column}`,
+  "columnMenu.ungroup": (params, _format) => `Remove ${params.column} grouping`,
+  "columnMenu.hide": (params, _format) => `Hide ${params.column}`,
+  "columnMenu.autoSize": "Size this column",
+  "columnMenu.autoSizeRendered": "Size rendered columns",
+  "columnMenu.fit": "Fit columns to grid",
+  "columnMenu.resetWidth": "Reset this width",
+  "columnMenu.filter": "Focus column filter",
+  "columnMenu.chooser": "Choose columns",
+  "columnMenu.expand": "Expand groups",
+  "columnMenu.collapse": "Collapse groups",
+  "columnMenu.unavailable": "The column command is temporarily unavailable.",
+  "columnMenu.sizingCancelled": "Column sizing was cancelled. Try again.",
+  "columnMenu.noSamples": "No rendered default text is available to measure.",
+  "columnMenu.groupLimit": "This hierarchy exceeds the menu expansion limit.",
+  "columnMenu.applied": (params, _format) =>
+    `Column command applied to ${params.column}`,
   "contextMenu.changed":
     "The grid changed while preparing the menu. Open it again.",
   "contextMenu.title": (params, _format) =>

@@ -1,5 +1,27 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "columnMenu.open": { column: string };
+  "columnMenu.title": { column: string };
+  "columnMenu.sortAsc": undefined;
+  "columnMenu.sortDesc": undefined;
+  "columnMenu.sortClear": undefined;
+  "columnMenu.unpin": undefined;
+  "columnMenu.group": { column: string };
+  "columnMenu.ungroup": { column: string };
+  "columnMenu.hide": { column: string };
+  "columnMenu.autoSize": undefined;
+  "columnMenu.autoSizeRendered": undefined;
+  "columnMenu.fit": undefined;
+  "columnMenu.resetWidth": undefined;
+  "columnMenu.filter": undefined;
+  "columnMenu.chooser": undefined;
+  "columnMenu.expand": undefined;
+  "columnMenu.collapse": undefined;
+  "columnMenu.unavailable": undefined;
+  "columnMenu.sizingCancelled": undefined;
+  "columnMenu.noSamples": undefined;
+  "columnMenu.groupLimit": undefined;
+  "columnMenu.applied": { column: string };
   "contextMenu.changed": undefined;
   "contextMenu.title": { column: string; rowId: string };
   "contextMenu.failed": undefined;
@@ -493,6 +515,28 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "columnMenu.open": { column: "string" },
+  "columnMenu.title": { column: "string" },
+  "columnMenu.sortAsc": {},
+  "columnMenu.sortDesc": {},
+  "columnMenu.sortClear": {},
+  "columnMenu.unpin": {},
+  "columnMenu.group": { column: "string" },
+  "columnMenu.ungroup": { column: "string" },
+  "columnMenu.hide": { column: "string" },
+  "columnMenu.autoSize": {},
+  "columnMenu.autoSizeRendered": {},
+  "columnMenu.fit": {},
+  "columnMenu.resetWidth": {},
+  "columnMenu.filter": {},
+  "columnMenu.chooser": {},
+  "columnMenu.expand": {},
+  "columnMenu.collapse": {},
+  "columnMenu.unavailable": {},
+  "columnMenu.sizingCancelled": {},
+  "columnMenu.noSamples": {},
+  "columnMenu.groupLimit": {},
+  "columnMenu.applied": { column: "string" },
   "contextMenu.changed": {},
   "contextMenu.title": { column: "string", rowId: "string" },
   "contextMenu.failed": {},

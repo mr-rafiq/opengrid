@@ -1,5 +1,34 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const esMessages = Object.freeze({
+  "columnMenu.open": (params, _format) => `Menú de columna de ${params.column}`,
+  "columnMenu.title": (params, _format) =>
+    `Acciones de columna de ${params.column}`,
+  "columnMenu.sortAsc": "Ordenar de forma ascendente",
+  "columnMenu.sortDesc": "Ordenar de forma descendente",
+  "columnMenu.sortClear": "Quitar esta ordenación",
+  "columnMenu.unpin": "Desfijar columna",
+  "columnMenu.group": (params, _format) => `Agrupar por ${params.column}`,
+  "columnMenu.ungroup": (params, _format) =>
+    `Quitar la agrupación de ${params.column}`,
+  "columnMenu.hide": (params, _format) => `Ocultar ${params.column}`,
+  "columnMenu.autoSize": "Ajustar esta columna",
+  "columnMenu.autoSizeRendered": "Ajustar las columnas renderizadas",
+  "columnMenu.fit": "Ajustar columnas a la cuadrícula",
+  "columnMenu.resetWidth": "Restablecer este ancho",
+  "columnMenu.filter": "Ir al filtro de columna",
+  "columnMenu.chooser": "Elegir columnas",
+  "columnMenu.expand": "Expandir grupos",
+  "columnMenu.collapse": "Contraer grupos",
+  "columnMenu.unavailable":
+    "La acción de columna no está disponible temporalmente.",
+  "columnMenu.sizingCancelled":
+    "Se canceló el ajuste de columnas. Inténtelo de nuevo.",
+  "columnMenu.noSamples":
+    "No hay texto predeterminado renderizado que se pueda medir.",
+  "columnMenu.groupLimit":
+    "Esta jerarquía supera el límite de expansión del menú.",
+  "columnMenu.applied": (params, _format) =>
+    `Acción aplicada a la columna ${params.column}`,
   "contextMenu.changed":
     "La cuadrícula cambió al preparar el menú. Ábralo de nuevo.",
   "contextMenu.title": (params, _format) =>
