@@ -137,7 +137,7 @@ it("keeps a live subscription, focused row and data while translating count/load
     </GridLocaleProvider>,
   );
   expect(screen.getByText(/10\.000 filas en directo/)).toBeTruthy();
-  expect(screen.getByText("Proveedor en directo de solo lectura")).toBeTruthy();
+  expect(screen.getByText("Proveedor de solo lectura")).toBeTruthy();
   expect(target.textContent).toBe("Business value");
   expect(document.activeElement).toBe(target);
   expect(subscribe.mock.calls.length).toBe(calls);

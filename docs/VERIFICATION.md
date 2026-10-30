@@ -13,6 +13,8 @@ Published [`738de886c772264c633f11cfcb0065afea53a14e`](https://github.com/mr-raf
 
 Public screenshot inspection found that the shared status text still described an infinite provider as live. The common English/Spanish status is now the neutral Read-only provider / Proveedor de solo lectura; each model retains its distinct grid/count labels. Existing React and actual-browser flows now assert the status. The targeted remote/locale selection passed **40 tests in three files in 8.53 seconds** and all **five Chromium infinite flows passed in 15.2 seconds**. No new translation key or data behavior changed.
 
+The label follow-up's full CI exposed one stale Spanish live-provider expectation: **1,663 passed, one assertion failed**. That expectation now matches the shared neutral wording. The focused localization/remote set, including the previously missed file, passed **43 tests in four files in 10.81 seconds**. The only other occurrence of the former English wording is the intended negative assertion.
+
 ## Scoped server note ownership
 
 A negative React regression reproduced a root group and its child route sharing a legal node ID and leaking the root note into the child. The fix keeps public IDs unchanged and scopes the default note store by provider instance, serialized query and route. One backing store enforces combined count/text/serialized limits across namespaces; scoped replacement/import/clear/prune preserve other namespaces atomically. A pure optional application resolver supports explicitly owned persistence without allocating empty route stores.
