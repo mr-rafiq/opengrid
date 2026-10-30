@@ -22,6 +22,8 @@ export interface Column<T> {
   valueCache?: boolean;
   colSpan?: number | ((row: T) => number);
   spanRows?: boolean | ((previous: T, next: T) => boolean);
+  wrapText?: boolean;
+  autoHeight?: boolean;
   valueFormatter?: (value: unknown, row: T) => string;
   valueParser?: (value: unknown, row: T) => unknown;
   validate?: (value: unknown, row: T) => string | undefined;

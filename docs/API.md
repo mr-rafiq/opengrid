@@ -286,7 +286,7 @@ Automated browser checks and ARIA attributes do not establish screen-reader conf
 
 ## Variable heights, detail blocks and grouped headers
 
-`getRowHeight(node)` overrides the client row's fallback `rowHeight`. `createRowLayout(heights)` supplies immutable prefix offsets and binary-search windows; callback-provided dimensions are not automatic DOM measurements. `renderDetail({row,rowId})` renders client detail content, including a separately owned nested grid. `detailHeight` defaults to 180 and accepts a number/row callback. Expansion is uncontrolled through `defaultExpandedDetailRows` or controlled through `expandedDetailRows` plus `onExpandedDetailRowsChange`. Alt Enter toggles a focused data row's detail. The application owns nested model lifecycle/data refresh; there is no ResizeObserver sizing or remote master/detail strategy. See [layout](ROW_LAYOUT.md).
+`getRowHeight(node)` overrides the client row's fallback `rowHeight`. `createRowLayout(heights)` supplies immutable prefix offsets and binary-search windows; callback-provided dimensions set minimum heights. Client columns can opt into `wrapText` and `autoHeight`; `autoRowHeight` tightens measurement cache/connection budgets, and `rowHeightRef` exposes `reset()`. See [automatic heights](AUTO_ROW_HEIGHT.md). `renderDetail({row,rowId})` renders client detail content, including a separately owned nested grid. `detailHeight` defaults to 180 and accepts a number/row callback. Expansion is uncontrolled through `defaultExpandedDetailRows` or controlled through `expandedDetailRows` plus `onExpandedDetailRowsChange`. Alt Enter toggles a focused data row's detail. The application owns nested model lifecycle/data refresh; there is no automatic detail sizing or remote master/detail strategy. See [layout](ROW_LAYOUT.md).
 
 `Column.groupPath` supplies nested header labels; `columnGroups` defaults true. `computeHeaderGroups` and `HeaderGroupRows` split contiguous segments by pin region, retain logical spans/positions through horizontal windows and support a collapse callback. Client DataGrid collapse keeps a representative visible leaf and restores prior visibility on expansion. There is no married-child policy, group-resize distribution or group drag. See [groups](COLUMN_GROUPS.md).
 
@@ -368,7 +368,7 @@ The React package exports `createColumnSpanPlan`, `getColumnSpanOwner` and `getC
 
 Owner editing changes only the source owner row. Enter resolves the next logical row against the new run plan; Down skips a merged run. Find and notes target owners, row selection remains per source row, and the separate row form retains all visible fields. Configured row spans disable rectangular grid clipboard/fill and managed row movement. Combined active row/column spans use the separate bounded rectangular-ownership contract.
 
-`createRowSpanPlan` exports compact immutable runs with binary `ownerAt`/`intersecting` lookups. Limits are 100,000 rows, eight active span columns, one million work units and 1000 rows per run; limits can be tightened. Auto-measured heights, merged exports and remote adapters remain unsupported. See [row spans](ROW_SPANS.md).
+`createRowSpanPlan` exports compact immutable runs with binary `ownerAt`/`intersecting` lookups. Limits are 100,000 rows, eight active span columns, one million work units and 1000 rows per run; limits can be tightened. Bounded client auto-measured heights are supported; merged exports and remote adapters remain unsupported. See [row spans](ROW_SPANS.md).
 
 ## UI localization
 

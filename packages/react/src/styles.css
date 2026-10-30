@@ -358,6 +358,18 @@
   text-overflow: ellipsis;
   display: block;
 }
+.og-wrap-text .og-cell-content {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  min-width: 0;
+  width: 100%;
+}
+.og-cell.og-auto-height {
+  align-items: flex-start;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
 .og-pinned {
   background: inherit;
   box-shadow: 1px 0 0 var(--og-border);

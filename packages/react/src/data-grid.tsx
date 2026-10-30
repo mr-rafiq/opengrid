@@ -20,6 +20,7 @@ import type {
 import type {
   Column,
   GridModel,
+  GridState,
   RowNode,
   CellPosition,
   CellRange,
@@ -102,6 +103,13 @@ import type { GridContextMenuOptions } from "./context-menu-items.js";
 import { GridContextMenuError } from "./context-menu-items.js";
 import { useColumnMenu } from "./use-column-menu.js";
 import type { GridColumnMenuOptions } from "./column-menu.js";
+import { useAutoRowHeight } from "./use-auto-row-height.js";
+import { useAutoHeightAnchor } from "./use-auto-height-anchor.js";
+import {
+  AUTO_ROW_HEIGHT_LIMITS,
+  type AutoRowHeightOptions,
+  type DataGridRowHeightController,
+} from "./auto-row-heights.js";
 
 const noteStoreKeys = new WeakMap<CellNotesStore, number>();
 let nextNoteStoreKey = 0;
@@ -123,6 +131,8 @@ export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
   sizingRef?: Ref<DataGridSizingController>;
+  rowHeightRef?: Ref<DataGridRowHeightController>;
+  autoRowHeight?: AutoRowHeightOptions;
   /** Latest applied filter for guarded popups; rendered state remains model-owned. */
   getColumnFilter?: (columnId: string) => Filter | undefined;
   /** Registered formula models are detected automatically. A supplied controller must own this model. */
@@ -257,6 +267,24 @@ function sameSpanStateValue(
   return true;
 }
 const EMPTY_ROW_IDS: readonly string[] = Object.freeze([]);
+function compatibleAutoHeightState(
+  previous: GridState,
+  next: GridState,
+): boolean {
+  if (previous === next) return true;
+  const keys = Object.keys(previous) as (keyof GridState)[];
+  if (keys.length !== Object.keys(next).length) return false;
+  const budget = { remaining: 50_000 };
+  let changed = false;
+  for (const key of keys) {
+    if (!Object.hasOwn(next, key)) return false;
+    if (!sameSpanStateValue(previous[key], next[key], budget)) {
+      if (key !== "selected" && key !== "columnWidths") return false;
+      changed = true;
+    }
+  }
+  return changed;
+}
 const ROW_DRAG_MIME = "application/x-opengrid-managed-row";
 const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
   <div
@@ -272,6 +300,8 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 export function DataGrid<T>({
   model,
   sizingRef,
+  rowHeightRef,
+  autoRowHeight: autoRowHeightOptions,
   getColumnFilter,
   formulas: suppliedFormulas,
   direction = "ltr",
@@ -324,6 +354,24 @@ export function DataGrid<T>({
     model.getState,
   );
   const allColumns = model.getColumns();
+  let autoHeightColumnCount = 0;
+  for (const column of allColumns) {
+    if (
+      (column.wrapText !== undefined && typeof column.wrapText !== "boolean") ||
+      (column.autoHeight !== undefined &&
+        typeof column.autoHeight !== "boolean")
+    )
+      throw new TypeError(
+        "wrapText and autoHeight must be boolean column settings",
+      );
+    if (
+      column.autoHeight &&
+      ++autoHeightColumnCount > AUTO_ROW_HEIGHT_LIMITS.maxColumns
+    )
+      throw new RangeError(
+        "Automatic row height supports at most eight configured columns",
+      );
+  }
   const groupedFilterIds = allColumns
     .filter((column) => {
       const filter = Object.hasOwn(state.filters, column.id)
@@ -571,6 +619,9 @@ export function DataGrid<T>({
         ...(editing?.rowId === node?.id
           ? [columns.findIndex((column) => column.id === editing?.columnId)]
           : []),
+        ...columns.flatMap((column, index) =>
+          column.autoHeight ? [index] : [],
+        ),
       ],
     });
   }
@@ -746,9 +797,43 @@ export function DataGrid<T>({
         columns.findIndex((column) => column.id === focus.columnId),
         columns.findIndex((column) => column.id === editing?.columnId),
         columns.findIndex((column) => column.id === focusedFilterColumnId),
+        ...columns.flatMap((column, index) =>
+          column.autoHeight ? [index] : [],
+        ),
       ],
     },
   );
+  const autoRowHeight = useAutoRowHeight({
+    enabled: columns.some((column) => column.autoHeight),
+    model,
+    state,
+    rows,
+    entries: projection.rows,
+    compatibleState: compatibleAutoHeightState,
+    limits: autoRowHeightOptions,
+    signature: [
+      direction,
+      renderCell,
+      renderDetail,
+      detailHeight,
+      getRowHeight,
+      JSON.stringify(detailIds),
+      ...columns.flatMap((column) => [
+        column.id,
+        widthOf(column),
+        pinOf(column),
+        column.colSpan,
+        column.spanRows,
+        column.valueGetter,
+        column.valueFormatter,
+        column.autoHeight,
+        column.wrapText,
+      ]),
+    ],
+  });
+  useImperativeHandle(rowHeightRef, () => autoRowHeight.api, [
+    autoRowHeight.api,
+  ]);
   const rowGeometry = useMemo(() => {
     const expanded = new Set(detailIds);
     let detailsBefore = 0;
@@ -781,11 +866,13 @@ export function DataGrid<T>({
       before.push(detailsBefore);
       if (detail) detailsBefore++;
     }
+    const measuredHeights = autoRowHeight.adjust(baseHeights);
     const makeLayout = (region: RowRegion) =>
       createRowLayout(
         projection[region].map(
           (entry) =>
-            baseHeights[entry.visualIndex] + detailHeights[entry.visualIndex],
+            measuredHeights[entry.visualIndex] +
+            detailHeights[entry.visualIndex],
         ),
       );
     const layouts = {
@@ -800,7 +887,7 @@ export function DataGrid<T>({
         const entry = projection.rows[row];
         return layouts[entry.region].offset(entry.regionIndex);
       },
-      baseHeights,
+      baseHeights: measuredHeights,
       detailHeights,
       before,
       detailCount: detailsBefore,
@@ -815,6 +902,8 @@ export function DataGrid<T>({
     renderDetail,
     detailHeight,
     JSON.stringify(detailIds),
+    autoRowHeight.version,
+    autoRowHeight.epoch,
   ]);
   const pinnedTopHeight = rowGeometry.layouts.top.totalHeight;
   const rowSpanCache = useRef<{
@@ -967,6 +1056,19 @@ export function DataGrid<T>({
   );
   const bodyViewportHeight =
     safeHeight - headerHeight - pinnedTopHeight - pinnedBottomHeight;
+  useAutoHeightAnchor({
+    enabled: autoHeightColumnCount > 0,
+    model,
+    state,
+    entries: projection.body,
+    layout: rowGeometry.layout,
+    baseHeights: rowGeometry.baseHeights,
+    viewport,
+    height: safeHeight,
+    inset: headerHeight + pinnedTopHeight + pinnedBottomHeight,
+    scrollTop,
+    setScrollTop,
+  });
   const { start: first, end: last } = rowGeometry.layout.window(
     scrollTop,
     bodyViewportHeight,
@@ -2755,6 +2857,7 @@ export function DataGrid<T>({
                   ? Boolean(rowGeometry.detailHeights[row])
                   : undefined
             }
+            data-og-row-id={node.id}
             className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : ""}`}
             style={{
               top: rowGeometry.offset(row),
@@ -2999,7 +3102,7 @@ export function DataGrid<T>({
                       data-row-id={node.id}
                       data-column-id={column.id}
                       data-formula-error={formulaError?.code}
-                      className={`og-cell ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
+                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
                       style={{
                         ...cellStyle(column, span),
                         ...(rowSpan
@@ -3009,10 +3112,12 @@ export function DataGrid<T>({
                               alignItems: "flex-start",
                               paddingTop: isEditing
                                 ? 4
-                                : Math.max(
-                                    0,
-                                    (rowGeometry.baseHeights[row] - 20) / 2,
-                                  ),
+                                : column.autoHeight
+                                  ? 6
+                                  : Math.max(
+                                      0,
+                                      (rowGeometry.baseHeights[row] - 20) / 2,
+                                    ),
                             }
                           : {}),
                       }}
@@ -3221,6 +3326,11 @@ export function DataGrid<T>({
                           )}
                           <span
                             className="og-cell-content"
+                            ref={
+                              column.autoHeight
+                                ? autoRowHeight.cellRef(row, column.id, rowSpan)
+                                : undefined
+                            }
                             data-og-size-text={
                               node.kind === "row" &&
                               node.data &&
@@ -3279,6 +3389,8 @@ export function DataGrid<T>({
               aria-rowindex={row + rowGeometry.before[row] + headerRows + 2}
               aria-level={hierarchical ? presentationDepth + 2 : undefined}
               className="og-detail-row"
+              data-og-row-id={node.id}
+              data-og-detail-row=""
               style={{
                 position: "absolute",
                 top: rowGeometry.offset(row) + rowGeometry.baseHeights[row],
@@ -3739,7 +3851,12 @@ export function DataGrid<T>({
         onContextMenu={touchTaps.onContextMenu}
         dir={direction}
         ref={viewport}
-        style={{ height: safeHeight }}
+        style={{
+          height: safeHeight,
+          overflowAnchor: autoHeightColumnCount > 0 ? "none" : undefined,
+          scrollbarGutter: autoHeightColumnCount > 0 ? "stable" : undefined,
+          overflowY: autoHeightColumnCount > 0 ? "scroll" : undefined,
+        }}
         role={hierarchical ? "treegrid" : "grid"}
         tabIndex={-1}
         aria-label={ariaLabel ?? t("grid.ariaLabel")}

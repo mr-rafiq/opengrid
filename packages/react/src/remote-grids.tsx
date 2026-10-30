@@ -150,6 +150,7 @@ export function ServerDataGrid<T>({
           // Span geometry currently belongs to the client DataGrid contract.
           colSpan: undefined,
           spanRows: undefined,
+          autoHeight: undefined,
           valueGetter: (record) => {
             if (record.node.kind === "group")
               return record.node.aggregates &&
@@ -1060,7 +1061,7 @@ function SparseWindowGrid<T>({
                       }
                       data-viewport-row={index}
                       data-column-id={column.id}
-                      className={`og-cell ${column.pinned ? "og-pinned" : ""}`}
+                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.pinned ? "og-pinned" : ""}`}
                       style={styleFor(column, entry.index)}
                       tabIndex={
                         focus.index === index && focus.columnId === column.id

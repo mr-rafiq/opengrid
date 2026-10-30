@@ -1,4 +1,9 @@
 export * from "./data-grid.js";
+export { AUTO_ROW_HEIGHT_LIMITS } from "./auto-row-heights.js";
+export type {
+  AutoRowHeightOptions,
+  DataGridRowHeightController,
+} from "./auto-row-heights.js";
 export {
   GridColumnMenu,
   prepareColumnMenuItems,

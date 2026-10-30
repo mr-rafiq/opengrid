@@ -34,6 +34,7 @@ import { MultiFilterLab } from "./multi-filter-lab";
 import { ContextMenuLab } from "./context-menu-lab";
 import { ColumnMenuLab } from "./column-menu-lab";
 import { NestedMenuLab } from "./nested-menu-lab";
+import { AutoHeightLab } from "./auto-height-lab";
 import { LocaleLab } from "./locale-lab";
 import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
@@ -208,6 +209,7 @@ function App() {
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = useState(false);
   const [nestedMenuOpen, setNestedMenuOpen] = useState(false);
+  const [autoHeightOpen, setAutoHeightOpen] = useState(false);
   const [localeOpen, setLocaleOpen] = useState(false);
   const [directionOpen, setDirectionOpen] = useState(false);
   const [setFilterOpen, setSetFilterOpen] = useState(false);
@@ -813,6 +815,15 @@ function App() {
             Nested commands lab
           </button>
           {nestedMenuOpen && <NestedMenuLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setAutoHeightOpen(!autoHeightOpen)}
+            aria-expanded={autoHeightOpen}
+          >
+            Automatic height lab
+          </button>
+          {autoHeightOpen && <AutoHeightLab />}
         </section>
         <section className="pivot-panel">
           <button

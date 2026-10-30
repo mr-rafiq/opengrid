@@ -61,6 +61,6 @@ Column and row geometry/budget checks complete before application callbacks. Nee
 
 ## Remaining scope
 
-Automatic content height, merged range/clipboard/fill semantics, merged import/export, arbitrary overlapping shapes and remote span layout remain unsupported. These fixed bounds are not a latency/memory certification. Automated Chromium, jsdom and axe checks do not establish manual screen-reader or physical-device conformance. The merged-layout family remains Partial in the [parity ledger](FEATURE_PARITY.md).
+Bounded client [automatic content height](AUTO_ROW_HEIGHT.md) is supported. Merged range/clipboard/fill semantics, merged import/export, arbitrary overlapping shapes and remote span layout remain unsupported. These fixed bounds are not a latency/memory certification. Automated Chromium, jsdom and axe checks do not establish manual screen-reader or physical-device conformance. The merged-layout family remains Partial in the [parity ledger](FEATURE_PARITY.md).
 
 The public comparison sources are [AG Grid row spanning](https://www.ag-grid.com/react-data-grid/row-spanning/) and [column spanning](https://www.ag-grid.com/react-data-grid/column-spanning/). OpenGrid defines its own combined-footprint rule; the reference links do not establish equivalent APIs or behavior for every interaction.

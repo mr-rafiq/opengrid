@@ -76,7 +76,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Stable multi-column sort and typed text, numeric, date, boolean, BigInt and membership filter predicates; quick search and pagination.
 - Editable fields with parsers, validators, atomic batch changes and bounded undo/redo; add/update/remove transactions.
 - Single/multiple row selection and bounded all/filtered subtree selection with mixed native checkboxes; column resize/reorder/hide/pin and configuration chooser.
-- Variable-height row and fixed-width column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
+- Bounded [automatic wrapped-cell/merged-owner heights](docs/AUTO_ROW_HEIGHT.md), explicit minimum row heights and fixed-width column virtualization, retained pinned/focused/editing cells, keyboard navigation and logical ARIA indices.
 - Nested column-group headers, collapsible groups, per-row detail regions and independently editable nested grids.
 - Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
 - Native text/number/date/checkbox/select/multiline editors, asynchronous choices and typed custom-editor hooks.
