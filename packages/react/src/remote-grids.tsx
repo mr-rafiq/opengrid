@@ -9,6 +9,7 @@ import {
 import type { CSSProperties, KeyboardEvent, ReactNode } from "react";
 import {
   createGrid,
+  CellNotesStore,
   type Column,
   type Filter,
   type GridModel,
@@ -21,6 +22,7 @@ import {
 import { DataGrid, type CellContext } from "./data-grid.js";
 import { getColumnWindow, type ColumnWindowEntry } from "./column-window.js";
 import { useGridLocale } from "./locale.js";
+import { ScopedNotesStore } from "./scoped-notes.js";
 import {
   normalizeScrollLeft,
   denormalizeScrollLeft,
@@ -47,6 +49,14 @@ export interface ServerDataGridProps<T> {
   ariaLabel?: string;
   className?: string;
   renderCell?: (context: CellContext<T>) => ReactNode;
+  /** Resolve an application-owned note store for this namespace, or disable notes. */
+  notes?: false | ((context: ServerNotesContext<T>) => CellNotesStore | false);
+}
+export interface ServerNotesContext<T> {
+  readonly model: ServerSideRowModel<T>;
+  readonly groupKeys: readonly string[];
+  readonly queryKey: string;
+  readonly scopeKey: string;
 }
 interface ServerRecord<T> {
   node: ServerNode<T>;
@@ -61,6 +71,7 @@ export function ServerDataGrid<T>({
   ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
+  notes,
 }: ServerDataGridProps<T>) {
   assertGridDirection(direction);
   const { t, locale: language, number } = useGridLocale();
@@ -74,6 +85,32 @@ export function ServerDataGrid<T>({
   const queryKey = queryIdentity(query);
   const [route, setRoute] = useState<string[]>([]);
   const routeKey = JSON.stringify(route);
+  const noteScopeKey = JSON.stringify([queryKey, routeKey]);
+  const ownedNotes = useMemo(
+    () => new CellNotesStore({ maxIdLength: 16_000_000 }),
+    [model],
+  );
+  const scopedNotes = useMemo(() => {
+    if (notes === false) return false;
+    if (notes !== undefined && typeof notes !== "function")
+      throw new TypeError("Server notes must be a resolver or false");
+    if (notes) {
+      const selected = notes(
+        Object.freeze({
+          model,
+          groupKeys: Object.freeze([...route]),
+          queryKey,
+          scopeKey: noteScopeKey,
+        }),
+      );
+      if (selected !== false && !(selected instanceof CellNotesStore))
+        throw new TypeError(
+          "Server notes must resolve to a CellNotesStore or false",
+        );
+      return selected;
+    }
+    return new ScopedNotesStore(ownedNotes, noteScopeKey);
+  }, [model, ownedNotes, notes, noteScopeKey]);
   const [page, setPage] = useState({ queryKey, routeKey, index: 0 });
   const index =
     page.queryKey === queryKey && page.routeKey === routeKey ? page.index : 0;
@@ -386,6 +423,7 @@ export function ServerDataGrid<T>({
         // Resident grouping/expansion commands must not mutate the loaded-page facade.
         // Dedicated remote header commands need their own provider query contract.
         columnMenu={false}
+        notes={scopedNotes}
         pagination={false}
         cellSelection={false}
         renderCell={({ value, row, column }) => {

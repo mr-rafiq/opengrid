@@ -1,5 +1,15 @@
 # Verification record
 
+## Scoped server note ownership
+
+A negative React regression reproduced a root group and its child route sharing a legal node ID and leaking the root note into the child. The fix keeps public IDs unchanged and scopes the default note store by provider instance, serialized query and route. One backing store enforces combined count/text/serialized limits across namespaces; scoped replacement/import/clear/prune preserve other namespaces atomically. A pure optional application resolver supports explicitly owned persistence without allocating empty route stores.
+
+The focused single-worker run passed **58 cases in five files in 17.15 seconds**, including 14 scoped-store cases and 11 React ownership cases. Tests cover collisions, global quota rejection, preserved snapshots, atomic imports, route/query return, provider replacement, controlled editor reset, language/direction draft focus, pending task cancellation, resolver validation and SSR without provider requests. Both actual Chromium provider-note flows passed in **8.8 seconds**, exercising collision isolation, pagination, breadcrumbs, query return, RTL and replacing the provider. No runtime errors were observed.
+
+The complete release run passed strict TypeScript and **1,608 tests in 94 files in 185.62 seconds**, followed by all three package ESM/declaration builds and the production demo. Built-package ESM/SSR checks passed the public resolver declaration, private scope implementation, original application store IDs, and SSR without provider requests or store changes, alongside the retained menu/locale smoke. This is functional evidence; remote write/collaboration support and manual screen-reader certification remain absent. Broad ledger counts stay at four Implemented, 52 Partial and two Missing.
+
+The first full browser run exposed an older page-wide pager selector after the lab gained a second server grid (114 passed, one selector failure). The test now targets the named Mock server controls. All four focused remote scenarios then passed in **12.6 seconds**, followed by **all 115 Chromium scenarios in 5.1 minutes**. Production Pages generation passed with **51 documentation routes**, landing, demo and 404, and **all nine production site checks passed in 11.8 seconds**. Formatting and whitespace checks passed. Existing demo chunk-size notices remain warnings rather than a performance guarantee.
+
 ## Bounded nested commands
 
 Local execution on 2026-10-30, Windows/Node 24.14.0, one worker. Strict TypeScript passed. The complete unit/integration suite passed **1,583 tests in 92 files in 180.08 seconds**, followed by all three ESM/declaration package builds and the production demo. The focused menu selection passed **88 cases in six files in 23.73 seconds** after the ancestor-scroll correction. Built-package ESM/SSR checks passed the public submenu declarations, frozen owned trees/special IDs, global 48-item/four-level bounds, cycle rejection, collapsed standalone rendering, silent closed grid rendering and all **467 English/Spanish keys**.
@@ -11,6 +21,8 @@ The focused nine-flow Chromium run passed in **32.1 seconds** after the scroll f
 The [nested-menu guide](NESTED_MENUS.md) defines limits, default-flat/custom-tree behavior and remaining custom React/remote/group/export/panel gaps. Both broad menu families remain Partial; the overall ledger stays at four Implemented, 52 Partial and two Missing.
 
 The final complete single-worker Chromium suite passed **113 scenarios in 5.0 minutes**, including all ten nested-menu cases after the final viewport cap and scroll-position assertions. Production Pages generation passed with **51 documentation routes**, landing, demo and genuine 404; all **nine production site checks passed in 11.5 seconds**. Formatting and diff-whitespace checks passed. Existing large demo-chunk notices remain warnings, not a bundle-size/latency guarantee.
+
+Published [`643de4b8db0f39e1f7e602e74a9a9b8ad65a06da`](https://github.com/mr-rafiq/opengrid/commit/643de4b8db0f39e1f7e602e74a9a9b8ad65a06da) matched remote main. [CI 40990210016](https://github.com/mr-rafiq/opengrid/actions/runs/40990210016) passed **1,583 tests/92 files in 143.73 seconds** and **113 browser scenarios in 5.1 minutes**, without flaky outcomes. [Pages 40990209912](https://github.com/mr-rafiq/opengrid/actions/runs/40990209912) passed its complete checks, generated 51 routes and deployed successfully. The public [nested guide](https://mr-rafiq.github.io/opengrid/docs/nested-menus/) returned HTTP 200 with tree/depth and cancellation contracts. All **ten public-demo Chromium flows passed in 20.7 seconds** with no runtime errors or serious/critical axe findings. A separate deployed four-level dark-menu check passed native stacking and all viewport bounds at 1200×800; its screenshot was visually inspected.
 
 ## Column header commands
 

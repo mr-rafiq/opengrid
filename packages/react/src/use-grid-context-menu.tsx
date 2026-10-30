@@ -23,6 +23,7 @@ interface Session<T> {
   context: GridContextMenuContext<T>;
   state: GridState;
   policyKey: string;
+  notesOwner: object | false;
   getItems: GridContextMenuOptions<T>["getItems"];
   range: CellRange | null;
   controller: CellRangeModel<T> | null;
@@ -48,6 +49,7 @@ export function useGridContextMenu<T>({
   state,
   setting,
   policyKey,
+  notesOwner,
   editing,
   controller,
   rowIds,
@@ -66,6 +68,7 @@ export function useGridContextMenu<T>({
   state: GridState;
   setting: boolean | GridContextMenuOptions<T>;
   policyKey: string;
+  notesOwner: object | false;
   editing: boolean;
   controller: CellRangeModel<T> | null;
   rowIds: string[];
@@ -86,6 +89,7 @@ export function useGridContextMenu<T>({
     model,
     setting,
     policyKey,
+    notesOwner,
     getItems,
     editing,
     controller,
@@ -103,6 +107,7 @@ export function useGridContextMenu<T>({
       model,
       setting,
       policyKey,
+      notesOwner,
       getItems,
       editing,
       controller,
@@ -119,6 +124,7 @@ export function useGridContextMenu<T>({
     model,
     setting,
     policyKey,
+    notesOwner,
     getItems,
     editing,
     controller,
@@ -137,6 +143,7 @@ export function useGridContextMenu<T>({
       current.model === candidate.context.model &&
       current.setting !== false &&
       current.policyKey === candidate.policyKey &&
+      current.notesOwner === candidate.notesOwner &&
       current.getItems === candidate.getItems &&
       !current.editing &&
       current.controller === candidate.controller &&
@@ -149,6 +156,7 @@ export function useGridContextMenu<T>({
     session &&
     setting !== false &&
     session.policyKey === policyKey &&
+    session.notesOwner === notesOwner &&
     session.getItems === getItems &&
     !editing &&
     session.context.model === model &&
@@ -194,6 +202,7 @@ export function useGridContextMenu<T>({
         context,
         state: expected,
         policyKey,
+        notesOwner,
         getItems,
         controller,
         range: controller?.getSnapshot().range ?? null,

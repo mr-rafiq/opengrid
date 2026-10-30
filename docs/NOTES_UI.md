@@ -31,6 +31,13 @@ a store. Use the same store instance across grid view changes when annotations
 should survive sorting, filtering, grouping and pagination. Store import/export
 and pruning remain separate application actions.
 
+Client `DataGrid` remounts its note editor when the supplied store or cell identity
+changes, so a previous owner's draft cannot save into a replacement store. A
+language/direction change with the same owner retains the draft and focused
+textarea. Pending contextual commands are canceled when note-store ownership
+changes. `ServerDataGrid` has a separate query/route-scoped default and optional
+application resolver; see [server note ownership](REMOTE_GRIDS.md#server-notes-and-namespace-ownership).
+
 Component tests cover creation, reading, deletion, empty-note behavior,
 cancellation, focus, Escape, native modal lifecycle, safe text rendering and
 atomic storage failures. Native browser behavior and assistive-technology

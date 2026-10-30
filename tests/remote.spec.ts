@@ -18,10 +18,14 @@ test("server binding drills provider routes, pages, and applies authoritative qu
     "Americas",
   );
   await expect(grid).toContainText("Order ");
-  await page
+  const controls = page.getByRole("region", {
+    name: "Mock server orders controls",
+    exact: true,
+  });
+  await controls
     .getByRole("button", { name: "Next server page", exact: true })
     .click();
-  await expect(page.getByText(/Server page 2 of/)).toBeVisible();
+  await expect(controls.getByText(/Server page 2 of/)).toBeVisible();
   await grid.getByRole("button", { name: "Sort Revenue", exact: true }).click();
   await expect(
     grid.getByRole("columnheader").filter({

@@ -103,6 +103,17 @@ import { GridContextMenuError } from "./context-menu-items.js";
 import { useColumnMenu } from "./use-column-menu.js";
 import type { GridColumnMenuOptions } from "./column-menu.js";
 
+const noteStoreKeys = new WeakMap<CellNotesStore, number>();
+let nextNoteStoreKey = 0;
+function noteDialogKey(store: CellNotesStore, position: CellPosition): string {
+  let key = noteStoreKeys.get(store);
+  if (key === undefined) {
+    key = ++nextNoteStoreKey;
+    noteStoreKeys.set(store, key);
+  }
+  return JSON.stringify([key, position.rowId, position.columnId]);
+}
+
 export interface CellContext<T> {
   value: unknown;
   row: T;
@@ -1110,6 +1121,7 @@ export function DataGrid<T>({
     state,
     setting: contextMenu,
     policyKey: `${selectionMode}:${hierarchySelection}:${editMode}:${notes !== false}`,
+    notesOwner: notes === false ? false : notesStore,
     editing: Boolean(editing || rowEditing || noteEditing),
     controller: ranges.controller,
     rowIds: dataRowIds,
@@ -4202,6 +4214,7 @@ export function DataGrid<T>({
       {headerMenu.render}
       {noteEditing && notes !== false && (
         <CellNoteDialog
+          key={noteDialogKey(notesStore, noteEditing)}
           store={notesStore}
           position={noteEditing}
           columnLabel={

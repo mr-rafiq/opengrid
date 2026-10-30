@@ -55,6 +55,8 @@ Find uses literal formatted text and stable cell IDs; the client bar restricts i
 
 `InfiniteDataSource` is a flat cached block loader. `ServerSideRowModel` is a hierarchical route/block store that forwards sort/filter/group/aggregate/pivot queries, validates results and supports cache refresh/retry plus atomic updates to loaded nodes. `LiveViewportRowModel` owns a buffered absolute-index subscription and server-pushed rows/counts. Each controls cancellation, stale generations, validation and cleanup according to its own contract.
 
+Server notes use a private scoped view over one globally bounded backing store. Its namespace includes the provider query and route; replacing the provider model replaces the backing store. Scoped JSON import/clear/prune preserve other namespaces and validate combined limits atomically. Public IDs stay unchanged. A pure application resolver can supply externally owned stores; model identity and bounded persistence remain application responsibilities. Note editor identity and pending contextual commands fence their store owner.
+
 The provider stores remain independent of client `DataGrid`. Separate read-only `ServerDataGrid` and `LiveViewportDataGrid` now bind them to React: server route/block paging and drilldown versus sparse absolute-index live scrolling. Both surface load/error/retry state and retain provider authority. Full mixed-route expansion, automatic pivot schemas, server-wide selection and write workflows remain absent. Backend persistence and transport belong to the application; a loaded-node cache update is not an HTTP write. Provider/component tests are not production service availability. See [remote models](REMOTE_MODELS.md) and [bindings](REMOTE_GRIDS.md).
 
 ## Formula and analysis modules

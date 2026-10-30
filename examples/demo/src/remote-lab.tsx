@@ -9,6 +9,7 @@ import {
   type ServerResponse,
 } from "@opengrid/core";
 import { ServerDataGrid, LiveViewportDataGrid } from "@opengrid/react";
+import { ServerNotesLab } from "./server-notes-lab.js";
 
 interface RemoteOrder {
   id: string;
@@ -253,6 +254,7 @@ export function RemoteLab() {
           ariaLabel="Mock server orders"
         />
       </article>
+      <ServerNotesLab direction={rtl ? "rtl" : "ltr"} />
       <article style={{ marginTop: 24 }}>
         <h3 style={{ margin: "0 0 8px", fontSize: 13 }}>
           Live sparse viewport: 1,000,000 logical rows

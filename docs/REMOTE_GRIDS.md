@@ -28,7 +28,7 @@ function RemoteOrders({
 }
 ```
 
-Props are `model`, `columns`, optional `height`, `ariaLabel`, `className` and `renderCell`. The cell-renderer context has the original row data and column schema. Keep the column-array identity stable when retaining local layout state is desired.
+Props are `model`, `columns`, optional `height`, `direction`, `ariaLabel`, `className`, `renderCell` and `notes`. The cell-renderer context has the original row data and column schema. Keep the column-array identity stable when retaining local layout state is desired.
 
 The binding loads root block zero, displays complete provider blocks, and pages using `blockSize` and the exact child `rowCount` at the active route. Group records show an **Open group** button in the first visible column. Opening a group drills into its route; breadcrumb buttons return to ancestors. This is a flat drilldown view, not mixed-route expansion with grouped footers or server tree selection.
 
@@ -37,6 +37,34 @@ Header sort changes, including Shift multi-sort, are sent to `model.setQuery({ s
 The binding reuses the client grid's virtual rendering, keyboard navigation, pinned columns, resizing, header reordering and read-only cell rendering. A small column chooser changes visibility and pinning locally. Row checkbox selection is **loaded-page scoped**; changing pages prunes unloaded selections. Selected group records do not cascade to children. There is no server-selection protocol or remote editor/paste/write transaction UI. The inner row count reflects the loaded block; the binding's route-count status and pager describe the complete remote route.
 
 Errors display a retry control. Late results for another route/page do not replace the active view. Loading, missing blocks and errors are surfaced rather than filled by client-computed substitutes. Server pivot metadata is reported when available, but this component does not automatically synthesize a pivot column schema; supply matching columns explicitly.
+
+### Server notes and namespace ownership
+
+Server node IDs are unique within a route. The default note store therefore scopes annotations by the supplied provider-model instance, serialized query and group route, while retaining original public row/column IDs. Root group `shared` and leaf `shared` under East are separate note targets. Paging, layout, language and direction retain notes; returning to a previous query/route restores its notes. Replacing the model releases the owned backing store, including when an earlier model is supplied again. Unmount also releases it. These are local annotations; saving a note never calls a backend write.
+
+One backing store bounds **all saved namespaces together** to 100,000 notes, 10,000 characters per text and 16,000,000 serialized characters including private namespace encoding. Public IDs retain their 1,024-character limit. A scope too large to encode reads as empty and rejects saving without changing earlier notes. There is no unbounded map of empty route stores. Quota failures retain the modal draft and existing notes.
+
+Set `notes={false}` to disable notes, or supply a stable resolver `(context: ServerNotesContext<T>) => CellNotesStore | false`. The frozen context contains borrowed `model`, frozen `groupKeys`, `queryKey` and `scopeKey`. `scopeKey` includes query and route, **not model identity**. The resolver runs during React rendering, including SSR and possible replay; it must be a pure ownership lookup without network requests, note writes or model mutations. Preserve its function identity and return a stable store for a given namespace. Returning a different store discards an open editor's draft before it can save to the new store and cancels pending context commands.
+
+For application persistence, prepare stores outside rendering and key them by both model identity and scope. A bounded application registry can implement eviction/persistence; this minimal lookup rejects unknown scopes rather than allocating them while rendering:
+
+```tsx
+import { CellNotesStore, type ServerSideRowModel } from "@opengrid/core";
+import type { ServerNotesContext } from "@opengrid/react";
+
+const stores = new WeakMap<
+  ServerSideRowModel<Order>,
+  Map<string, CellNotesStore>
+>();
+const resolveNotes = ({ model, scopeKey }: ServerNotesContext<Order>) =>
+  stores.get(model)?.get(scopeKey) ?? false;
+
+// Populate a bounded set of approved namespaces before mounting or changing queries.
+// Persist each store's exportJson(), restore with importJson(), and prune explicitly.
+<ServerDataGrid model={model} columns={columns} notes={resolveNotes} />;
+```
+
+The application owns custom-store budgets, persistence and namespace policy. Deliberately returning one store for unrelated scopes also shares its annotations. The grid does not rewrite custom-store IDs or dispose supplied stores. The Remote model lab includes a real provider-backed collision/paging/query/replacement demonstration. This binding remains read-only for row fields and does not add remote note synchronization, author metadata or collaboration.
 
 ## LiveViewportDataGrid
 
