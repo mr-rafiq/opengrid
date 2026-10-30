@@ -1,5 +1,13 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import {
+  Fragment,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { FilterPopup } from "./filter-popup.js";
+import { CommandSubmenu, isRtlMenu } from "./command-submenu.js";
 import { gridMessage, useGridLocale, type GridMessage } from "./locale.js";
 import {
   GridContextMenuError,
@@ -22,7 +30,7 @@ export interface GridCommandMenuProps<Context> {
   onRestoreFocus?: () => void;
 }
 
-/** Flat, bounded modeless menu; native popovers supply the unclipped browser top layer. */
+/** Bounded modeless command tree; native popovers supply the unclipped browser top layer. */
 export function GridCommandMenu<Context>({
   context,
   items,
@@ -40,37 +48,162 @@ export function GridCommandMenu<Context>({
     );
   const { t, resolveMessage, locale } = useGridLocale();
   const prepared = prepareCommandMenuItems(items);
+  const menuId = useId();
+  const indices = new Map<string, number>();
+  function indexItems(items: readonly CommandMenuItem<Context>[]) {
+    for (const item of items) {
+      indices.set(item.id, indices.size);
+      if (item.kind === "submenu") indexItems(item.items);
+    }
+  }
+  indexItems(prepared);
+  const itemId = (id: string) => `${menuId}-item-${indices.get(id)}`;
+  const childId = (id: string) => `${menuId}-menu-${indices.get(id)}`;
   const root = useRef<HTMLDivElement>(null),
     menu = useRef<HTMLDivElement>(null);
   const live = useRef(false),
     running = useRef<AbortController | null>(null);
   const [pending, setPending] = useState(false),
     [error, setError] = useState<GridMessage | string | null>(null);
+  const [openPath, setOpenPath] = useState<readonly string[]>([]);
+  const [focusRequest, setFocusRequest] = useState<{ id: string } | null>(null);
+  const pathRef = useRef(openPath),
+    buttons = useRef(new Map<string, HTMLButtonElement>()),
+    levels = useRef(new Map<string, HTMLDivElement>());
+  const hover = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const inputMode = useRef<"keyboard" | "pointer">("keyboard");
+  const pointerPosition = useRef<readonly [number, number] | null>(null);
+  const activePath: string[] = [];
+  let levelItems = prepared;
+  for (const id of openPath) {
+    const branch = levelItems.find(
+      (item) => item.kind === "submenu" && item.id === id && !item.disabled,
+    );
+    if (!branch || branch.kind !== "submenu") break;
+    activePath.push(id);
+    levelItems = branch.items;
+  }
+  useLayoutEffect(() => {
+    pathRef.current = activePath;
+    if (activePath.length !== openPath.length) setOpenPath(activePath);
+  });
   const latest = useRef({ isCurrent, onClose, onRestoreFocus });
   useLayoutEffect(() => {
     latest.current = { isCurrent, onClose, onRestoreFocus };
   }, [isCurrent, onClose, onRestoreFocus]);
-  const prefix = useRef({ text: "", time: 0 });
+  const prefix = useRef(
+    new Map<string | null, { text: string; time: number }>(),
+  );
   const failedAction = useRef<string | null>(null);
-  const enabled = () =>
+  const enabled = (scope: HTMLElement | null = menu.current) =>
     [
-      ...(menu.current?.querySelectorAll<HTMLButtonElement>(
+      ...(scope?.querySelectorAll<HTMLButtonElement>(
         'button[role^="menuitem"]',
       ) ?? []),
-    ].filter((button) => !button.disabled);
+    ].filter(
+      (button) => !button.disabled && button.closest('[role="menu"]') === scope,
+    );
+  function focusItem(element: HTMLElement | null | undefined) {
+    if (!element) return;
+    element.focus({ preventScroll: true });
+    const popup = element.closest<HTMLElement>(".og-context-menu-popup");
+    if (!popup || !popup.clientHeight) return;
+    const box = element.getBoundingClientRect(),
+      container = popup.getBoundingClientRect();
+    const top = container.top + popup.clientTop,
+      bottom = top + popup.clientHeight;
+    if (box.top < top) popup.scrollTop -= top - box.top;
+    else if (box.bottom > bottom) popup.scrollTop += box.bottom - bottom;
+  }
+  useLayoutEffect(() => {
+    if (!focusRequest) return;
+    const target = levels.current.get(focusRequest.id);
+    if (target) focusItem(enabled(target)[0] ?? target);
+    setFocusRequest(null);
+  }, [focusRequest, openPath]);
   useLayoutEffect(() => {
     if (pending || !error || !failedAction.current) return;
-    const node = menu.current,
-      active = node?.ownerDocument.activeElement;
-    if (active === node || active === node?.ownerDocument.body)
-      (
-        enabled().find(
-          (button) => button.dataset.ogMenuId === failedAction.current,
-        ) ??
-        enabled()[0] ??
-        node
-      )?.focus({ preventScroll: true });
+    const document = root.current?.ownerDocument,
+      active = document?.activeElement;
+    const target = buttons.current.get(failedAction.current);
+    if (
+      active === document?.body ||
+      (active instanceof Element &&
+        active.getAttribute("role") === "menu" &&
+        root.current?.contains(active))
+    )
+      focusItem(
+        target && !target.disabled ? target : (enabled()[0] ?? menu.current),
+      );
   }, [pending, error]);
+  function stopHover() {
+    if (hover.current !== null) {
+      clearTimeout(hover.current);
+      hover.current = null;
+    }
+  }
+  function current() {
+    try {
+      if (live.current && latest.current.isCurrent()) return true;
+      finish();
+    } catch (reason: unknown) {
+      setError(
+        reason instanceof GridContextMenuError
+          ? reason.notice
+          : gridMessage("contextMenu.failed"),
+      );
+    }
+    return false;
+  }
+  function openBranch(id: string, parent: readonly string[], focus: boolean) {
+    stopHover();
+    if (running.current || !current()) return;
+    prefix.current.delete(id);
+    if (focus) inputMode.current = "keyboard";
+    setOpenPath([...parent, id]);
+    setFocusRequest(focus ? { id } : null);
+  }
+  function closeBranch(
+    id: string,
+    parent: readonly string[],
+    restore: boolean,
+  ) {
+    if (
+      !live.current ||
+      pathRef.current[parent.length] !== id ||
+      parent.some((value, index) => pathRef.current[index] !== value)
+    )
+      return;
+    stopHover();
+    if (running.current) {
+      finish(restore);
+      return;
+    }
+    setOpenPath(parent);
+    if (restore) focusItem(buttons.current.get(id));
+  }
+  function hoverItem(
+    item: CommandMenuItem<Context>,
+    path: readonly string[],
+    target: HTMLButtonElement,
+    pointerType: string,
+  ) {
+    if (pointerType !== "mouse" || inputMode.current !== "pointer") return;
+    stopHover();
+    if (item.kind === "separator" || item.disabled || running.current) return;
+    if (item.kind === "submenu")
+      hover.current = setTimeout(() => {
+        hover.current = null;
+        if (target.isConnected) {
+          openBranch(item.id, path, false);
+          focusItem(target);
+        }
+      }, 150);
+    else {
+      setOpenPath(path);
+      focusItem(target);
+    }
+  }
   function scheduleRestore(node: HTMLElement | null) {
     queueMicrotask(() => {
       if (live.current) return;
@@ -101,6 +234,7 @@ export function GridCommandMenu<Context>({
   function finish(restore = true) {
     if (!live.current) return;
     live.current = false;
+    stopHover();
     running.current?.abort();
     const node = root.current;
     latest.current.onClose();
@@ -110,12 +244,29 @@ export function GridCommandMenu<Context>({
     const node = root.current;
     if (!node) return;
     live.current = true;
+    inputMode.current = "keyboard";
+    pointerPosition.current = null;
+    setOpenPath([]);
+    setFocusRequest(null);
+    prefix.current.clear();
     running.current = null;
     failedAction.current = null;
     setPending(false);
     setError(null);
     const document = node.ownerDocument,
       view = document.defaultView;
+    const pointerMove = (event: Event) => {
+      const pointer = event as PointerEvent;
+      if (pointer.pointerType !== "mouse") return;
+      const previous = pointerPosition.current;
+      if (
+        !previous ||
+        pointer.clientX !== previous[0] ||
+        pointer.clientY !== previous[1]
+      )
+        inputMode.current = "pointer";
+      pointerPosition.current = [pointer.clientX, pointer.clientY];
+    };
     const beforeViewport = view
       ? [
           view.scrollX,
@@ -180,7 +331,7 @@ export function GridCommandMenu<Context>({
         )
           return;
       }
-      finish(false);
+      finish();
     };
     const toggle = (event: Event) => {
       if (!cleanup && (event as ToggleEvent).newState === "closed") finish();
@@ -190,28 +341,31 @@ export function GridCommandMenu<Context>({
     else node.removeAttribute("popover");
     const place = () => {
       if (!view) return;
-      const box = node.getBoundingClientRect(),
-        viewport = view.visualViewport;
+      const viewport = view.visualViewport;
       const left = viewport?.offsetLeft ?? 0,
         top = viewport?.offsetTop ?? 0;
       const width = viewport?.width ?? view.innerWidth,
         height = viewport?.height ?? view.innerHeight;
-      node.style.left = `${Math.max(left + 4, Math.min(point.x, left + width - box.width - 4))}px`;
-      node.style.top = `${Math.max(top + 4, Math.min(point.y, top + height - box.height - 4))}px`;
+      node.style.minWidth = `${Math.min(240, Math.max(40, width - 8))}px`;
       node.style.maxHeight = `${Math.max(40, height - 8)}px`;
       node.style.maxWidth = `${Math.max(40, width - 8)}px`;
+      const box = node.getBoundingClientRect();
+      node.style.left = `${Math.max(left + 4, Math.min(point.x, left + width - box.width - 4))}px`;
+      node.style.top = `${Math.max(top + 4, Math.min(point.y, top + height - box.height - 4))}px`;
     };
     place();
     const observer =
       typeof ResizeObserver === "function" ? new ResizeObserver(place) : null;
     observer?.observe(node);
     document.addEventListener("pointerdown", dismiss, true);
+    document.addEventListener("pointermove", pointerMove, true);
     document.addEventListener("scroll", scroll, true);
     view?.addEventListener("resize", scroll);
     view?.visualViewport?.addEventListener("resize", scroll);
     (enabled()[0] ?? menu.current)?.focus({ preventScroll: true });
     return () => {
       cleanup = true;
+      stopHover();
       const shouldRestore = live.current;
       live.current = false;
       running.current?.abort();
@@ -224,13 +378,17 @@ export function GridCommandMenu<Context>({
       )
         node.hidePopover();
       document.removeEventListener("pointerdown", dismiss, true);
+      document.removeEventListener("pointermove", pointerMove, true);
       document.removeEventListener("scroll", scroll, true);
       view?.removeEventListener("resize", scroll);
       view?.visualViewport?.removeEventListener("resize", scroll);
       if (shouldRestore) scheduleRestore(node);
     };
   }, [context, point, returnFocus]);
-  async function execute(item: CommandMenuAction<Context>) {
+  async function execute(
+    item: CommandMenuAction<Context>,
+    scope: HTMLElement | null,
+  ) {
     if (!live.current || running.current || item.disabled) return;
     try {
       if (!latest.current.isCurrent()) {
@@ -249,7 +407,7 @@ export function GridCommandMenu<Context>({
     running.current = controller;
     setPending(true);
     setError(null);
-    menu.current?.focus({ preventScroll: true });
+    scope?.focus({ preventScroll: true });
     try {
       await item.action(context, controller.signal);
       if (live.current && !controller.signal.aborted) finish();
@@ -275,6 +433,211 @@ export function GridCommandMenu<Context>({
       }
     }
   }
+  function renderMenu(
+    entries: readonly CommandMenuItem<Context>[],
+    path: readonly string[],
+    labelledBy?: string,
+  ) {
+    const level = path.at(-1) ?? null;
+    function keyDown(event: KeyboardEvent<HTMLDivElement>) {
+      inputMode.current = "keyboard";
+      stopHover();
+      event.stopPropagation();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        if (level !== null && !running.current)
+          closeBranch(level, path.slice(0, -1), true);
+        else finish();
+        return;
+      }
+      if (event.key === "Tab") {
+        returnFocus?.focus({ preventScroll: true });
+        finish(false);
+        return;
+      }
+      if (running.current) {
+        if (
+          [
+            "ArrowUp",
+            "ArrowDown",
+            "ArrowLeft",
+            "ArrowRight",
+            "Home",
+            "End",
+            " ",
+            "Enter",
+          ].includes(event.key)
+        )
+          event.preventDefault();
+        return;
+      }
+      const scope = event.currentTarget,
+        choices = enabled(scope),
+        index = choices.indexOf(event.target as HTMLButtonElement);
+      const rtl = isRtlMenu(scope);
+      const forward = rtl ? "ArrowLeft" : "ArrowRight",
+        backward = rtl ? "ArrowRight" : "ArrowLeft";
+      if (event.key === forward || event.key === backward) {
+        event.preventDefault();
+        if (event.key === backward && level !== null)
+          closeBranch(level, path.slice(0, -1), true);
+        else if (event.key === forward) {
+          const entry = entries.find(
+            (item) => item.id === choices[index]?.dataset.ogMenuId,
+          );
+          if (entry?.kind === "submenu" && !entry.disabled)
+            openBranch(entry.id, path, true);
+        }
+        return;
+      }
+      let next: number | undefined;
+      if (event.key === "ArrowDown") next = (index + 1) % choices.length;
+      else if (event.key === "ArrowUp")
+        next =
+          index < 0
+            ? choices.length - 1
+            : (index - 1 + choices.length) % choices.length;
+      else if (event.key === "Home") next = 0;
+      else if (event.key === "End") next = choices.length - 1;
+      else if (
+        event.key.length === 1 &&
+        !event.ctrlKey &&
+        !event.metaKey &&
+        !event.altKey &&
+        event.key !== " "
+      ) {
+        const now = Date.now(),
+          character = event.key.toLocaleLowerCase(locale),
+          before = prefix.current.get(level) ?? { text: "", time: 0 };
+        const search =
+          now - before.time < 700 && before.text !== character
+            ? before.text + character
+            : character;
+        prefix.current.set(level, { text: search, time: now });
+        for (let offset = 1; offset <= choices.length; offset++) {
+          const at = (index + offset) % choices.length;
+          if (
+            (choices[at].dataset.ogMenuLabel ?? "")
+              .toLocaleLowerCase(locale)
+              .startsWith(search)
+          ) {
+            next = at;
+            break;
+          }
+        }
+        event.preventDefault();
+      }
+      if (next !== undefined) {
+        event.preventDefault();
+        stopHover();
+        setOpenPath(path);
+        focusItem(choices[next]);
+      }
+    }
+    return (
+      <div
+        ref={(element) => {
+          if (level === null) menu.current = element;
+          else if (element) levels.current.set(level, element);
+          else levels.current.delete(level);
+        }}
+        id={level === null ? undefined : childId(level)}
+        role="menu"
+        tabIndex={-1}
+        aria-busy={pending || undefined}
+        aria-label={level === null ? resolveMessage(title) : undefined}
+        aria-labelledby={labelledBy}
+        onContextMenu={(event) => event.preventDefault()}
+        onKeyDown={keyDown}
+      >
+        {entries.map((item) => {
+          if (item.kind === "separator")
+            return <div key={item.id} role="separator" />;
+          const checked = item.kind === "action" ? item.checked : undefined;
+          const expanded =
+            item.kind === "submenu" && activePath[path.length] === item.id;
+          return (
+            <Fragment key={item.id}>
+              <button
+                ref={(element) => {
+                  if (element) buttons.current.set(item.id, element);
+                  else buttons.current.delete(item.id);
+                }}
+                id={itemId(item.id)}
+                type="button"
+                role={checked === undefined ? "menuitem" : "menuitemcheckbox"}
+                aria-checked={checked}
+                aria-haspopup={item.kind === "submenu" ? "menu" : undefined}
+                aria-expanded={item.kind === "submenu" ? expanded : undefined}
+                aria-controls={expanded ? childId(item.id) : undefined}
+                disabled={pending || item.disabled}
+                tabIndex={-1}
+                data-og-menu-id={item.id}
+                data-og-menu-label={resolveMessage(item.label)}
+                onPointerEnter={(event) =>
+                  hoverItem(item, path, event.currentTarget, event.pointerType)
+                }
+                onPointerMove={(event) =>
+                  hoverItem(item, path, event.currentTarget, event.pointerType)
+                }
+                onPointerLeave={stopHover}
+                onClick={(event) => {
+                  stopHover();
+                  if (item.kind === "submenu") openBranch(item.id, path, true);
+                  else
+                    void execute(
+                      item,
+                      event.currentTarget.closest<HTMLElement>('[role="menu"]'),
+                    );
+                }}
+              >
+                <span aria-hidden="true" className="og-context-menu-check">
+                  {checked === "mixed" ? "-" : checked ? "\u2713" : ""}
+                </span>
+                <span dir="auto">{resolveMessage(item.label)}</span>
+                {item.kind === "submenu" ? (
+                  <span
+                    aria-hidden="true"
+                    className="og-context-menu-shortcut og-context-menu-chevron"
+                  >
+                    {"\u25b8"}
+                  </span>
+                ) : (
+                  item.shortcut && (
+                    <span
+                      aria-hidden="true"
+                      className="og-context-menu-shortcut"
+                      dir="ltr"
+                    >
+                      {item.shortcut}
+                    </span>
+                  )
+                )}
+              </button>
+              {item.kind === "submenu" && expanded && (
+                <CommandSubmenu
+                  anchor={buttons.current.get(item.id) ?? null}
+                  onDismiss={(restore) => closeBranch(item.id, path, restore)}
+                >
+                  {renderMenu(item.items, [...path, item.id], itemId(item.id))}
+                </CommandSubmenu>
+              )}
+            </Fragment>
+          );
+        })}
+        {!entries.some((item) => item.kind !== "separator") && (
+          <button
+            type="button"
+            role="menuitem"
+            tabIndex={-1}
+            onClick={() => finish()}
+          >
+            {t("common.cancel")}
+          </button>
+        )}
+      </div>
+    );
+  }
   return (
     <FilterPopup>
       <div
@@ -294,115 +657,7 @@ export function GridCommandMenu<Context>({
             {t("contextMenu.running")}
           </p>
         )}
-        <div
-          ref={menu}
-          role="menu"
-          tabIndex={-1}
-          aria-busy={pending || undefined}
-          aria-label={resolveMessage(title)}
-          onContextMenu={(event) => event.preventDefault()}
-          onKeyDown={(event) => {
-            event.stopPropagation();
-            if (event.key === "Escape") {
-              event.preventDefault();
-              finish();
-              return;
-            }
-            if (event.key === "Tab") {
-              // Restore the invocation point before the browser performs ordinary Tab navigation.
-              returnFocus?.focus({ preventScroll: true });
-              finish(false);
-              return;
-            }
-            const buttons = enabled(),
-              index = buttons.indexOf(event.target as HTMLButtonElement);
-            let next: number | undefined;
-            if (event.key === "ArrowDown") next = (index + 1) % buttons.length;
-            else if (event.key === "ArrowUp")
-              next =
-                index < 0
-                  ? buttons.length - 1
-                  : (index - 1 + buttons.length) % buttons.length;
-            else if (event.key === "Home") next = 0;
-            else if (event.key === "End") next = buttons.length - 1;
-            else if (
-              event.key.length === 1 &&
-              !event.ctrlKey &&
-              !event.metaKey &&
-              !event.altKey &&
-              event.key !== " "
-            ) {
-              const now = Date.now(),
-                character = event.key.toLocaleLowerCase(locale);
-              const before = prefix.current;
-              const search =
-                now - before.time < 700 && before.text !== character
-                  ? before.text + character
-                  : character;
-              prefix.current = { text: search, time: now };
-              for (let offset = 1; offset <= buttons.length; offset++) {
-                const at = (index + offset) % buttons.length;
-                if (
-                  (buttons[at].dataset.ogMenuLabel ?? "")
-                    .toLocaleLowerCase(locale)
-                    .startsWith(search)
-                ) {
-                  next = at;
-                  break;
-                }
-              }
-              event.preventDefault();
-            }
-            if (next !== undefined) {
-              event.preventDefault();
-              buttons[next]?.focus({ preventScroll: true });
-            }
-          }}
-        >
-          {prepared.map((item) =>
-            item.kind === "separator" ? (
-              <div key={item.id} role="separator" />
-            ) : (
-              <button
-                key={item.id}
-                type="button"
-                role={
-                  item.checked === undefined ? "menuitem" : "menuitemcheckbox"
-                }
-                aria-checked={item.checked}
-                disabled={pending || item.disabled}
-                tabIndex={-1}
-                data-og-menu-id={item.id}
-                data-og-menu-label={resolveMessage(item.label)}
-                onClick={() => void execute(item)}
-              >
-                <span aria-hidden="true" className="og-context-menu-check">
-                  {item.checked === "mixed" ? "−" : item.checked ? "✓" : ""}
-                </span>
-                <span dir="auto">{resolveMessage(item.label)}</span>
-                {item.shortcut && (
-                  <span
-                    aria-hidden="true"
-                    className="og-context-menu-shortcut"
-                    dir="ltr"
-                  >
-                    {item.shortcut}
-                  </span>
-                )}
-              </button>
-            ),
-          )}
-          {!prepared.some((item) => item.kind === "action") && (
-            <button
-              type="button"
-              role="menuitem"
-              tabIndex={-1}
-              onClick={() => finish()}
-            >
-              {t("common.cancel")}
-            </button>
-          )}
-        </div>
+        {renderMenu(prepared, [])}
       </div>
     </FilterPopup>
   );

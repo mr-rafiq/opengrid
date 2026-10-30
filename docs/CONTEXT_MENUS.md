@@ -1,6 +1,6 @@
 # Contextual cell commands
 
-Client `DataGrid` provides a flat context menu on real data cells. Right-click a cell, press the ContextMenu key, or use Shift+F10. Ctrl+right-click retains the browser menu. Interactive renderer controls and touch context events retain their native behavior. Set `contextMenu={false}` to disable the grid menu.
+Client `DataGrid` provides flat defaults and bounded nested context menus on real data cells. Right-click a cell, press the ContextMenu key, or use Shift+F10. Ctrl+right-click retains the browser menu. Interactive renderer controls and touch context events retain their native behavior. Set `contextMenu={false}` to disable the grid menu.
 
 ## Real commands
 
@@ -53,7 +53,9 @@ Define `getItems` outside render or memoize it when the menu must survive parent
 
 An action has `kind: "action"`, unique `id`, `label`, optional `disabled`, `checked` (`true`, `false` or `"mixed"`), optional display-only `shortcut`, and `action(context, signal)`. A separator contains only `kind: "separator"` and `id`. Labels may be literal application strings or `gridMessage(...)` descriptors. Custom actions are normal callbacks, not React renderers; shortcuts displayed in this list do not install arbitrary application key bindings.
 
-`prepareContextMenuItems` validates dense ordinary arrays and own data fields. `CONTEXT_MENU_LIMITS` bounds a list to **48 items**, IDs to **128 code units**, literal labels to **1,024** and shortcuts to **128**. IDs must be unique/nonblank; labels and shortcuts must be nonblank. Unknown fields, accessors, sparse arrays, unsupported kinds and malformed message descriptors are rejected. Message descriptors retain the shared catalog/parameter bounds; literal-label limits do not replace those catalog bounds.
+A submenu has `kind: "submenu"`, `id`, `label`, optional `disabled` and owned `items`. `GridContextMenuSubmenu<T>` and the equivalent header type support at most four levels and 48 total tree items with globally unique IDs. See [nested commands](NESTED_MENUS.md) for input, native stacking, current-level focus, hover and async ownership. Defaults remain flat.
+
+`prepareContextMenuItems` validates dense ordinary arrays and own data fields. `CONTEXT_MENU_LIMITS` bounds a list to **48 total items across four menu levels**, IDs to **128 code units**, literal labels to **1,024** and shortcuts to **128**. IDs must be unique/nonblank; labels and shortcuts must be nonblank. Unknown fields, accessors, sparse arrays, unsupported kinds and malformed message descriptors are rejected. Message descriptors retain the shared catalog/parameter bounds; literal-label limits do not replace those catalog bounds.
 
 ## Ownership, cancellation and focus
 
@@ -71,6 +73,6 @@ The exported `GridContextMenu` accepts prepared-compatible items, a context, fin
 
 Built-in messages use the shared English/Spanish locale schema. Application labels/values and raw diagnostics remain application-owned. This does not establish physical-device or manual assistive-technology conformance.
 
-Submenus, custom menu-item React components, aggregate/group/full-width/remote context menus, cut, direct XLSX/PDF/chart menu integrations, full column menus and extensible aggregate status panels remain open. Applications can add export actions using the separate export package. The context-menu/status family remains **Partial** in the [ledger](FEATURE_PARITY.md).
+Custom menu-item React components, aggregate/group/full-width/remote context menus, cut, direct XLSX/PDF/chart menu integrations, full column menus and extensible aggregate status panels remain open. Applications can add export actions using the separate export package. The context-menu/status family remains **Partial** in the [ledger](FEATURE_PARITY.md).
 
 Try **Context commands lab** for browser clipboard commands, atomic validation, history, notes, exact integers, cancellation, custom actions and live language/RTL/dark-theme transitions. See [verification](VERIFICATION.md) for executed checks. The feature requirements come from the public [AG Grid context-menu guide](https://www.ag-grid.com/react-data-grid/context-menu/); OpenGrid's item schema, actions and ownership rules are original.

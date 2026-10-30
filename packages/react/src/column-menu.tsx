@@ -4,6 +4,7 @@ import {
   prepareCommandMenuItems,
   type CommandMenuAction,
   type CommandMenuSeparator,
+  type CommandMenuSubmenu,
 } from "./command-menu-items.js";
 import { gridMessage } from "./locale.js";
 export { COMMAND_MENU_LIMITS as COLUMN_MENU_LIMITS } from "./command-menu-items.js";
@@ -16,8 +17,11 @@ export interface GridColumnMenuAction<T> extends CommandMenuAction<
   GridColumnMenuContext<T>
 > {}
 export interface GridColumnMenuSeparator extends CommandMenuSeparator {}
+export interface GridColumnMenuSubmenu<T> extends CommandMenuSubmenu<
+  GridColumnMenuContext<T>
+> {}
 export type GridColumnMenuItem<T> =
-  GridColumnMenuAction<T> | GridColumnMenuSeparator;
+  GridColumnMenuAction<T> | GridColumnMenuSeparator | GridColumnMenuSubmenu<T>;
 export interface GridColumnMenuOptions<T> {
   readonly getItems?: (
     context: GridColumnMenuContext<T>,

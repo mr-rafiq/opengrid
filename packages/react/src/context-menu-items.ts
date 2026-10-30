@@ -3,6 +3,7 @@ import {
   prepareCommandMenuItems,
   type CommandMenuAction,
   type CommandMenuSeparator,
+  type CommandMenuSubmenu,
 } from "./command-menu-items.js";
 export {
   COMMAND_MENU_LIMITS as CONTEXT_MENU_LIMITS,
@@ -21,8 +22,13 @@ export interface GridContextMenuAction<T> extends CommandMenuAction<
   GridContextMenuContext<T>
 > {}
 export interface GridContextMenuSeparator extends CommandMenuSeparator {}
+export interface GridContextMenuSubmenu<T> extends CommandMenuSubmenu<
+  GridContextMenuContext<T>
+> {}
 export type GridContextMenuItem<T> =
-  GridContextMenuAction<T> | GridContextMenuSeparator;
+  | GridContextMenuAction<T>
+  | GridContextMenuSeparator
+  | GridContextMenuSubmenu<T>;
 export interface GridContextMenuOptions<T> {
   readonly getItems?: (
     context: GridContextMenuContext<T>,

@@ -1001,3 +1001,6 @@
 .og-root .og-column-menu-trigger:focus-visible {
   background: var(--og-selected, #e2f3ee);
 }
+.og-context-menu-chevron:dir(rtl) {
+  transform: scaleX(-1);
+}

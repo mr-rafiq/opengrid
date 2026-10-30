@@ -119,9 +119,9 @@ Use [managed row moving](docs/ROW_DRAGGING_UI.md) for pointer and keyboard inter
 
 Use the [calculated-column factory](docs/CALCULATED_COLUMNS.md) for compiled derived values, and [custom filter components](docs/CUSTOM_FILTERS.md) to provide controlled React filter interfaces.
 
-Use [contextual commands](docs/CONTEXT_MENUS.md) for real copy/paste, editing, notes, selection, history and CSV actions from data cells, plus bounded custom callbacks and cancellation. Submenus, aggregate/remote menus and full column-menu parity remain open.
+Use [contextual commands](docs/CONTEXT_MENUS.md) for real copy/paste, editing, notes, selection, history and CSV actions from data cells, plus bounded custom callbacks and cancellation. [Nested commands](docs/NESTED_MENUS.md) regroup real cell/header actions into owned four-level trees with keyboard/RTL, mouse/touch, native top layers and shared async ownership. Custom React items, aggregate/remote menus and full column-menu parity remain open.
 
-Use [column header commands](docs/COLUMN_MENUS.md) for real sort, physical pinning, resident grouping/expansion, rendered-text sizing, width reset, filter/chooser focus and guarded visibility actions. The Column commands lab demonstrates virtual headers, cancellation and live language/RTL/theme updates. Nested menus, aggregation/calculated authoring and full panel lifecycle remain open.
+Use [column header commands](docs/COLUMN_MENUS.md) for real sort, physical pinning, resident grouping/expansion, rendered-text sizing, width reset, filter/chooser focus and guarded visibility actions. The Column commands lab demonstrates virtual headers, cancellation and live language/RTL/theme updates. Aggregation/calculated authoring and full panel lifecycle remain open.
 
 Use [resident set-list filters](docs/SET_FILTERS.md) for staged checkbox choices, search, exact BigInt/date identity and update conflicts. [Independent named filters](docs/MULTI_FILTERS.md) combine staged child controls with source-conflict handling. Tree/remote value lists and cross-filter availability remain open.
 

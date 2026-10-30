@@ -10,6 +10,7 @@ export type {
   GridColumnMenuItem,
   GridColumnMenuAction,
   GridColumnMenuSeparator,
+  GridColumnMenuSubmenu,
   GridColumnMenuOptions,
 } from "./column-menu.js";
 export { GridContextMenu } from "./context-menu.js";
@@ -24,6 +25,7 @@ export type {
   GridContextMenuItem,
   GridContextMenuAction,
   GridContextMenuSeparator,
+  GridContextMenuSubmenu,
   GridContextMenuOptions,
 } from "./context-menu-items.js";
 export { MultiFilter, createMultiFilter } from "./multi-filter.js";
