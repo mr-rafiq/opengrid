@@ -629,6 +629,8 @@ export function createFormulaGrid<T>(
     columns: generated,
   };
   attachGridExtension(gridOptions, {
+    beforeColumns: () =>
+      "Formula grids require a new model for structural column changes",
     initialize(next) {
       context = next;
     },

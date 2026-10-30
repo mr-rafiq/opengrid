@@ -86,11 +86,11 @@ export function useCellRanges<T>({
       return definitions
         .filter((column) => !column.hidden)
         .map((column) => column.id);
-    const hidden = new Set(
-      definitions.filter((column) => column.hidden).map((column) => column.id),
+    const visible = new Set(
+      definitions.filter((column) => !column.hidden).map((column) => column.id),
     );
     // A model notification can precede the render that removes a newly hidden ID.
-    return columnOrder.current.filter((id) => !hidden.has(id));
+    return columnOrder.current.filter((id) => visible.has(id));
   }
   const focused = useRef(getFocusedCell);
   focused.current = getFocusedCell;
@@ -660,7 +660,10 @@ export function useCellRanges<T>({
         message.current(gridMessage("range.pasteUnavailable"), true);
         return;
       }
-      const error = controller!.paste(await navigator.clipboard.readText());
+      const revision = model.getColumnRevision();
+      const contents = await navigator.clipboard.readText();
+      if (revision !== model.getColumnRevision()) return;
+      const error = controller!.paste(contents);
       message.current(error ?? gridMessage("range.pasted"), Boolean(error));
     } catch (error) {
       message.current(

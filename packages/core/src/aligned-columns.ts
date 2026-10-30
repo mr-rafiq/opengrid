@@ -15,6 +15,7 @@ export interface AlignedColumnModel {
   getState(): GridState;
   setState(patch: Partial<GridState>): void;
   getColumns(): readonly AlignedColumn[];
+  getColumnRevision?(): number;
   subscribe(listener: () => void): () => void;
 }
 export interface AlignedColumnsOptions {
@@ -242,6 +243,7 @@ export function createAlignedColumns(
     ]);
     return result;
   }
+  const revisions = models.map((model) => model.getColumnRevision?.());
   const initialSnapshots = initial.map(snapshot); // Validate all effective values before registering listeners or writing.
   let active = true,
     ready = false,
@@ -303,6 +305,17 @@ export function createAlignedColumns(
     }
     return next;
   }
+  function schemaCurrent() {
+    if (
+      models.some(
+        (model, index) => model.getColumnRevision?.() !== revisions[index],
+      )
+    ) {
+      dispose();
+      return false;
+    }
+    return true;
+  }
   function enqueue(source: Snapshot) {
     if (pending.length >= maximumPasses)
       throw new Error(
@@ -322,6 +335,7 @@ export function createAlignedColumns(
           );
         const wanted = canonical(pending.shift()!);
         for (let index = 0; index < models.length && active; index++) {
+          if (!schemaCurrent()) return;
           const current = view(index),
             changes = patch(current, wanted);
           if (!Object.keys(changes).length) {
@@ -331,6 +345,7 @@ export function createAlignedColumns(
           observed[index] = wanted.fingerprint;
           attempted.add(index);
           models[index].setState(changes);
+          if (!active || !schemaCurrent()) return;
           const actual = snapshot(view(index));
           if (actual.fingerprint !== observed[index]) {
             observed[index] = actual.fingerprint;
@@ -356,7 +371,7 @@ export function createAlignedColumns(
     }
   }
   function notified(index: number) {
-    if (!active || !ready) return;
+    if (!active || !ready || !schemaCurrent()) return;
     try {
       const current = snapshot(view(index));
       if (current.fingerprint === observed[index]) return;

@@ -128,6 +128,7 @@ export const enMessages = Object.freeze({
   "grid.selectPage": "Select all rows on page",
   "grid.pinnedTop": "Pinned top rows",
   "grid.pinnedBottom": "Pinned bottom rows",
+  "grid.noColumns": "No visible columns",
   "grid.empty": "No matching rows",
   "grid.rowsPerPage": "Rows per page",
   "grid.previousPage": "Previous page",

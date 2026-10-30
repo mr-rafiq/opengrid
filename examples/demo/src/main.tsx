@@ -40,6 +40,7 @@ import { DirectionLab } from "./direction-lab";
 import { SetFilterLab } from "./set-filter-lab";
 import { FormulaGridLab } from "./formula-grid-lab";
 import { SizingLab } from "./sizing-lab";
+import { ColumnDefinitionsLab } from "./column-definitions-lab";
 import { ConditionFilterLab } from "./condition-filter-lab";
 interface Holding {
   id: string;
@@ -216,6 +217,7 @@ function App() {
   const [formulaGridOpen, setFormulaGridOpen] = useState(false);
   const [sizingOpen, setSizingOpen] = useState(false);
   const [conditionFilterOpen, setConditionFilterOpen] = useState(false);
+  const [columnDefinitionsOpen, setColumnDefinitionsOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -869,6 +871,15 @@ function App() {
             Column conditions lab
           </button>
           {conditionFilterOpen && <ConditionFilterLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setColumnDefinitionsOpen(!columnDefinitionsOpen)}
+            aria-expanded={columnDefinitionsOpen}
+          >
+            Runtime column definitions lab
+          </button>
+          {columnDefinitionsOpen && <ColumnDefinitionsLab />}
         </section>
         <section className="pivot-panel">
           <button

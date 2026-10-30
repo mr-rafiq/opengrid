@@ -136,6 +136,7 @@ export const esMessages = Object.freeze({
   "grid.selectPage": "Seleccionar todas las filas de la página",
   "grid.pinnedTop": "Filas fijadas arriba",
   "grid.pinnedBottom": "Filas fijadas abajo",
+  "grid.noColumns": "No hay columnas visibles",
   "grid.empty": "No hay filas coincidentes",
   "grid.rowsPerPage": "Filas por página",
   "grid.previousPage": "Página anterior",

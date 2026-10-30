@@ -10,6 +10,7 @@ export interface GridExtensionContext<T> {
 export interface GridExtension<T> {
   initialize(context: GridExtensionContext<T>): void;
   resolveValue(row: T, column: Column<T>, raw: () => unknown): unknown;
+  beforeColumns?(columns: readonly Column<T>[]): string | undefined;
   beforeBatch?(edits: readonly Edit<T>[]): string | undefined;
   validateBatch?(
     rows: readonly T[],

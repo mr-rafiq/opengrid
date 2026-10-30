@@ -109,6 +109,7 @@ export interface GridMessageParams {
   "grid.selectPage": undefined;
   "grid.pinnedTop": undefined;
   "grid.pinnedBottom": undefined;
+  "grid.noColumns": undefined;
   "grid.empty": undefined;
   "grid.rowsPerPage": undefined;
   "grid.previousPage": undefined;
@@ -628,6 +629,7 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "grid.selectPage": {},
   "grid.pinnedTop": {},
   "grid.pinnedBottom": {},
+  "grid.noColumns": {},
   "grid.empty": {},
   "grid.rowsPerPage": {},
   "grid.previousPage": {},

@@ -149,6 +149,10 @@ export interface GridModel<T> {
     position: "before" | "after",
   ): string | undefined;
   getColumns(): Column<T>[];
+  /** Atomic client definition replacement; preserves compatible ID-based state. */
+  setColumns(columns: readonly Column<T>[]): void;
+  /** Monotonic definition epoch; layout/state edits do not increment it. */
+  getColumnRevision(): number;
   /** Frozen configured widths, independent of restored/manual layout state. */
   getColumnWidthDefaults(): Readonly<Record<string, number>>;
   getValue(row: T, columnId: string): unknown;

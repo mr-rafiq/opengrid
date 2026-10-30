@@ -190,6 +190,7 @@ export function createCellRangeModel<T>(
     signature = "",
     disposed = false;
   let observedState = grid.getState();
+  let columnRevision = grid.getColumnRevision();
   let unsubscribe: (() => void) | undefined;
   const listeners = new Set<() => void>();
   function notify() {
@@ -265,7 +266,12 @@ export function createCellRangeModel<T>(
       rowIds,
       columns.map((column) => column.id),
     ]);
-    const range = bounds(snapshot.range) ? snapshot.range : null;
+    const revision = grid.getColumnRevision();
+    const range =
+      revision === columnRevision && bounds(snapshot.range)
+        ? snapshot.range
+        : null;
+    columnRevision = revision;
     if (signature !== nextSignature || !sameRange(snapshot.range, range)) {
       signature = nextSignature;
       snapshot = freezeRange(range);

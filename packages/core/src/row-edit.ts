@@ -36,6 +36,7 @@ export function createRowEditSession<T>(
   const conflictPolicy = options.conflictPolicy ?? "reject";
   if (conflictPolicy !== "reject" && conflictPolicy !== "overwrite")
     throw new TypeError("Unknown row-edit conflict policy");
+  const columnRevision = model.getColumnRevision();
   const initialRow = model.getRow(rowId);
   if (initialRow == null) throw new Error(`Cannot edit missing row: ${rowId}`);
   const allColumns = new Map(
@@ -97,6 +98,8 @@ export function createRowEditSession<T>(
     },
     setValue(columnId, value) {
       if (status !== "editing") return closed();
+      if (model.getColumnRevision() !== columnRevision)
+        return fail("Column definitions changed; start a new row edit");
       const column = editable.get(columnId);
       if (!column)
         return fail(
@@ -119,6 +122,8 @@ export function createRowEditSession<T>(
     },
     commit() {
       if (status !== "editing") return closed();
+      if (model.getColumnRevision() !== columnRevision)
+        return fail("Column definitions changed; start a new row edit");
       const row = model.getRow(rowId);
       if (row == null) return fail(`Row was deleted: ${rowId}`);
       const dirty = dirtyColumns(),

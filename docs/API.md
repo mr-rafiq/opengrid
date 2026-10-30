@@ -421,3 +421,7 @@ Both command providers accept `kind: "submenu"` with `id`, `label`, optional `di
 ## Server request budgets and retained-data retry
 
 `ServerSideOptions.maxConcurrentRequests` defaults to 2 (maximum 16); `maxPendingRequests` defaults to 256 (maximum 4096, at least concurrency). The scheduler retains canceled provider slots until actual settlement, queues distinct addresses and rejects excess demand with `ServerRequestCapacityError`. `refreshBlock(route, blockIndex)` forces one retained-cache replacement; wide refresh capacity is preflighted atomically. React Retry fetches again after a failed cached refresh. See [request scheduling](SERVER_REQUESTS.md) for ownership, error normalization and remaining server gaps.
+
+## Runtime column definitions
+
+Client `model.setColumns(readonlyDefinitions)` atomically replaces the schema while preserving compatible explicit-ID state and resident data history. `model.getColumnRevision()` identifies accepted definition changes independently of layout edits. Incompatible advanced filters reject the operation; compiled formula/calculated factories require explicit recreation. Mounted editors/ranges/staged filters and fixed-schema alignment links cannot silently continue through replacement. See the full [runtime definition contract](COLUMN_DEFINITIONS.md).

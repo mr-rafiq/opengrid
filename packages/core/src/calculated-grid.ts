@@ -416,6 +416,11 @@ export function createCalculatedGrid<T>(
     ...gridOptions,
     columns: [...baseColumns, ...generated],
   });
+  model.setColumns = () => {
+    throw new TypeError(
+      "Calculated grids require a new model for structural column changes",
+    );
+  };
   initialIndex = undefined;
   const controller: CalculatedColumnsController<T> = Object.freeze({
     evaluate,

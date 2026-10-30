@@ -82,9 +82,9 @@ export function csvCell(value: unknown): string {
   return '"' + output.replaceAll('"', '""') + '"';
 }
 
-export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
-  const extension = takeGridExtension(options);
-  const columns = options.columns.map((column) => {
+function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
+  if (!Array.isArray(input)) throw new TypeError("Columns must be an array");
+  const columns = input.map((column) => {
     const widthConstraints = getColumnWidthConstraints(column);
     if (
       column.flex !== undefined &&
@@ -120,17 +120,35 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         Array.from(column.groupPath).some((part) => typeof part !== "string"))
     )
       throw new TypeError("Column groupPath must be an array of strings");
-    return {
+    return Object.freeze({
       ...column,
       width: widthConstraints.width,
       ...(column.groupPath === undefined
         ? {}
         : { groupPath: Object.freeze([...column.groupPath]) }),
-    };
+    });
   });
-  const columnWidthDefaults: Record<string, number> = Object.create(null);
-  for (const column of columns) columnWidthDefaults[column.id] = column.width;
-  Object.freeze(columnWidthDefaults);
+  const ids = new Set(columns.map((column) => column.id));
+  if (
+    ids.size !== columns.length ||
+    columns.some((column) => typeof column.id !== "string" || !column.id)
+  )
+    throw new TypeError("Column IDs must be unique nonempty strings");
+  return columns;
+}
+function widthDefaults<T>(
+  columns: readonly Column<T>[],
+): Readonly<Record<string, number>> {
+  const result: Record<string, number> = Object.create(null);
+  for (const column of columns) result[column.id] = column.width!;
+  return Object.freeze(result);
+}
+
+export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
+  const extension = takeGridExtension(options);
+  let columns = prepareColumns(options.columns);
+  let columnWidthDefaults = widthDefaults(columns);
+  let columnRevision = 0;
   const cacheEnabled =
     options.valueCache === undefined ? false : options.valueCache;
   if (typeof cacheEnabled !== "boolean")
@@ -147,7 +165,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     throw new RangeError(
       "valueCacheMaxEntries must be a positive safe integer no greater than 1000000",
     );
-  const byColumn = new Map(columns.map((column) => [column.id, column]));
+  let byColumn = new Map(columns.map((column) => [column.id, column]));
   let externalFilter = options.externalFilter;
   if (externalFilter !== undefined && typeof externalFilter !== "function")
     throw new TypeError("externalFilter must be a function");
@@ -220,14 +238,18 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     if (!column) throw new Error(`Unknown column: ${id}`);
     return column;
   }
-  function sanitize(next: GridState): GridState {
+  function sanitize(
+    next: GridState,
+    definitions = columns,
+    index = byColumn,
+  ): GridState {
     if (!Number.isFinite(next.pageSize) || next.pageSize < 1)
       throw new RangeError("pageSize must be positive");
-    const order = [
-      ...new Set(next.columnOrder.filter((id) => byColumn.has(id))),
-    ];
+    const order = [...new Set(next.columnOrder.filter((id) => index.has(id)))];
     order.push(
-      ...columns.map((column) => column.id).filter((id) => !order.includes(id)),
+      ...definitions
+        .map((column) => column.id)
+        .filter((id) => !order.includes(id)),
     );
     const ids = new Set(rows.map(idOf));
     const result: GridState = {
@@ -235,20 +257,18 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       advancedFilter:
         next.advancedFilter === undefined
           ? undefined
-          : prepareAdvancedFilter(next.advancedFilter, columns),
+          : prepareAdvancedFilter(next.advancedFilter, definitions),
       sorting: next.sorting
         .filter(
           (sort) =>
-            byColumn.has(sort.columnId) &&
+            index.has(sort.columnId) &&
             (sort.direction === "asc" || sort.direction === "desc") &&
-            requireColumn(sort.columnId).sortable !== false,
+            index.get(sort.columnId)!.sortable !== false,
         )
         .map((sort) => ({ ...sort })),
       filters: Object.fromEntries(
         Object.keys(next.filters)
-          .filter(
-            (id) => byColumn.has(id) && requireColumn(id).filterable !== false,
-          )
+          .filter((id) => index.has(id) && index.get(id)!.filterable !== false)
           .map((id) => {
             const descriptor = Object.getOwnPropertyDescriptor(
               next.filters,
@@ -270,10 +290,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       columnPinning: { ...next.columnPinning },
       page: Math.max(0, Math.floor(Number.isFinite(next.page) ? next.page : 0)),
       pageSize: Math.floor(next.pageSize),
-      groupBy: [...new Set(next.groupBy.filter((id) => byColumn.has(id)))],
+      groupBy: [...new Set(next.groupBy.filter((id) => index.has(id)))],
       expanded: [...new Set(next.expanded)],
     };
-    for (const column of columns) {
+    for (const column of definitions) {
       if (Object.hasOwn(result.columnWidths, column.id))
         result.columnWidths[column.id] = clampColumnWidth(
           column,
@@ -635,6 +655,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     emit();
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
+    const revision = columnRevision;
     if (extension?.beforeBatch) {
       try {
         const beforeError = extension.beforeBatch(edits);
@@ -712,6 +733,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         return error instanceof Error ? error.message : "Invalid batch";
       }
     }
+    if (columnRevision !== revision)
+      return "Column definitions changed during editing";
     const changed = [...validationTargets].some(([rowId, targets]) => {
       const before = originals.get(rowId)!,
         after = pending.get(rowId)!;
@@ -725,6 +748,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           : !Object.is(left, right);
       });
     });
+    if (columnRevision !== revision)
+      return "Column definitions changed during editing";
     if (!changed) return;
     recordHistory({ kind: "snapshot", rows });
     rows = rows.map((row) => pending.get(idOf(row))!);
@@ -816,6 +841,44 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       emit();
     },
     getColumns,
+    getColumnRevision: () => columnRevision,
+    setColumns(input) {
+      const before = state,
+        beforeRows = rows,
+        revision = columnRevision;
+      const definitions = prepareColumns(input);
+      const error = extension?.beforeColumns?.(definitions);
+      if (error) throw new TypeError(error);
+      const index = new Map(definitions.map((column) => [column.id, column]));
+      const retain = <V>(record: Record<string, V>) =>
+        Object.fromEntries(
+          Object.entries(record).filter(([id]) => index.has(id)),
+        );
+      const next = sanitize(
+        {
+          ...before,
+          columnWidths: retain(before.columnWidths),
+          columnVisibility: retain(before.columnVisibility),
+          columnPinning: retain(before.columnPinning),
+          page: 0,
+        },
+        definitions,
+        index,
+      );
+      if (
+        state !== before ||
+        rows !== beforeRows ||
+        columnRevision !== revision
+      )
+        throw new Error("Grid changed while preparing column definitions");
+      columns = definitions;
+      byColumn = index;
+      columnWidthDefaults = widthDefaults(definitions);
+      columnRevision++;
+      clearValueCache();
+      state = next;
+      emit();
+    },
     getColumnWidthDefaults: () => columnWidthDefaults,
     getValue,
     expireValueCache() {

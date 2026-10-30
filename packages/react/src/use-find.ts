@@ -34,12 +34,12 @@ export function useFind<T>(
           return definitions
             .filter((column) => !column.hidden)
             .map((column) => column.id);
-        const hidden = new Set(
+        const visible = new Set(
           definitions
-            .filter((column) => column.hidden)
+            .filter((column) => !column.hidden)
             .map((column) => column.id),
         );
-        return columns.current.filter((id) => !hidden.has(id));
+        return columns.current.filter((id) => visible.has(id));
       },
       isCellSearchable: (position) => searchable.current?.(position) ?? true,
     });
