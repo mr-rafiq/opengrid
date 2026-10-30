@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import {
   test,
   expect,
@@ -105,7 +106,7 @@ test("touch taps sort/select and double-tap or Edit cell opens one retained edit
   page,
 }) => {
   const grid = await openLab(page),
-    root = grid.locator(".."),
+    root = gridRoot(grid),
     name = cell(grid, "rtl1", "name");
   await name.tap();
   await expect(name).toBeFocused();
@@ -143,7 +144,7 @@ test("explicit touch extension survives native scrolling and fill remains one un
   context,
 }) => {
   const grid = await openLab(page),
-    root = grid.locator("..");
+    root = gridRoot(grid);
   await cell(grid, "rtl1", "amount").tap();
   await root.getByRole("button", { name: "Extend range", exact: true }).tap();
   await expect(
@@ -199,7 +200,7 @@ test("touch fill grip supports series and cancellation without data writes", asy
   context,
 }, testInfo) => {
   const grid = await openLab(page),
-    root = grid.locator(".."),
+    root = gridRoot(grid),
     session = await sessionFor(context, page);
   for (const [row, value] of [
     ["rtl1", "20"],

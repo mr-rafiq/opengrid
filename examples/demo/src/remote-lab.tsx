@@ -11,6 +11,7 @@ import {
 import { ServerDataGrid, LiveViewportDataGrid } from "@opengrid/react";
 import { ServerNotesLab } from "./server-notes-lab.js";
 import { InfiniteLab } from "./infinite-lab.js";
+import { ServerRequestLab } from "./server-request-lab.js";
 
 interface RemoteOrder {
   id: string;
@@ -257,6 +258,7 @@ export function RemoteLab() {
       </article>
       <ServerNotesLab direction={rtl ? "rtl" : "ltr"} />
       <InfiniteLab direction={rtl ? "rtl" : "ltr"} />
+      <ServerRequestLab direction={rtl ? "rtl" : "ltr"} />
       <article style={{ marginTop: 24 }}>
         <h3 style={{ margin: "0 0 8px", fontSize: 13 }}>
           Live sparse viewport: 1,000,000 logical rows

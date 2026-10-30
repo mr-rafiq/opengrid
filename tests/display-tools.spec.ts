@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -120,7 +121,7 @@ test("aligns shared column controls while each grid retains independent sorting"
     .click();
   const left = page.getByRole("grid", { name: "Aligned left", exact: true }),
     right = page.getByRole("grid", { name: "Aligned right", exact: true });
-  const leftRoot = left.locator("..");
+  const leftRoot = gridRoot(left);
   await leftRoot.getByText("Columns", { exact: true }).click();
   await leftRoot
     .getByRole("checkbox", { name: "Show Region", exact: true })

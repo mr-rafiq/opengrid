@@ -191,6 +191,10 @@
 .og-column-option button {
   padding: 4px 7px;
 }
+.og-grid-frame {
+  position: relative;
+  min-width: 0;
+}
 .og-viewport {
   overflow: auto;
   touch-action: manipulation;

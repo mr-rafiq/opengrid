@@ -111,3 +111,7 @@ The snapshot contains `viewport`, requested buffered `window`, sorted sparse `ro
 ## Tested boundaries and remaining work
 
 Focused tests use separate provider fixtures to verify group routes, query forwarding, dynamic pivot metadata, concurrent blocks, LRU, retry, route refresh, validation, cancellation/stale responses, atomic loaded-node updates, live pushes, absolute indexes, count changes, empty-to-growing datasets and delayed cleanup. They verify **provider contracts and stores**, not a production server or an integrated remote React grid. There is no server-side selection protocol, recursive server expansion UI, master/detail server strategy, transport-specific reconnect/backoff, server transaction scheduler or end-to-end remote backend yet.
+
+## Request scheduling
+
+Server requests now use a two-slot default FIFO and a separate 256-current-request capacity. Cancellation retains actual provider slots until settlement, including across queries. `refreshBlock` replaces one cached address while retaining visible data. Refresh batches preflight capacity before mutation; errors have bounded nonempty messages. See the [complete scheduling and retry contract](SERVER_REQUESTS.md).

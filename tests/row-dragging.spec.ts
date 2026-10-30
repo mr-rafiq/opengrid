@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const ids = (grid: Locator) =>
@@ -41,7 +42,7 @@ test("keyboard and toolbar movement retain focus and explicit guards disable tra
   page,
 }) => {
   const grid = page.getByRole("grid", { name: "Portfolio holdings" }),
-    root = grid.locator(".."),
+    root = gridRoot(grid),
     cell = grid.locator('[data-row-id="1"][data-column-id="price"]');
   await cell.focus();
   await cell.press("Alt+ArrowDown");

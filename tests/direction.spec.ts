@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const cell = (grid: Locator, row: string, column: string) =>
@@ -15,7 +16,7 @@ test("RTL pins, virtual scrolling, navigation, resizing and live editor directio
   page,
 }) => {
   const grid = await openLab(page),
-    root = grid.locator(".."),
+    root = gridRoot(grid),
     name = cell(grid, "rtl1", "name"),
     team = cell(grid, "rtl1", "team");
   await expect(grid).toHaveAttribute("dir", "rtl");

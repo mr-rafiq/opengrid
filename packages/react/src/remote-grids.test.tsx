@@ -260,6 +260,46 @@ describe("server-authoritative React block binding", () => {
     );
     expect(serverCell("a", "name").style.right).toBe("0px");
   });
+  it("retries a failed refresh with cached rows through a new provider request", async () => {
+    let succeed!: (response: ServerResponse<Item>) => void;
+    const pending = new Promise<ServerResponse<Item>>((resolve) => {
+      succeed = resolve;
+    });
+    const getRows = vi
+      .fn()
+      .mockResolvedValueOnce({ nodes: [leaf("a")], rowCount: 1 })
+      .mockRejectedValueOnce(new Error("refresh offline"))
+      .mockImplementationOnce(() => pending);
+    const model = new ServerSideRowModel<Item>({ getRows });
+    render(<ServerDataGrid model={model} columns={columns} />);
+    await waitFor(() => expect(serverCell("a", "name")).toBeTruthy());
+    fireEvent.click(screen.getByRole("checkbox", { name: "Select row a" }));
+    await act(async () => {
+      await model.refreshBlock([], 0).catch(() => {});
+    });
+    expect(screen.getByRole("alert").textContent).toContain("refresh offline");
+    expect(serverCell("a", "name").textContent).toContain("a");
+    fireEvent.click(screen.getByRole("button", { name: "Retry server rows" }));
+    await waitFor(() => expect(getRows).toHaveBeenCalledTimes(3));
+    expect(serverCell("a", "name").textContent).toContain("a");
+    await act(async () => {
+      succeed({
+        nodes: [{ kind: "row", id: "a", data: { name: "Updated", price: 2 } }],
+        rowCount: 1,
+      });
+    });
+    await waitFor(() =>
+      expect(serverCell("a", "name").textContent).toContain("Updated"),
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(
+      (
+        screen.getByRole("checkbox", {
+          name: "Select row a",
+        }) as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+  });
   it("resets to the first provider block on query changes", async () => {
     const { model, getRows } = serverFixture();
     render(<ServerDataGrid model={model} columns={columns} />);

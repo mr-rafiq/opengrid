@@ -60,6 +60,9 @@ export interface ServerSideSnapshot<T> {
 export interface ServerSideOptions {
   blockSize?: number;
   maxBlocks?: number;
+  maxConcurrentRequests?: number;
+  /** Current-query running and queued requests, excluding detached canceled providers. */
+  maxPendingRequests?: number;
   query?: Partial<ServerQuery>;
 }
 export interface ServerRefreshOptions {
@@ -68,6 +71,43 @@ export interface ServerRefreshOptions {
 }
 export interface LoadedServerTransaction<T> {
   update: ServerNode<T>[];
+}
+
+export const SERVER_REQUEST_LIMITS = Object.freeze({
+  maxConcurrentRequests: 16,
+  maxPendingRequests: 4096,
+  maxErrorLength: 4096,
+});
+export class ServerRequestCapacityError extends RangeError {
+  constructor(limit: number) {
+    super(`Server pending request capacity ${limit} is full`);
+    this.name = "ServerRequestCapacityError";
+  }
+}
+interface ServerTask<T> extends ServerBlockAddress {
+  key: string;
+  query: ServerQuery;
+  controller: AbortController;
+  promise: Promise<ServerResponse<T>>;
+  resolve: (response: ServerResponse<T>) => void;
+  reject: (error: unknown) => void;
+  started: boolean;
+  canceled: boolean;
+}
+function providerError(error: unknown): Error {
+  let message = "Server provider request failed";
+  try {
+    const text =
+      error == null
+        ? ""
+        : error instanceof Error
+          ? error.message
+          : String(error);
+    if (typeof text === "string" && text.trim()) message = text;
+  } catch {
+    /* Keep a nonempty, bounded failure when conversion itself fails. */
+  }
+  return new Error(message.slice(0, SERVER_REQUEST_LIMITS.maxErrorLength));
 }
 
 const abortError = () => new DOMException("Request superseded", "AbortError");
@@ -138,15 +178,13 @@ function validateNode<T>(node: ServerNode<T>) {
 export class ServerSideRowModel<T> {
   readonly blockSize: number;
   readonly maxBlocks: number;
+  readonly maxConcurrentRequests: number;
+  readonly maxPendingRequests: number;
   private query: ServerQuery;
   private cache = new Map<string, LoadedServerBlock<T>>();
-  private pending = new Map<
-    string,
-    ServerBlockAddress & {
-      controller: AbortController;
-      promise: Promise<ServerResponse<T>>;
-    }
-  >();
+  private pending = new Map<string, ServerTask<T>>();
+  private running = new Set<ServerTask<T>>();
+  private pumping = false;
   private errors = new Map<string, ServerBlockAddress & { message: string }>();
   private listeners = new Set<() => void>();
   private disposed = false;
@@ -164,6 +202,18 @@ export class ServerSideRowModel<T> {
   ) {
     this.blockSize = options.blockSize ?? 100;
     this.maxBlocks = options.maxBlocks ?? 10;
+    this.maxConcurrentRequests = options.maxConcurrentRequests ?? 2;
+    this.maxPendingRequests = options.maxPendingRequests ?? 256;
+    if (
+      !integer(this.maxConcurrentRequests) ||
+      this.maxConcurrentRequests < 1 ||
+      this.maxConcurrentRequests >
+        SERVER_REQUEST_LIMITS.maxConcurrentRequests ||
+      !integer(this.maxPendingRequests) ||
+      this.maxPendingRequests < this.maxConcurrentRequests ||
+      this.maxPendingRequests > SERVER_REQUEST_LIMITS.maxPendingRequests
+    )
+      throw new RangeError("Invalid server concurrency/pending request limits");
     if (
       !integer(this.blockSize) ||
       !this.blockSize ||
@@ -223,7 +273,7 @@ export class ServerSideRowModel<T> {
       throw new Error("Invalid server query");
     return copy;
   }
-  private emit() {
+  private publish() {
     this.snapshot = freeze(
       structuredClone({
         revision: ++this.revision,
@@ -234,7 +284,13 @@ export class ServerSideRowModel<T> {
         errors: [...this.errors.values()],
       }),
     );
+  }
+  private notify() {
     for (const listener of [...this.listeners]) listener();
+  }
+  private emit() {
+    this.publish();
+    this.notify();
   }
   getSnapshot = (): ServerSideSnapshot<T> => this.snapshot;
   /** Detached authoritative provider query for UI bindings and persistence. */
@@ -249,12 +305,132 @@ export class ServerSideRowModel<T> {
   setQuery(query: Partial<ServerQuery>) {
     this.alive();
     const next = this.normalizeQuery({ ...this.query, ...query });
-    for (const request of this.pending.values()) request.controller.abort();
+    const previous = [...this.pending.values()];
     this.pending.clear();
     this.cache.clear();
     this.errors.clear();
     this.query = next;
-    this.emit();
+    this.cancel(previous);
+    this.publish();
+    for (const request of previous) request.controller.abort();
+    this.notify();
+    this.pump();
+  }
+  private owns(task: ServerTask<T>) {
+    return (
+      !this.disposed && !task.canceled && this.pending.get(task.key) === task
+    );
+  }
+  private cancel(tasks: readonly ServerTask<T>[]) {
+    for (const task of tasks) {
+      if (this.pending.get(task.key) === task) this.pending.delete(task.key);
+      task.canceled = true;
+      task.reject(abortError());
+    }
+  }
+  private createTask(
+    groupKeys: readonly string[],
+    blockIndex: number,
+  ): ServerTask<T> {
+    let resolve!: ServerTask<T>["resolve"], reject!: ServerTask<T>["reject"];
+    const promise = new Promise<ServerResponse<T>>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    // Reentrant cancellation can happen before the public async wrapper attaches.
+    void promise.catch(() => {});
+    const task: ServerTask<T> = {
+      key: addressKey(groupKeys, blockIndex),
+      groupKeys: [...groupKeys],
+      blockIndex,
+      query: this.query,
+      controller: new AbortController(),
+      promise,
+      resolve,
+      reject,
+      started: false,
+      canceled: false,
+    };
+    this.pending.set(task.key, task);
+    this.errors.delete(task.key);
+    return task;
+  }
+  private pump() {
+    if (this.disposed || this.pumping) return;
+    this.pumping = true;
+    try {
+      while (this.running.size < this.maxConcurrentRequests) {
+        const task = [...this.pending.values()].find(
+          (candidate) => !candidate.started,
+        );
+        if (!task) break;
+        task.started = true;
+        this.running.add(task);
+        // Reserve the slot now, but do not invoke a superseded provider in this turn.
+        const work = Promise.resolve().then(() => {
+          if (!this.owns(task)) throw abortError();
+          const query = structuredClone(task.query);
+          if (!this.owns(task)) throw abortError();
+          return this.source.getRows({
+            ...query,
+            groupKeys: [...task.groupKeys],
+            startRow: task.blockIndex * this.blockSize,
+            endRow: (task.blockIndex + 1) * this.blockSize,
+            signal: task.controller.signal,
+          });
+        });
+        void work.then(
+          (response) => this.settle(task, { response }),
+          (error: unknown) => this.settle(task, { error }),
+        );
+      }
+    } finally {
+      this.pumping = false;
+    }
+  }
+  private settle(
+    task: ServerTask<T>,
+    outcome: { response: ServerResponse<T> } | { error: unknown },
+  ) {
+    // This runs only when the actual provider promise settles, including ignored aborts.
+    this.running.delete(task);
+    try {
+      if (!this.owns(task)) return;
+      let copy: ServerResponse<T> | undefined, error: Error | undefined;
+      try {
+        if ("error" in outcome) throw outcome.error;
+        copy = structuredClone(outcome.response);
+        if (!this.owns(task)) return;
+        this.validateResponse(copy, task.groupKeys, task.blockIndex);
+      } catch (failure) {
+        error = providerError(failure);
+      }
+      if (!this.owns(task)) return;
+      this.pending.delete(task.key);
+      if (error) {
+        this.errors.set(task.key, {
+          groupKeys: task.groupKeys,
+          blockIndex: task.blockIndex,
+          message: error.message,
+        });
+        while (this.errors.size > this.maxBlocks)
+          this.errors.delete(this.errors.keys().next().value!);
+        task.reject(error);
+      } else {
+        this.cache.set(task.key, {
+          groupKeys: task.groupKeys,
+          blockIndex: task.blockIndex,
+          response: copy!,
+        });
+        while (this.cache.size > this.maxBlocks)
+          this.cache.delete(this.cache.keys().next().value!);
+        this.errors.delete(task.key);
+        task.resolve(copy!);
+      }
+      this.emit();
+    } finally {
+      this.pump();
+    }
   }
   private validateResponse(
     response: ServerResponse<T>,
@@ -306,6 +482,13 @@ export class ServerSideRowModel<T> {
   ): Promise<ServerResponse<T>> {
     return this.requestBlock(groupKeys, blockIndex);
   }
+  /** Reload one address while retaining its cached response until successful replacement. */
+  refreshBlock(
+    groupKeys: readonly string[],
+    blockIndex: number,
+  ): Promise<ServerResponse<T>> {
+    return this.requestBlock(groupKeys, blockIndex, true);
+  }
   private async requestBlock(
     groupKeys: readonly string[],
     blockIndex: number,
@@ -325,65 +508,15 @@ export class ServerSideRowModel<T> {
     }
     const existing = this.pending.get(key);
     if (existing) return structuredClone(await existing.promise);
-    const controller = new AbortController();
-    const query = structuredClone(this.query);
-    let rejectAbort!: (error: DOMException) => void;
-    const aborted = new Promise<never>((_, reject) => {
-      rejectAbort = reject;
-    });
-    const onAbort = () => rejectAbort(abortError());
-    controller.signal.addEventListener("abort", onAbort, { once: true });
-    const promise = Promise.race([
-      Promise.resolve().then(() => {
-        if (controller.signal.aborted) throw abortError();
-        return this.source.getRows({
-          ...query,
-          groupKeys: [...route],
-          startRow: blockIndex * this.blockSize,
-          endRow: (blockIndex + 1) * this.blockSize,
-          signal: controller.signal,
-        });
-      }),
-      aborted,
-    ])
-      .then((response) => {
-        if (controller.signal.aborted || this.disposed) throw abortError();
-        this.validateResponse(response, route, blockIndex);
-        const copy = structuredClone(response);
-        this.cache.set(key, { groupKeys: route, blockIndex, response: copy });
-        while (this.cache.size > this.maxBlocks)
-          this.cache.delete(this.cache.keys().next().value!);
-        this.errors.delete(key);
-        return copy;
-      })
-      .catch((error) => {
-        if (!controller.signal.aborted && !this.disposed) {
-          this.errors.set(key, {
-            groupKeys: route,
-            blockIndex,
-            message: error instanceof Error ? error.message : String(error),
-          });
-          while (this.errors.size > this.maxBlocks)
-            this.errors.delete(this.errors.keys().next().value!);
-        }
-        throw error;
-      })
-      .finally(() => {
-        controller.signal.removeEventListener("abort", onAbort);
-        if (this.pending.get(key)?.controller === controller) {
-          this.pending.delete(key);
-          this.emit();
-        }
-      });
-    this.errors.delete(key);
-    this.pending.set(key, {
-      groupKeys: route,
-      blockIndex,
-      controller,
-      promise,
-    });
-    this.emit();
-    return structuredClone(await promise);
+    if (this.pending.size >= this.maxPendingRequests)
+      throw new ServerRequestCapacityError(this.maxPendingRequests);
+    const task = this.createTask(route, blockIndex);
+    try {
+      this.emit();
+    } finally {
+      this.pump();
+    }
+    return structuredClone(await task.promise);
   }
   async refreshRoute(
     groupKeys: readonly string[],
@@ -396,27 +529,45 @@ export class ServerSideRowModel<T> {
     const matches = (address: ServerBlockAddress) =>
       includesRoute(address.groupKeys, groupKeys, descendants);
     const reload = new Map<string, ServerBlockAddress>();
+    const previous: ServerTask<T>[] = [];
     for (const [key, block] of this.cache)
       if (matches(block)) {
         reload.set(key, block);
-        if (purge) this.cache.delete(key);
       }
     for (const [key, request] of this.pending)
       if (matches(request)) {
         reload.set(key, request);
-        request.controller.abort();
-        this.pending.delete(key);
+        previous.push(request);
       }
     for (const [key, error] of this.errors)
       if (matches(error)) {
         reload.set(key, error);
-        this.errors.delete(key);
       }
-    const promises = [...reload.values()].map((address) =>
-      this.requestBlock(address.groupKeys, address.blockIndex, true),
+    if (
+      this.pending.size - previous.length + reload.size >
+      this.maxPendingRequests
+    )
+      throw new ServerRequestCapacityError(this.maxPendingRequests);
+    if (purge) for (const key of reload.keys()) this.cache.delete(key);
+    this.cancel(previous);
+    // Install the entire refresh before any subscriber or abort listener can reenter.
+    const tasks = [...reload.values()].map((address) =>
+      this.createTask(address.groupKeys, address.blockIndex),
     );
-    this.emit();
-    return Promise.all(promises);
+    const result = Promise.all(
+      tasks.map((task) =>
+        task.promise.then((response) => structuredClone(response)),
+      ),
+    );
+    void result.catch(() => {});
+    this.publish();
+    for (const request of previous) request.controller.abort();
+    try {
+      this.notify();
+    } finally {
+      this.pump();
+    }
+    return result;
   }
   refresh(options: Omit<ServerRefreshOptions, "descendants"> = {}) {
     return this.refreshRoute([], { ...options, descendants: true });
@@ -461,22 +612,33 @@ export class ServerSideRowModel<T> {
         "Every transaction node must already be loaded at the specified route",
       );
     if (!updates.size) return;
-    for (const [key, request] of this.pending)
-      if (routeKey(request.groupKeys) === routeKey(groupKeys)) {
-        request.controller.abort();
-        this.pending.delete(key);
-      }
+    const previous = [...this.pending.values()].filter(
+      (request) => routeKey(request.groupKeys) === routeKey(groupKeys),
+    );
+    this.cancel(previous);
     for (const [key, block] of changes) this.cache.set(key, block);
-    this.emit();
+    this.publish();
+    for (const request of previous) request.controller.abort();
+    try {
+      this.notify();
+    } finally {
+      this.pump();
+    }
   }
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
-    for (const request of this.pending.values()) request.controller.abort();
+    const previous = [...this.pending.values()];
     this.pending.clear();
     this.cache.clear();
     this.errors.clear();
-    this.emit();
-    this.listeners.clear();
+    this.cancel(previous);
+    this.publish();
+    for (const request of previous) request.controller.abort();
+    try {
+      this.notify();
+    } finally {
+      this.listeners.clear();
+    }
   }
 }

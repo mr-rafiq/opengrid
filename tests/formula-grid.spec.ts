@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Page, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 
@@ -13,7 +14,7 @@ async function setup(page: Page) {
     .or(page.getByRole("treegrid", { name: "Formula sheet", exact: true }));
   return {
     grid,
-    root: grid.locator(".."),
+    root: gridRoot(grid),
     region: page.getByRole("region", {
       name: "Formula sheet example",
       exact: true,

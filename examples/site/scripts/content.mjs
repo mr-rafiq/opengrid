@@ -68,6 +68,7 @@ const labels = {
   "remote-grids": "Remote React grids",
   "infinite-rows": "Infinite rows",
   "remote-models": "Remote data models",
+  "server-requests": "Server request scheduling",
   "show-values-as": "Analytical transforms",
   "aligned-columns": "Aligned columns",
   "third-party-notices": "Dependency notices",
@@ -113,6 +114,7 @@ const order = [
   "find-notes",
   "notes-ui",
   "remote-models",
+  "server-requests",
   "remote-grids",
   "infinite-rows",
   "formulas",
@@ -171,6 +173,7 @@ const section = (slug) =>
       ? "Grid experience"
       : [
             "remote-models",
+            "server-requests",
             "remote-grids",
             "infinite-rows",
             "formulas",

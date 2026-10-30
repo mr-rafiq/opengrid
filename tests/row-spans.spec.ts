@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const cell = (grid: Locator, row: string, column: string) =>
@@ -122,7 +123,7 @@ test("Find and pin/detail/full-width boundaries respect independent source rows"
   page,
 }) => {
   const grid = page.getByRole("treegrid", { name: "Merged allocations" }),
-    root = grid.locator("..");
+    root = gridRoot(grid);
   await root.getByRole("button", { name: "Find", exact: true }).click();
   await root
     .getByRole("textbox", { name: "Find in current view" })

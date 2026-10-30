@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const cell = (grid: Locator, row: string, column: string) =>
@@ -96,7 +97,7 @@ test("Find excludes covered values, updates after ownership edits and range oper
   page,
 }) => {
   const grid = page.getByRole("grid", { name: "Spanning records" }),
-    root = grid.locator("..");
+    root = gridRoot(grid);
   await root.getByRole("button", { name: "Find", exact: true }).click();
   const search = root.getByRole("textbox", { name: "Find in current view" });
   await search.fill("Hidden field marker");

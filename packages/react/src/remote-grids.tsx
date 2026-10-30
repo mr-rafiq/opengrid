@@ -118,6 +118,12 @@ export function ServerDataGrid<T>({
     page.queryKey === queryKey && page.routeKey === routeKey ? page.index : 0;
   const [requestError, setRequestError] = useState<string | null>(null);
   const [retryRequest, setRetryRequest] = useState(0);
+  const retryTarget = useRef<{
+    model: ServerSideRowModel<T>;
+    routeKey: string;
+    queryKey: string;
+    index: number;
+  } | null>(null);
   const attempted = useRef<string | null>(null);
   const block = snapshot.blocks.find(
     (item) => item.blockIndex === index && sameRoute(item.groupKeys, route),
@@ -188,16 +194,26 @@ export function ServerDataGrid<T>({
       queryKey,
       retryRequest,
     ]);
+    const target = retryTarget.current;
+    const explicitRetry =
+      target?.model === model &&
+      target.routeKey === routeKey &&
+      target.queryKey === queryKey &&
+      target.index === index;
     if (
-      response ||
+      (response && !(remoteError && explicitRetry)) ||
       loading ||
       (remoteError && attempted.current === attemptKey)
     )
       return;
+    retryTarget.current = null;
     attempted.current = attemptKey;
     let active = true;
     setRequestError(null);
-    model.loadBlock(route, index).catch((error) => {
+    const request = response
+      ? model.refreshBlock(route, index)
+      : model.loadBlock(route, index);
+    request.catch((error) => {
       if (
         active &&
         !(error instanceof DOMException && error.name === "AbortError")
@@ -293,6 +309,7 @@ export function ServerDataGrid<T>({
   }, [local, model]);
 
   function retry() {
+    retryTarget.current = { model, routeKey, queryKey, index };
     setRequestError(null);
     setRetryRequest((current) => current + 1);
   }

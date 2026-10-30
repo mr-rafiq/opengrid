@@ -3858,457 +3858,466 @@ export function DataGrid<T>({
           onClose={() => setFilterBuilderOpen(false)}
         />
       )}
-      <div
-        className="og-viewport"
-        onPointerDownCapture={touchTaps.onPointerDown}
-        onPointerMoveCapture={touchTaps.onPointerMove}
-        onPointerUpCapture={touchTaps.onPointerUp}
-        onPointerCancelCapture={touchTaps.onPointerCancel}
-        onLostPointerCapture={touchTaps.onLostPointerCapture}
-        onContextMenu={touchTaps.onContextMenu}
-        dir={direction}
-        ref={viewport}
-        style={{
-          height: safeHeight,
-          overflowAnchor: autoRowHeight.enabled ? "none" : undefined,
-          scrollbarGutter: autoRowHeight.enabled ? "stable" : undefined,
-          overflowY: autoRowHeight.enabled ? "scroll" : undefined,
-        }}
-        role={hierarchical ? "treegrid" : "grid"}
-        tabIndex={-1}
-        aria-label={ariaLabel ?? t("grid.ariaLabel")}
-        aria-describedby={helpId}
-        aria-rowcount={rows.length + rowGeometry.detailCount + headerRows}
-        aria-colcount={Math.max(1, columns.length + (selectionWidth ? 1 : 0))}
-        aria-multiselectable={
-          selectionMode === "multiple" || effectiveCellSelection || undefined
-        }
-        onCopy={effectiveCellSelection ? ranges.onCopy : undefined}
-        onPaste={effectiveCellSelection ? ranges.onPaste : undefined}
-        onScroll={(event) => {
-          if (event.target !== event.currentTarget) return;
-          setScrollTop(event.currentTarget.scrollTop);
-          const offset = readInlineScroll(event.currentTarget);
-          writeInlineScroll(event.currentTarget, offset);
-          setScrollLeft(offset);
-        }}
-      >
+      <div className="og-grid-frame">
         <div
-          className="og-header"
+          className="og-viewport"
+          onPointerDownCapture={touchTaps.onPointerDown}
+          onPointerMoveCapture={touchTaps.onPointerMove}
+          onPointerUpCapture={touchTaps.onPointerUp}
+          onPointerCancelCapture={touchTaps.onPointerCancel}
+          onLostPointerCapture={touchTaps.onLostPointerCapture}
+          onContextMenu={touchTaps.onContextMenu}
+          dir={direction}
+          ref={viewport}
           style={{
-            width: Math.max(totalWidth, 1),
-            minWidth: "100%",
-            borderBottom: 0,
-            boxShadow: "inset 0 -1px 0 var(--og-border)",
-            zIndex: 6,
+            height: safeHeight,
+            overflowAnchor: autoRowHeight.enabled ? "none" : undefined,
+            scrollbarGutter: autoRowHeight.enabled ? "stable" : undefined,
+            overflowY: autoRowHeight.enabled ? "scroll" : undefined,
+          }}
+          role={hierarchical ? "treegrid" : "grid"}
+          tabIndex={-1}
+          aria-label={ariaLabel ?? t("grid.ariaLabel")}
+          aria-describedby={helpId}
+          aria-rowcount={rows.length + rowGeometry.detailCount + headerRows}
+          aria-colcount={Math.max(1, columns.length + (selectionWidth ? 1 : 0))}
+          aria-multiselectable={
+            selectionMode === "multiple" || effectiveCellSelection || undefined
+          }
+          onCopy={effectiveCellSelection ? ranges.onCopy : undefined}
+          onPaste={effectiveCellSelection ? ranges.onPaste : undefined}
+          onScroll={(event) => {
+            if (event.target !== event.currentTarget) return;
+            setScrollTop(event.currentTarget.scrollTop);
+            const offset = readInlineScroll(event.currentTarget);
+            writeInlineScroll(event.currentTarget, offset);
+            setScrollLeft(offset);
           }}
         >
-          {groupDepth > 0 && (
-            <HeaderGroupRows
-              direction={direction}
-              scrollLeft={scrollLeft}
-              columns={groupedColumns}
-              entries={columnEntries}
-              leadingWidth={selectionWidth}
-              onToggle={toggleColumnGroup}
-              collapsedPaths={collapsedGroups}
-            />
-          )}
-          <div role="rowgroup">
-            <div
-              role="row"
-              aria-rowindex={groupDepth + 1}
-              className="og-header-row"
-            >
-              {selectionWidth > 0 && (
-                <div
-                  role="columnheader"
-                  aria-colindex={1}
-                  aria-label={t("grid.rowControls")}
-                  className="og-selection og-header-cell"
-                  style={{ width: selectionWidth, minWidth: selectionWidth }}
-                >
-                  {selectionMode === "multiple" && (
-                    <SelectionCheckbox
-                      label={
-                        hierarchy.enabled
-                          ? t("hierarchy.selectPage")
-                          : t("grid.selectPage")
-                      }
-                      checked={allSelected}
-                      mixed={
-                        hierarchy.enabled
-                          ? pageSelection?.mixed
-                          : visibleLeafIds.some((id) => selected.has(id)) &&
-                            !allSelected
-                      }
-                      disabled={
-                        hierarchy.enabled &&
-                        (!pageSelection || pageSelection.total === 0)
-                      }
-                      onChange={selectPage}
-                    />
-                  )}
-                </div>
-              )}
-              {columnEntries.map((entry) => {
-                if (entry.kind === "spacer") return columnGap(entry);
-                const index = entry.index,
-                  column = columns[index];
-                const sort = state.sorting.find(
-                  (sort) => sort.columnId === column.id,
-                );
-                const widthBounds = getColumnWidthConstraints(column);
-                return (
+          <div
+            className="og-header"
+            style={{
+              width: Math.max(totalWidth, 1),
+              minWidth: "100%",
+              borderBottom: 0,
+              boxShadow: "inset 0 -1px 0 var(--og-border)",
+              zIndex: 6,
+            }}
+          >
+            {groupDepth > 0 && (
+              <HeaderGroupRows
+                direction={direction}
+                scrollLeft={scrollLeft}
+                columns={groupedColumns}
+                entries={columnEntries}
+                leadingWidth={selectionWidth}
+                onToggle={toggleColumnGroup}
+                collapsedPaths={collapsedGroups}
+              />
+            )}
+            <div role="rowgroup">
+              <div
+                role="row"
+                aria-rowindex={groupDepth + 1}
+                className="og-header-row"
+              >
+                {selectionWidth > 0 && (
                   <div
-                    key={column.id}
                     role="columnheader"
-                    data-og-size-column-id={column.id}
-                    ref={(element) => {
-                      if (element)
-                        columnHeaderControls.current.set(column.id, element);
-                      else columnHeaderControls.current.delete(column.id);
-                    }}
-                    data-og-column-menus={
-                      columnMenu !== false ? "true" : undefined
-                    }
-                    aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
-                    aria-sort={
-                      sort
-                        ? sort.direction === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
-                    }
-                    className={`og-header-cell ${pinOf(column) ? "og-pinned" : ""}`}
-                    style={cellStyle(column)}
-                    onFocusCapture={(event) => {
-                      if (
-                        event.target instanceof Element &&
-                        event.target.closest(
-                          '[role="grid"],[role="treegrid"]',
-                        ) === viewport.current
-                      ) {
-                        ownsCellFocus.current = false;
-                        setFocusedFilterColumnId(column.id);
-                      }
-                    }}
-                    onBlurCapture={(event) => {
-                      if (
-                        event.relatedTarget instanceof Node &&
-                        !event.currentTarget.contains(event.relatedTarget) &&
-                        !ownsFilterPopup(
-                          event.relatedTarget,
-                          popupHost,
-                          column.id,
-                        )
-                      )
-                        setFocusedFilterColumnId((current) =>
-                          current === column.id ? null : current,
-                        );
-                    }}
-                    onContextMenu={(event) => {
-                      if (
-                        event.defaultPrevented ||
-                        event.ctrlKey ||
-                        (event.nativeEvent as globalThis.PointerEvent)
-                          .pointerType === "touch"
-                      )
-                        return;
-                      const anchor = columnMenuButtons.current.get(column.id);
-                      if (
-                        anchor &&
-                        headerMenu.open(column, anchor, "context", {
-                          x: event.clientX,
-                          y: event.clientY,
-                        })
-                      )
-                        event.preventDefault();
-                    }}
-                    onKeyDown={(event) => {
-                      if (
-                        event.ctrlKey ||
-                        event.metaKey ||
-                        event.altKey ||
-                        (event.key !== "ContextMenu" &&
-                          !(event.shiftKey && event.key === "F10"))
-                      )
-                        return;
-                      const anchor = columnMenuButtons.current.get(column.id);
-                      if (!anchor) return;
-                      const rect = anchor.getBoundingClientRect();
-                      if (
-                        headerMenu.open(column, anchor, "keyboard", {
-                          x: rect.left,
-                          y: rect.bottom,
-                        })
-                      ) {
-                        event.preventDefault();
-                        event.stopPropagation();
-                      }
-                    }}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={(event) => {
-                      event.preventDefault();
-                      const id = event.dataTransfer.getData(
-                        "text/opengrid-column",
-                      );
-                      if (allColumns.some((c) => c.id === id))
-                        model.moveColumn(
-                          id,
-                          state.columnOrder.indexOf(column.id),
-                        );
-                    }}
+                    aria-colindex={1}
+                    aria-label={t("grid.rowControls")}
+                    className="og-selection og-header-cell"
+                    style={{ width: selectionWidth, minWidth: selectionWidth }}
                   >
-                    <button
-                      type="button"
-                      className="og-sort"
-                      disabled={column.sortable === false}
-                      draggable
-                      onDragStart={(event) =>
-                        event.dataTransfer.setData(
-                          "text/opengrid-column",
-                          column.id,
-                        )
+                    {selectionMode === "multiple" && (
+                      <SelectionCheckbox
+                        label={
+                          hierarchy.enabled
+                            ? t("hierarchy.selectPage")
+                            : t("grid.selectPage")
+                        }
+                        checked={allSelected}
+                        mixed={
+                          hierarchy.enabled
+                            ? pageSelection?.mixed
+                            : visibleLeafIds.some((id) => selected.has(id)) &&
+                              !allSelected
+                        }
+                        disabled={
+                          hierarchy.enabled &&
+                          (!pageSelection || pageSelection.total === 0)
+                        }
+                        onChange={selectPage}
+                      />
+                    )}
+                  </div>
+                )}
+                {columnEntries.map((entry) => {
+                  if (entry.kind === "spacer") return columnGap(entry);
+                  const index = entry.index,
+                    column = columns[index];
+                  const sort = state.sorting.find(
+                    (sort) => sort.columnId === column.id,
+                  );
+                  const widthBounds = getColumnWidthConstraints(column);
+                  return (
+                    <div
+                      key={column.id}
+                      role="columnheader"
+                      data-og-size-column-id={column.id}
+                      ref={(element) => {
+                        if (element)
+                          columnHeaderControls.current.set(column.id, element);
+                        else columnHeaderControls.current.delete(column.id);
+                      }}
+                      data-og-column-menus={
+                        columnMenu !== false ? "true" : undefined
                       }
-                      aria-label={t("grid.sortColumn", {
-                        column: column.header ?? column.id,
-                      })}
-                      onClick={(event) => {
-                        model.setSort(
-                          column.id,
-                          !sort
-                            ? "asc"
-                            : sort.direction === "asc"
-                              ? "desc"
-                              : null,
-                          event.shiftKey,
+                      aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
+                      aria-sort={
+                        sort
+                          ? sort.direction === "asc"
+                            ? "ascending"
+                            : "descending"
+                          : "none"
+                      }
+                      className={`og-header-cell ${pinOf(column) ? "og-pinned" : ""}`}
+                      style={cellStyle(column)}
+                      onFocusCapture={(event) => {
+                        if (
+                          event.target instanceof Element &&
+                          event.target.closest(
+                            '[role="grid"],[role="treegrid"]',
+                          ) === viewport.current
+                        ) {
+                          ownsCellFocus.current = false;
+                          setFocusedFilterColumnId(column.id);
+                        }
+                      }}
+                      onBlurCapture={(event) => {
+                        if (
+                          event.relatedTarget instanceof Node &&
+                          !event.currentTarget.contains(event.relatedTarget) &&
+                          !ownsFilterPopup(
+                            event.relatedTarget,
+                            popupHost,
+                            column.id,
+                          )
+                        )
+                          setFocusedFilterColumnId((current) =>
+                            current === column.id ? null : current,
+                          );
+                      }}
+                      onContextMenu={(event) => {
+                        if (
+                          event.defaultPrevented ||
+                          event.ctrlKey ||
+                          (event.nativeEvent as globalThis.PointerEvent)
+                            .pointerType === "touch"
+                        )
+                          return;
+                        const anchor = columnMenuButtons.current.get(column.id);
+                        if (
+                          anchor &&
+                          headerMenu.open(column, anchor, "context", {
+                            x: event.clientX,
+                            y: event.clientY,
+                          })
+                        )
+                          event.preventDefault();
+                      }}
+                      onKeyDown={(event) => {
+                        if (
+                          event.ctrlKey ||
+                          event.metaKey ||
+                          event.altKey ||
+                          (event.key !== "ContextMenu" &&
+                            !(event.shiftKey && event.key === "F10"))
+                        )
+                          return;
+                        const anchor = columnMenuButtons.current.get(column.id);
+                        if (!anchor) return;
+                        const rect = anchor.getBoundingClientRect();
+                        if (
+                          headerMenu.open(column, anchor, "keyboard", {
+                            x: rect.left,
+                            y: rect.bottom,
+                          })
+                        ) {
+                          event.preventDefault();
+                          event.stopPropagation();
+                        }
+                      }}
+                      onDragOver={(event) => event.preventDefault()}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const id = event.dataTransfer.getData(
+                          "text/opengrid-column",
                         );
+                        if (allColumns.some((c) => c.id === id))
+                          model.moveColumn(
+                            id,
+                            state.columnOrder.indexOf(column.id),
+                          );
                       }}
                     >
-                      <span data-og-size-text="header">
-                        {column.header ?? column.id}
-                      </span>
-                      <span className="og-sort-indicator" aria-hidden="true">
-                        {sort?.direction === "asc"
-                          ? "\u2191"
-                          : sort?.direction === "desc"
-                            ? "\u2193"
-                            : "\u2195"}
-                        {sort && state.sorting.length > 1
-                          ? number(state.sorting.indexOf(sort) + 1)
-                          : ""}
-                      </span>
-                    </button>
-                    {columnMenu !== false && (
                       <button
                         type="button"
-                        className="og-column-menu-trigger"
-                        ref={(element) => {
-                          if (element)
-                            columnMenuButtons.current.set(column.id, element);
-                          else columnMenuButtons.current.delete(column.id);
-                        }}
-                        aria-label={t("columnMenu.open", {
+                        className="og-sort"
+                        disabled={column.sortable === false}
+                        draggable
+                        onDragStart={(event) =>
+                          event.dataTransfer.setData(
+                            "text/opengrid-column",
+                            column.id,
+                          )
+                        }
+                        aria-label={t("grid.sortColumn", {
                           column: column.header ?? column.id,
                         })}
-                        aria-haspopup="menu"
-                        aria-expanded={headerMenu.columnId === column.id}
-                        aria-keyshortcuts="Shift+F10 ContextMenu ArrowDown"
-                        disabled={Boolean(editing || rowEditing || noteEditing)}
                         onClick={(event) => {
-                          const rect =
-                            event.currentTarget.getBoundingClientRect();
-                          headerMenu.open(
-                            column,
-                            event.currentTarget,
-                            event.detail === 0 ? "keyboard" : "button",
-                            { x: rect.left, y: rect.bottom },
+                          model.setSort(
+                            column.id,
+                            !sort
+                              ? "asc"
+                              : sort.direction === "asc"
+                                ? "desc"
+                                : null,
+                            event.shiftKey,
                           );
                         }}
-                        onKeyDown={(event) => {
-                          if (
-                            event.key !== "ArrowDown" ||
-                            event.ctrlKey ||
-                            event.metaKey ||
-                            event.altKey
-                          )
-                            return;
-                          const rect =
-                            event.currentTarget.getBoundingClientRect();
-                          if (
+                      >
+                        <span data-og-size-text="header">
+                          {column.header ?? column.id}
+                        </span>
+                        <span className="og-sort-indicator" aria-hidden="true">
+                          {sort?.direction === "asc"
+                            ? "\u2191"
+                            : sort?.direction === "desc"
+                              ? "\u2193"
+                              : "\u2195"}
+                          {sort && state.sorting.length > 1
+                            ? number(state.sorting.indexOf(sort) + 1)
+                            : ""}
+                        </span>
+                      </button>
+                      {columnMenu !== false && (
+                        <button
+                          type="button"
+                          className="og-column-menu-trigger"
+                          ref={(element) => {
+                            if (element)
+                              columnMenuButtons.current.set(column.id, element);
+                            else columnMenuButtons.current.delete(column.id);
+                          }}
+                          aria-label={t("columnMenu.open", {
+                            column: column.header ?? column.id,
+                          })}
+                          aria-haspopup="menu"
+                          aria-expanded={headerMenu.columnId === column.id}
+                          aria-keyshortcuts="Shift+F10 ContextMenu ArrowDown"
+                          disabled={Boolean(
+                            editing || rowEditing || noteEditing,
+                          )}
+                          onClick={(event) => {
+                            const rect =
+                              event.currentTarget.getBoundingClientRect();
                             headerMenu.open(
                               column,
                               event.currentTarget,
-                              "keyboard",
+                              event.detail === 0 ? "keyboard" : "button",
                               { x: rect.left, y: rect.bottom },
+                            );
+                          }}
+                          onKeyDown={(event) => {
+                            if (
+                              event.key !== "ArrowDown" ||
+                              event.ctrlKey ||
+                              event.metaKey ||
+                              event.altKey
                             )
+                              return;
+                            const rect =
+                              event.currentTarget.getBoundingClientRect();
+                            if (
+                              headerMenu.open(
+                                column,
+                                event.currentTarget,
+                                "keyboard",
+                                { x: rect.left, y: rect.bottom },
+                              )
+                            ) {
+                              event.preventDefault();
+                              event.stopPropagation();
+                            }
+                          }}
+                        >
+                          <span aria-hidden="true">⋮</span>
+                        </button>
+                      )}
+                      <div
+                        role="separator"
+                        tabIndex={0}
+                        aria-orientation="vertical"
+                        aria-label={t("grid.resizeColumn", {
+                          column: column.header ?? column.id,
+                        })}
+                        aria-valuenow={widthOf(column)}
+                        aria-valuemin={widthBounds.minWidth}
+                        aria-valuemax={
+                          Number.isFinite(widthBounds.maxWidth)
+                            ? widthBounds.maxWidth
+                            : undefined
+                        }
+                        className="og-resizer"
+                        aria-disabled={!resizeAllowed.current}
+                        style={{
+                          touchAction: resizeAllowed.current
+                            ? "none"
+                            : "manipulation",
+                        }}
+                        onKeyDown={(event) => {
+                          if (!resizeAllowed.current) return;
+                          if (
+                            event.key === "ArrowLeft" ||
+                            event.key === "ArrowRight"
                           ) {
                             event.preventDefault();
-                            event.stopPropagation();
+                            model.resizeColumn(
+                              column.id,
+                              widthOf(column) +
+                                physicalToInlineDelta(
+                                  event.key === "ArrowRight" ? 10 : -10,
+                                  direction,
+                                ),
+                            );
                           }
                         }}
-                      >
-                        <span aria-hidden="true">⋮</span>
-                      </button>
-                    )}
-                    <div
-                      role="separator"
-                      tabIndex={0}
-                      aria-orientation="vertical"
-                      aria-label={t("grid.resizeColumn", {
-                        column: column.header ?? column.id,
-                      })}
-                      aria-valuenow={widthOf(column)}
-                      aria-valuemin={widthBounds.minWidth}
-                      aria-valuemax={
-                        Number.isFinite(widthBounds.maxWidth)
-                          ? widthBounds.maxWidth
-                          : undefined
-                      }
-                      className="og-resizer"
-                      aria-disabled={!resizeAllowed.current}
-                      style={{
-                        touchAction: resizeAllowed.current
-                          ? "none"
-                          : "manipulation",
-                      }}
-                      onKeyDown={(event) => {
-                        if (!resizeAllowed.current) return;
-                        if (
-                          event.key === "ArrowLeft" ||
-                          event.key === "ArrowRight"
-                        ) {
-                          event.preventDefault();
-                          model.resizeColumn(
-                            column.id,
-                            widthOf(column) +
-                              physicalToInlineDelta(
-                                event.key === "ArrowRight" ? 10 : -10,
-                                direction,
-                              ),
-                          );
-                        }
-                      }}
-                      onPointerDown={(event) => {
-                        if (!resizeAllowed.current) return;
-                        ranges.cancelGesture();
-                        columnResize.begin(event, column, widthOf(column));
-                      }}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-            <div
-              role="row"
-              aria-rowindex={groupDepth + 2}
-              className="og-filter-row"
-            >
-              {selectionWidth > 0 && (
-                <div
-                  role="gridcell"
-                  aria-colindex={1}
-                  className="og-selection og-filter-cell"
-                  style={{ width: selectionWidth, minWidth: selectionWidth }}
-                />
-              )}
-              {columnEntries.map((entry) => {
-                if (entry.kind === "spacer") return columnGap(entry);
-                const index = entry.index,
-                  column = columns[index];
-                return (
+                        onPointerDown={(event) => {
+                          if (!resizeAllowed.current) return;
+                          ranges.cancelGesture();
+                          columnResize.begin(event, column, widthOf(column));
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <div
+                role="row"
+                aria-rowindex={groupDepth + 2}
+                className="og-filter-row"
+              >
+                {selectionWidth > 0 && (
                   <div
                     role="gridcell"
-                    key={column.id}
-                    aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
-                    className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
-                    ref={(element) => {
-                      if (element)
-                        columnFilterControls.current.set(column.id, element);
-                      else columnFilterControls.current.delete(column.id);
-                    }}
-                    style={cellStyle(column)}
-                    onFocusCapture={(event) => {
-                      if (
-                        event.target instanceof Element &&
-                        (ownsFilterPopup(event.target, popupHost, column.id) ||
-                          event.target.closest(
-                            '[role="grid"],[role="treegrid"]',
-                          ) === viewport.current)
-                      )
-                        setFocusedFilterColumnId(column.id);
-                    }}
-                    onBlurCapture={(event) => {
-                      if (
-                        event.relatedTarget instanceof Node &&
-                        !ownsFilterPopup(
-                          event.relatedTarget,
-                          popupHost,
-                          column.id,
-                        ) &&
-                        !event.currentTarget.contains(event.relatedTarget)
-                      )
-                        setFocusedFilterColumnId((current) =>
-                          current === column.id ? null : current,
-                        );
-                    }}
-                  >
-                    {column.filterable !== false && renderColumnFilter(column)}
-                  </div>
-                );
-              })}
+                    aria-colindex={1}
+                    className="og-selection og-filter-cell"
+                    style={{ width: selectionWidth, minWidth: selectionWidth }}
+                  />
+                )}
+                {columnEntries.map((entry) => {
+                  if (entry.kind === "spacer") return columnGap(entry);
+                  const index = entry.index,
+                    column = columns[index];
+                  return (
+                    <div
+                      role="gridcell"
+                      key={column.id}
+                      aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
+                      className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
+                      ref={(element) => {
+                        if (element)
+                          columnFilterControls.current.set(column.id, element);
+                        else columnFilterControls.current.delete(column.id);
+                      }}
+                      style={cellStyle(column)}
+                      onFocusCapture={(event) => {
+                        if (
+                          event.target instanceof Element &&
+                          (ownsFilterPopup(
+                            event.target,
+                            popupHost,
+                            column.id,
+                          ) ||
+                            event.target.closest(
+                              '[role="grid"],[role="treegrid"]',
+                            ) === viewport.current)
+                        )
+                          setFocusedFilterColumnId(column.id);
+                      }}
+                      onBlurCapture={(event) => {
+                        if (
+                          event.relatedTarget instanceof Node &&
+                          !ownsFilterPopup(
+                            event.relatedTarget,
+                            popupHost,
+                            column.id,
+                          ) &&
+                          !event.currentTarget.contains(event.relatedTarget)
+                        )
+                          setFocusedFilterColumnId((current) =>
+                            current === column.id ? null : current,
+                          );
+                      }}
+                    >
+                      {column.filterable !== false &&
+                        renderColumnFilter(column)}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
-        </div>
-        {projection.top.length > 0 && (
+          {projection.top.length > 0 && (
+            <div
+              role="rowgroup"
+              aria-label={t("grid.pinnedTop")}
+              data-row-region="top"
+              className="og-pinned-row-band"
+              style={{
+                position: "sticky",
+                top: headerHeight,
+                zIndex: 5,
+                height: pinnedTopHeight,
+                width: Math.max(totalWidth, 1),
+                minWidth: "100%",
+              }}
+            >
+              {renderRows(projection.top.map((entry) => entry.visualIndex))}
+            </div>
+          )}
           <div
             role="rowgroup"
-            aria-label={t("grid.pinnedTop")}
-            data-row-region="top"
-            className="og-pinned-row-band"
+            className="og-body"
+            data-row-region="body"
             style={{
-              position: "sticky",
-              top: headerHeight,
-              zIndex: 5,
-              height: pinnedTopHeight,
+              height: rowGeometry.layout.totalHeight,
               width: Math.max(totalWidth, 1),
               minWidth: "100%",
             }}
           >
-            {renderRows(projection.top.map((entry) => entry.visualIndex))}
+            {renderRows(renderedRowIndices)}
           </div>
-        )}
-        <div
-          role="rowgroup"
-          className="og-body"
-          data-row-region="body"
-          style={{
-            height: rowGeometry.layout.totalHeight,
-            width: Math.max(totalWidth, 1),
-            minWidth: "100%",
-          }}
-        >
-          {renderRows(renderedRowIndices)}
+          {projection.bottom.length > 0 && (
+            <div
+              role="rowgroup"
+              aria-label={t("grid.pinnedBottom")}
+              data-row-region="bottom"
+              className="og-pinned-row-band"
+              style={{
+                position: "sticky",
+                bottom: 0,
+                zIndex: 5,
+                height: pinnedBottomHeight,
+                width: Math.max(totalWidth, 1),
+                minWidth: "100%",
+              }}
+            >
+              {renderRows(projection.bottom.map((entry) => entry.visualIndex))}
+            </div>
+          )}
         </div>
-        {projection.bottom.length > 0 && (
-          <div
-            role="rowgroup"
-            aria-label={t("grid.pinnedBottom")}
-            data-row-region="bottom"
-            className="og-pinned-row-band"
-            style={{
-              position: "sticky",
-              bottom: 0,
-              zIndex: 5,
-              height: pinnedBottomHeight,
-              width: Math.max(totalWidth, 1),
-              minWidth: "100%",
-            }}
-          >
-            {renderRows(projection.bottom.map((entry) => entry.visualIndex))}
-          </div>
-        )}
         {rows.length === 0 && (
           <div className="og-empty" role="status">
             {t("grid.empty")}

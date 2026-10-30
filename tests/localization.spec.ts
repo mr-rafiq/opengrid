@@ -1,3 +1,4 @@
+import { gridRoot } from "./grid-root.js";
 import { test, expect, type Locator } from "@playwright/test";
 import { readFileSync } from "node:fs";
 const cell = (grid: Locator, id: string, column: string) =>
@@ -13,7 +14,7 @@ test("runtime language changes retain a focused cell draft, undo and quick-filte
   page,
 }) => {
   const grid = page.getByRole("grid", { name: "Localized inventory" }),
-    root = grid.locator(".."),
+    root = gridRoot(grid),
     item = cell(grid, "locale1", "item");
   await item.focus();
   await item.press("F2");
