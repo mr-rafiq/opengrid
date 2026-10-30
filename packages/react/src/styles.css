@@ -560,6 +560,10 @@
   background: var(--og-surface);
   border-bottom: 1px solid var(--og-border);
 }
+.og-auto-detail-content {
+  display: flow-root;
+  min-width: 0;
+}
 .og-detail-row h3 {
   margin: 0 0 8px;
   font-size: 14px;

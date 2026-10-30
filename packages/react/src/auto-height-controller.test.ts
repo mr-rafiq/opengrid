@@ -94,6 +94,22 @@ describe("committed automatic height measurement ownership", () => {
     expect(Object.isFrozen(f.data)).toBe(false);
     expect("isCurrent" in entries(f)[0]).toBe(false);
   });
+  it("keeps detail metrics separate from an identically named source cell", () => {
+    const f = fixture();
+    mount(f);
+    f.drain();
+    const detail = {} as HTMLElement,
+      token = {};
+    f.controller.register(detail, { ...f.cell, kind: "detail" }, token);
+    f.drain();
+    expect(entries(f)).toHaveLength(2);
+    expect(entries(f).map((entry) => entry.kind)).toEqual(["cell", "detail"]);
+    f.controller.register(null, { ...f.cell, kind: "detail" }, token);
+    expect(f.observers[0].unobserve).toHaveBeenCalledWith(detail);
+    f.callbacks[0]([f.element]);
+    f.drain();
+    expect(entries(f)).toHaveLength(2);
+  });
   it("does not republish identical metrics and coalesces repeated observer notifications", () => {
     const f = fixture(),
       listener = vi.fn();

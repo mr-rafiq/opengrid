@@ -51,6 +51,13 @@ const model = (schema: Column<Row>[] = columns) =>
 const metricKey = (row: string, column = "description") =>
   JSON.stringify([row, column]);
 let heights: Map<string, number>, sheet: HTMLStyleElement;
+const observerEntry = (target: Element): ResizeObserverEntry => ({
+  target,
+  contentRect: new DOMRect(),
+  borderBoxSize: [],
+  contentBoxSize: [],
+  devicePixelContentBoxSize: [],
+});
 class TestObserver {
   static instances: TestObserver[] = [];
   targets = new Set<Element>();
@@ -67,12 +74,14 @@ class TestObserver {
     this.targets.clear();
   }
   emit() {
-    const targets = [...this.targets].filter((target) =>
-      target.classList.contains("og-cell-content"),
+    const targets = [...this.targets].filter(
+      (target) =>
+        target.classList.contains("og-cell-content") ||
+        target.classList.contains("og-auto-detail-content"),
     );
     if (targets.length)
       this.callback(
-        targets.map((target) => ({ target })) as ResizeObserverEntry[],
+        targets.map(observerEntry),
         this as unknown as ResizeObserver,
       );
   }
@@ -90,6 +99,16 @@ beforeEach(() => {
   const original = HTMLElement.prototype.getBoundingClientRect;
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
     function (this: HTMLElement) {
+      if (this.classList.contains("og-auto-detail-content")) {
+        const id =
+          this.closest<HTMLElement>(".og-detail-row")!.dataset.ogRowId!;
+        return new DOMRect(
+          0,
+          0,
+          300,
+          heights.get(JSON.stringify(["detail", id])) ?? 20,
+        );
+      }
       if (!this.classList.contains("og-cell-content"))
         return original.call(this);
       const cell = this.parentElement!;
@@ -305,9 +324,7 @@ describe("automatic natural-content grid height", () => {
     );
     for (const observer of old)
       observer.callback(
-        [
-          { target: cell().querySelector(".og-cell-content")! },
-        ] as ResizeObserverEntry[],
+        [observerEntry(cell().querySelector(".og-cell-content")!)],
         observer as unknown as ResizeObserver,
       );
     await waitFor(() => expect(rowHeight()).toBe("132px"));
@@ -506,13 +523,304 @@ describe("automatic natural-content grid height", () => {
     await waitFor(() => expect(viewport.scrollTop).toBe(before + 176));
     expect(document.activeElement).toBe(detail);
   });
+  it("measures natural detail content independently of ordinary cell heights", async () => {
+    const grid = model(
+      columns.map((column) => ({ ...column, autoHeight: false })),
+    );
+    const state = grid.getState(),
+      notifications = vi.fn();
+    grid.subscribe(notifications);
+    heights.set(JSON.stringify(["detail", "r0"]), 190);
+    render(
+      <DataGrid
+        model={grid}
+        rowHeight={36}
+        autoDetailHeight
+        detailHeight={60}
+        defaultExpandedDetailRows={["r0"]}
+        renderDetail={() => <button type="button">Detail action</button>}
+      />,
+    );
+    const detail = screen
+      .getByRole("region", { name: "Details for row r0" })
+      .closest<HTMLElement>(".og-detail-row")!;
+    await waitFor(() => expect(detail.style.height).toBe("214px"));
+    expect(rowHeight()).toBe("36px");
+    heights.set(JSON.stringify(["detail", "r0"]), 20);
+    await observed();
+    await waitFor(() => expect(detail.style.height).toBe("60px"));
+    expect(grid.getState()).toBe(state);
+    expect(notifications).not.toHaveBeenCalled();
+    expect(grid.undo()).toBe(false);
+  });
+  it("shares the reset lifecycle and rejects detached detail callbacks after collapse", async () => {
+    const grid = model(),
+      api = createRef<DataGridRowHeightController>();
+    const content = () => <button type="button">Detail reset action</button>;
+    heights.set(JSON.stringify(["detail", "r0"]), 190);
+    const view = render(
+      <DataGrid
+        model={grid}
+        autoDetailHeight
+        rowHeightRef={api}
+        detailHeight={60}
+        expandedDetailRows={["r0"]}
+        renderDetail={content}
+      />,
+    );
+    const region = screen.getByRole("region", { name: "Details for row r0" }),
+      detail = region.closest<HTMLElement>(".og-detail-row")!;
+    await waitFor(() => expect(detail.style.height).toBe("214px"));
+    heights.set(JSON.stringify(["detail", "r0"]), 100);
+    act(() => api.current?.reset());
+    await waitFor(() => expect(detail.style.height).toBe("124px"));
+    const old = [...TestObserver.instances];
+    view.rerender(
+      <DataGrid
+        model={grid}
+        autoDetailHeight
+        rowHeightRef={api}
+        detailHeight={60}
+        expandedDetailRows={[]}
+        renderDetail={content}
+      />,
+    );
+    await act(async () => {
+      for (const observer of old)
+        observer.callback(
+          [observerEntry(region)],
+          observer as unknown as ResizeObserver,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+    expect(
+      screen.queryByRole("region", { name: "Details for row r0" }),
+    ).toBeNull();
+    heights.set(JSON.stringify(["detail", "r0"]), 80);
+    view.rerender(
+      <DataGrid
+        model={grid}
+        autoDetailHeight
+        rowHeightRef={api}
+        detailHeight={60}
+        expandedDetailRows={["r0"]}
+        renderDetail={content}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("region", { name: "Details for row r0" })
+          .closest<HTMLElement>(".og-detail-row")!.style.height,
+      ).toBe("104px"),
+    );
+  });
+  it("keeps explicit details fixed unless automatic detail measurement is enabled", async () => {
+    heights.set(JSON.stringify(["detail", "r0"]), 300);
+    render(
+      <DataGrid
+        model={model()}
+        detailHeight={80}
+        defaultExpandedDetailRows={["r0"]}
+        renderDetail={() => <div>Explicit detail</div>}
+      />,
+    );
+    await observed();
+    const detail = screen
+      .getByRole("region", { name: "Details for row r0" })
+      .closest<HTMLElement>(".og-detail-row")!;
+    expect(detail.style.height).toBe("80px");
+    expect(detail.querySelector(".og-auto-detail-content")).toBeNull();
+  });
+  it("anchors a later body source point when asynchronous detail content grows above it", async () => {
+    const grid = createGrid<Row>({
+      rows: Array.from({ length: 80 }, (_, index) => ({
+        ...data[0],
+        id: `r${index}`,
+        amount: index,
+      })),
+      getRowId: (row) => row.id,
+      columns: columns.map((column) => ({ ...column, autoHeight: false })),
+    });
+    heights.set(JSON.stringify(["detail", "r0"]), 100);
+    render(
+      <>
+        <button type="button">Outside dynamic detail</button>
+        <DataGrid
+          model={grid}
+          autoDetailHeight
+          rowHeight={36}
+          detailHeight={60}
+          defaultExpandedDetailRows={["r0"]}
+          renderDetail={() => <div>Changing detail</div>}
+          pagination={false}
+          height={220}
+        />
+      </>,
+    );
+    const detail = screen
+      .getByRole("region", { name: "Details for row r0" })
+      .closest<HTMLElement>(".og-detail-row")!;
+    await waitFor(() => expect(detail.style.height).toBe("124px"));
+    const viewport = screen.getByRole("treegrid"),
+      outside = screen.getByRole("button", { name: "Outside dynamic detail" });
+    act(() => outside.focus());
+    fireEvent.scroll(viewport, { target: { scrollTop: 1080 } });
+    await waitFor(() => expect(cell("r27", "amount")).toBeTruthy());
+    const target = cell("r27", "amount");
+    heights.set(JSON.stringify(["detail", "r0"]), 200);
+    await observed();
+    await waitFor(() => expect(detail.style.height).toBe("224px"));
+    expect(viewport.scrollTop).toBe(1180);
+    expect(cell("r27", "amount")).toBe(target);
+    expect(document.activeElement).toBe(outside);
+  });
+  it("measures pinned and full-width masters' details without growing their base rows", async () => {
+    heights.set(JSON.stringify(["detail", "r0"]), 180);
+    heights.set(JSON.stringify(["detail", "r2"]), 120);
+    render(
+      <DataGrid
+        model={model(
+          columns.map((column) => ({ ...column, autoHeight: false })),
+        )}
+        autoDetailHeight
+        rowHeight={36}
+        detailHeight={60}
+        pinnedTopRowIds={["r0"]}
+        pinnedBottomRowIds={["r2"]}
+        defaultExpandedDetailRows={["r0", "r2"]}
+        isFullWidthRow={(node) => node.id === "r2"}
+        renderFullWidthRow={() => <div>Full-width master</div>}
+        renderDetail={({ rowId }) => <div>Detail {rowId}</div>}
+      />,
+    );
+    await waitFor(() =>
+      expect(
+        document.querySelector<HTMLElement>('[data-row-region="top"]')!.style
+          .height,
+      ).toBe("240px"),
+    );
+    expect(
+      document.querySelector<HTMLElement>('[data-row-region="bottom"]')!.style
+        .height,
+    ).toBe("180px");
+    expect(rowHeight("r0")).toBe("36px");
+    expect(
+      document.querySelector<HTMLElement>(
+        '[role="row"][data-og-row-id="r2"]:not(.og-detail-row)',
+      )!.style.height,
+    ).toBe("36px");
+  });
+  it("keeps automatic detail height out of adjacent merged-cell allocation", async () => {
+    heights.set(metricKey("r0"), 200);
+    heights.set(JSON.stringify(["detail", "r0"]), 80);
+    render(
+      <DataGrid
+        model={model(
+          columns.map((column) =>
+            column.id === "description"
+              ? { ...column, spanRows: true }
+              : column,
+          ),
+        )}
+        autoDetailHeight
+        rowHeight={36}
+        detailHeight={60}
+        defaultExpandedDetailRows={["r0"]}
+        renderDetail={() => <div>Separate detail</div>}
+      />,
+    );
+    await waitFor(() => expect(rowHeight()).toBe("212px"));
+    const detail = screen
+      .getByRole("region", { name: "Details for row r0" })
+      .closest<HTMLElement>(".og-detail-row")!;
+    await waitFor(() => expect(detail.style.height).toBe("104px"));
+    expect(cell().getAttribute("aria-rowspan")).toBeNull();
+    expect(cell("r1").getAttribute("aria-rowspan")).toBe("2");
+    expect(cell("r1").style.height).toBe("72px");
+    heights.set(JSON.stringify(["detail", "r0"]), 300);
+    await observed();
+    await waitFor(() => expect(detail.style.height).toBe("324px"));
+    expect(rowHeight()).toBe("212px");
+    expect(cell("r1").style.height).toBe("72px");
+  });
+  it("survives StrictMode detail observer replay and model replacement with identical IDs", async () => {
+    const first = model(),
+      second = model(),
+      content = () => <div>Owned detail</div>;
+    heights.set(JSON.stringify(["detail", "r0"]), 190);
+    const view = render(
+      <StrictMode>
+        <DataGrid
+          model={first}
+          autoDetailHeight
+          detailHeight={60}
+          defaultExpandedDetailRows={["r0"]}
+          renderDetail={content}
+        />
+      </StrictMode>,
+    );
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("region", { name: "Details for row r0" })
+          .closest<HTMLElement>(".og-detail-row")!.style.height,
+      ).toBe("214px"),
+    );
+    const old = [...TestObserver.instances];
+    heights.set(JSON.stringify(["detail", "r0"]), 80);
+    view.rerender(
+      <StrictMode>
+        <DataGrid
+          model={second}
+          autoDetailHeight
+          detailHeight={60}
+          defaultExpandedDetailRows={["r0"]}
+          renderDetail={content}
+        />
+      </StrictMode>,
+    );
+    const region = screen.getByRole("region", { name: "Details for row r0" });
+    await act(async () => {
+      for (const observer of old)
+        observer.callback(
+          [observerEntry(region)],
+          observer as unknown as ResizeObserver,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    });
+    await waitFor(() =>
+      expect(region.closest<HTMLElement>(".og-detail-row")!.style.height).toBe(
+        "104px",
+      ),
+    );
+    expect(first.undo()).toBe(false);
+    expect(second.undo()).toBe(false);
+  });
   it("renders estimates without browser measurement during SSR", () => {
     const html = renderToString(<DataGrid model={model()} rowHeight={36} />);
     expect(html).toContain("og-auto-height");
     expect(TestObserver.instances).toEqual([]);
     expect(html).toContain("height:36px");
+    const detail = renderToString(
+      <DataGrid
+        model={model()}
+        autoDetailHeight
+        detailHeight={80}
+        defaultExpandedDetailRows={["r0"]}
+        renderDetail={() => <div>SSR detail</div>}
+      />,
+    );
+    expect(detail).toContain("og-auto-detail-content");
+    expect(detail).toContain("height:80px");
+    expect(TestObserver.instances).toEqual([]);
   });
   it("rejects invalid flags and configured column budgets before observing cells", () => {
+    expect(() =>
+      renderToString(
+        <DataGrid model={model()} autoDetailHeight={"yes" as never} />,
+      ),
+    ).toThrow(/boolean/);
     expect(() =>
       renderToString(
         <DataGrid

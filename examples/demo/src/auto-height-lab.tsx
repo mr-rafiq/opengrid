@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { AutoDetailLab } from "./auto-detail-lab";
 import { createGrid, type Column } from "@opengrid/core";
 import {
   DataGrid,
@@ -265,6 +266,7 @@ export function AutoHeightLab() {
             />
           </div>
         </article>
+        <AutoDetailLab rtl={rtl} dark={dark} />
       </GridLocaleProvider>
     </section>
   );

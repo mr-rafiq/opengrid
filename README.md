@@ -93,7 +93,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Display-only aggregation percentages, running totals and prior differences, with exact BigInt fractions and explicit parent denominators.
 - Bounded static print snapshots with explicit refresh, hierarchy/formatting and isolated browser print layout.
 - Shared column-order/width/visibility/pinning synchronization across models, with independent row state and disposal.
-- Unique current-view rows in sticky top/bottom bands, with stable-ID focus/editing/ranges; custom full-width rows with declared heights and detail regions.
+- Unique current-view rows in sticky top/bottom bands, with stable-ID focus/editing/ranges; custom full-width rows with declared heights and [automatically measured detail regions](docs/AUTO_DETAIL_HEIGHT.md).
 - Managed resident row moves with atomic undo, native drag handles, Alt-arrow controls and explicit eligibility guards.
 - Runtime English/Spanish built-in UI localization with typed overrides, translated stored notices and preserved grid/editor state.
 - Explicit LTR/RTL layout with physical pins, virtual scrolling, merged-cell geometry, mirrored navigation/resizing and view-ordered ranges/Find.

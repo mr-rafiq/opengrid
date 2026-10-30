@@ -118,13 +118,32 @@ export function useAutoRowHeight<T>({
     () => ({ reset: () => controller?.clear() }),
     [controller],
   );
-  function adjust(baseHeights: readonly number[]): readonly number[] {
-    if (!controller) return baseHeights;
+  function adjust(
+    baseHeights: readonly number[],
+    detailHeights: readonly number[],
+  ) {
+    if (!controller) return { baseHeights, detailHeights };
     const indices = new Map(currentRows.map((row, index) => [row.id, index]));
     const constraints: AutoRowHeightConstraint[] = [];
+    let measuredDetails: number[] | undefined;
     for (const metric of controller.measurements(context.epoch)) {
       const start = indices.get(metric.rowId),
         last = indices.get(metric.endRowId);
+      if (metric.kind === "detail") {
+        if (
+          start !== undefined &&
+          start === last &&
+          metric.rowCount === 1 &&
+          currentRows[start].data === metric.data &&
+          currentRows[start].kind === "row" &&
+          detailHeights[start] > 0 &&
+          metric.height > detailHeights[start]
+        ) {
+          measuredDetails ??= [...detailHeights];
+          measuredDetails[start] = metric.height;
+        }
+        continue;
+      }
       if (
         start === undefined ||
         last === undefined ||
@@ -143,11 +162,19 @@ export function useAutoRowHeight<T>({
         height: metric.height,
       });
     }
-    return constraints.length
-      ? allocateAutoRowHeights(baseHeights, constraints)
-      : baseHeights;
+    return {
+      baseHeights: constraints.length
+        ? allocateAutoRowHeights(baseHeights, constraints)
+        : baseHeights,
+      detailHeights: measuredDetails ?? detailHeights,
+    };
   }
-  function cellRef(rowIndex: number, columnId: string, span?: RowSpanRun) {
+  function cellRef(
+    rowIndex: number,
+    columnId: string,
+    span?: RowSpanRun,
+    kind: "cell" | "detail" = "cell",
+  ) {
     if (!controller) return;
     const row = currentRows[rowIndex],
       end = currentRows[span ? span.end - 1 : rowIndex];
@@ -155,11 +182,12 @@ export function useAutoRowHeight<T>({
       !row ||
       !end ||
       row.kind !== "row" ||
-      currentEntries[rowIndex].fullWidth ||
+      (kind === "cell" && currentEntries[rowIndex].fullWidth) ||
       (span && span.ownerIndex !== rowIndex)
     )
       return;
     const cell = {
+      kind,
       epoch: context.epoch,
       rowId: row.id,
       columnId,
@@ -170,8 +198,18 @@ export function useAutoRowHeight<T>({
         committed.current === context && model.getState() === state,
     };
     const token = {};
-    return (element: HTMLSpanElement | null) =>
+    return (element: HTMLElement | null) =>
       controller.register(element, cell, token);
   }
-  return { enabled, version, epoch: context.epoch, adjust, cellRef, api };
+  const detailRef = (rowIndex: number) =>
+    cellRef(rowIndex, "detail", undefined, "detail");
+  return {
+    enabled,
+    version,
+    epoch: context.epoch,
+    adjust,
+    cellRef,
+    detailRef,
+    api,
+  };
 }

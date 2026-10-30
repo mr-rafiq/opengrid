@@ -1,6 +1,7 @@
 import { AUTO_ROW_HEIGHT_LIMITS } from "./auto-row-heights.js";
 
 export interface AutoHeightCell {
+  readonly kind?: "cell" | "detail";
   readonly epoch: object;
   readonly rowId: string;
   readonly columnId: string;
@@ -67,8 +68,8 @@ function defaultObserver(
     callback(entries.map((entry) => entry.target as HTMLElement)),
   );
 }
-const keyOf = (cell: Pick<AutoHeightCell, "rowId" | "columnId">) =>
-  JSON.stringify([cell.rowId, cell.columnId]);
+const keyOf = (cell: Pick<AutoHeightCell, "kind" | "rowId" | "columnId">) =>
+  JSON.stringify([cell.kind ?? "cell", cell.rowId, cell.columnId]);
 
 /** Private committed-DOM measurement owner. Construction has no browser side effects. */
 export class AutoHeightController {
@@ -147,6 +148,9 @@ export class AutoHeightController {
       return;
     }
     if (
+      (cell.kind !== undefined &&
+        cell.kind !== "cell" &&
+        cell.kind !== "detail") ||
       typeof cell.rowId !== "string" ||
       !cell.rowId ||
       typeof cell.columnId !== "string" ||
@@ -323,6 +327,7 @@ export class AutoHeightController {
         this.cache.set(
           key,
           Object.freeze({
+            kind: cell.kind ?? "cell",
             epoch: cell.epoch,
             rowId: cell.rowId,
             columnId: cell.columnId,

@@ -147,6 +147,8 @@ export interface DataGridProps<T> {
   renderFullWidthRow?: (context: FullWidthRowContext<T>) => ReactNode;
   renderDetail?: (context: { row: T; rowId: string }) => ReactNode;
   detailHeight?: number | ((row: T) => number);
+  /** Measure mounted detail content; detailHeight remains the minimum estimate. */
+  autoDetailHeight?: boolean;
   defaultExpandedDetailRows?: string[];
   expandedDetailRows?: string[];
   onExpandedDetailRowsChange?: (rowIds: string[]) => void;
@@ -314,6 +316,7 @@ export function DataGrid<T>({
   renderFullWidthRow,
   renderDetail,
   detailHeight = 180,
+  autoDetailHeight = false,
   defaultExpandedDetailRows = [],
   expandedDetailRows,
   onExpandedDetailRowsChange,
@@ -354,6 +357,8 @@ export function DataGrid<T>({
     model.getState,
   );
   const allColumns = model.getColumns();
+  if (typeof autoDetailHeight !== "boolean")
+    throw new TypeError("autoDetailHeight must be a boolean");
   let autoHeightColumnCount = 0;
   for (const column of allColumns) {
     if (
@@ -804,7 +809,9 @@ export function DataGrid<T>({
     },
   );
   const autoRowHeight = useAutoRowHeight({
-    enabled: columns.some((column) => column.autoHeight),
+    enabled:
+      columns.some((column) => column.autoHeight) ||
+      Boolean(autoDetailHeight && renderDetail),
     model,
     state,
     rows,
@@ -816,6 +823,8 @@ export function DataGrid<T>({
       renderCell,
       renderDetail,
       detailHeight,
+      autoDetailHeight,
+      autoDetailHeight ? viewportWidth : undefined,
       getRowHeight,
       JSON.stringify(detailIds),
       ...columns.flatMap((column) => [
@@ -866,13 +875,14 @@ export function DataGrid<T>({
       before.push(detailsBefore);
       if (detail) detailsBefore++;
     }
-    const measuredHeights = autoRowHeight.adjust(baseHeights);
+    const { baseHeights: measuredHeights, detailHeights: measuredDetails } =
+      autoRowHeight.adjust(baseHeights, detailHeights);
     const makeLayout = (region: RowRegion) =>
       createRowLayout(
         projection[region].map(
           (entry) =>
             measuredHeights[entry.visualIndex] +
-            detailHeights[entry.visualIndex],
+            measuredDetails[entry.visualIndex],
         ),
       );
     const layouts = {
@@ -888,7 +898,7 @@ export function DataGrid<T>({
         return layouts[entry.region].offset(entry.regionIndex);
       },
       baseHeights: measuredHeights,
-      detailHeights,
+      detailHeights: measuredDetails,
       before,
       detailCount: detailsBefore,
     };
@@ -1057,7 +1067,7 @@ export function DataGrid<T>({
   const bodyViewportHeight =
     safeHeight - headerHeight - pinnedTopHeight - pinnedBottomHeight;
   useAutoHeightAnchor({
-    enabled: autoHeightColumnCount > 0,
+    enabled: autoRowHeight.enabled,
     model,
     state,
     entries: projection.body,
@@ -3412,11 +3422,18 @@ export function DataGrid<T>({
                   height: "100%",
                   overflow: "auto",
                   padding: 12,
+                  scrollbarGutter: autoDetailHeight ? "stable" : undefined,
                 }}
               >
                 <div
                   role="region"
                   aria-label={t("grid.details", { rowId: node.id })}
+                  className={
+                    autoDetailHeight ? "og-auto-detail-content" : undefined
+                  }
+                  ref={
+                    autoDetailHeight ? autoRowHeight.detailRef(row) : undefined
+                  }
                 >
                   {renderDetail?.({ row: node.data, rowId: node.id })}
                 </div>
@@ -3853,9 +3870,9 @@ export function DataGrid<T>({
         ref={viewport}
         style={{
           height: safeHeight,
-          overflowAnchor: autoHeightColumnCount > 0 ? "none" : undefined,
-          scrollbarGutter: autoHeightColumnCount > 0 ? "stable" : undefined,
-          overflowY: autoHeightColumnCount > 0 ? "scroll" : undefined,
+          overflowAnchor: autoRowHeight.enabled ? "none" : undefined,
+          scrollbarGutter: autoRowHeight.enabled ? "stable" : undefined,
+          overflowY: autoRowHeight.enabled ? "scroll" : undefined,
         }}
         role={hierarchical ? "treegrid" : "grid"}
         tabIndex={-1}

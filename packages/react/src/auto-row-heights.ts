@@ -20,7 +20,7 @@ export interface AutoRowHeightOptions {
   maxConnectedCells?: number;
 }
 export interface DataGridRowHeightController {
-  /** Drop measured estimates and remeasure currently mounted cell owners. */
+  /** Drop measured estimates and remeasure currently mounted cell/detail owners. */
   reset(): void;
 }
 
