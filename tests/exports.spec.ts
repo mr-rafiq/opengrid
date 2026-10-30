@@ -5,9 +5,11 @@ test("downloads genuine XLSX and PDF from the browser example", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page
     .getByRole("combobox", { name: "Dataset size" })
     .selectOption("100");
+  await page.getByText("Export data", { exact: true }).click();
   const xlsxEvent = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export XLSX", exact: true }).click();
   const xlsx = await xlsxEvent;

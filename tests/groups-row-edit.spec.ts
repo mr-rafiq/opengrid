@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
 });
 
 test("nested grouped headers collapse and restore pinned and virtual columns", async ({

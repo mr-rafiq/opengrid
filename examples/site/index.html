@@ -1,6 +1,25 @@
 <!doctype html>
 <html lang="en">
   <head>
+    <script>
+      (() => {
+        let preference = "system";
+        try {
+          const saved = localStorage.getItem("opengrid-theme");
+          if (["system", "light", "dark"].includes(saved)) preference = saved;
+        } catch {}
+        const theme =
+          preference === "system"
+            ? matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : preference;
+        document.documentElement.dataset.ogThemePreference = preference;
+        document.documentElement.dataset.ogTheme = theme;
+        document.documentElement.style.colorScheme = theme;
+      })();
+    </script>
+
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#f6f7f2" />

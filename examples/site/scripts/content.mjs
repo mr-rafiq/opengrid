@@ -40,6 +40,7 @@ export const slugify = (value) =>
     .replace(/[\s_]+/g, "-");
 const labels = {
   "getting-started": "Getting started",
+  themes: "Themes & appearance",
   overview: "Project overview",
   api: "API reference",
   "feature-parity": "Feature roadmap",
@@ -83,6 +84,7 @@ const labels = {
 };
 const order = [
   "getting-started",
+  "themes",
   "overview",
   "api",
   "editors",
@@ -139,7 +141,7 @@ const order = [
   "license",
 ];
 const section = (slug) =>
-  ["getting-started", "overview", "api"].includes(slug)
+  ["getting-started", "themes", "overview", "api"].includes(slug)
     ? "Start building"
     : [
           "editors",

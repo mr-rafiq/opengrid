@@ -130,7 +130,7 @@ test("viewport reflow remeasures details while preserving nested cell focus", as
     '[data-row-id="detail0-call0"][data-column-id="name"]',
   );
   await cell.focus();
-  await page.setViewportSize({ width: 700, height: 900 });
+  await page.setViewportSize({ width: 480, height: 900 });
   await expect
     .poll(() => master.evaluate((element) => element.clientWidth))
     .toBeLessThan(initialWidth);

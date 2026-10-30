@@ -1,5 +1,11 @@
 import type { GridLocale, GridMessages } from "./locale-messages.js";
 export const enMessages = Object.freeze({
+  "theme.label": "Color theme",
+  "theme.system": "System",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "grid.keyboardHelp": "Keyboard help",
+
   "columnMenu.open": (params, _format) => `Column menu for ${params.column}`,
   "columnMenu.title": (params, _format) =>
     `Column commands for ${params.column}`,

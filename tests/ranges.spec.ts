@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page.getByRole("grid").waitFor();
 });
 test("copies a rectangular range and pastes a validated atomic transaction", async ({

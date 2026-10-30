@@ -156,3 +156,5 @@ GitHub Actions runs these checks on push and pull requests. See [verification ev
 Use the [searchable choice editor](docs/RICH_SELECT.md) for virtualized string choices, asynchronous retry and explicit Apply/Cancel in cells or row forms. Try the Rich choice editor lab in the demo.
 
 Use [hierarchy selection](docs/HIERARCHY_SELECTION.md) for collapsed/off-page resident subtrees, native mixed states and filtered source eligibility. Source-backed tree parents participate when eligible; generated group IDs never enter selected data.
+
+Use [themes and appearance](docs/themes.md) for shared light, dark and system preferences, semantic tokens and responsive navigation.

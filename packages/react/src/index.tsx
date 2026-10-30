@@ -93,3 +93,6 @@ export type {
   AutoSizeCancelReason,
   AutoSizeSkipReason,
 } from "./column-sizing.js";
+
+export * from "./theme.js";
+export * from "./icons.js";

@@ -69,3 +69,5 @@ Install the generated core and React tarballs together in your own React applica
 - [Contribute](../../../CONTRIBUTING.md) with a reproducible behavior change and useful tests.
 
 The complete AG Grid feature goal remains a roadmap. OpenGrid is not affiliated with AG Grid, and automated accessibility checks do not establish screen-reader conformance.
+
+See [Themes and responsive UI](../../../docs/themes.md) for shared light, dark and system appearance.

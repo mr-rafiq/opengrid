@@ -52,16 +52,10 @@ const finiteNumber = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value);
 const pointLimit = (value = 500) =>
   Number.isFinite(value) ? Math.max(1, Math.min(5000, Math.floor(value))) : 500;
-const colorPalette = [
-  "#0b7768",
-  "#3159b5",
-  "#a43e64",
-  "#895119",
-  "#6844a0",
-  "#296b82",
-  "#8d4131",
-  "#4d692a",
-];
+const colorPalette = Array.from(
+  { length: 8 },
+  (_, index) => `var(--og-chart-${index + 1})`,
+);
 
 function eligibleColumns<T>(
   model: GridModel<T>,
@@ -386,7 +380,21 @@ export function GridChart<T>({
   function exportSvg() {
     try {
       if (!svg.current) return;
-      const document = new XMLSerializer().serializeToString(svg.current);
+      const clone = svg.current.cloneNode(true) as SVGSVGElement;
+      clone.style.backgroundColor = getComputedStyle(
+        svg.current.closest(".og-chart") ?? svg.current,
+      ).backgroundColor;
+      const originals = [svg.current, ...svg.current.querySelectorAll("*")];
+      const copies = [clone, ...clone.querySelectorAll("*")];
+      originals.forEach((node, index) => {
+        const style = getComputedStyle(node);
+        for (const attribute of ["fill", "stroke", "color"] as const) {
+          const value = style[attribute];
+          if (value && !value.includes("var("))
+            copies[index].setAttribute(attribute, value);
+        }
+      });
+      const document = new XMLSerializer().serializeToString(clone);
       const url = URL.createObjectURL(
         new Blob([document], { type: "image/svg+xml;charset=utf-8" }),
       );
@@ -404,10 +412,10 @@ export function GridChart<T>({
     control: {
       font: "inherit",
       padding: "5px 8px",
-      border: "1px solid #aebdca",
+      border: "1px solid var(--og-control-border)",
       borderRadius: 4,
-      background: "#fff",
-      color: "#203047",
+      background: "var(--og-bg)",
+      color: "var(--og-text)",
     },
     label: { display: "inline-flex", alignItems: "center", gap: 6 },
   };
@@ -417,11 +425,11 @@ export function GridChart<T>({
       aria-label={chartLabel}
       lang={locale.locale}
       style={{
-        border: "1px solid #cbd5df",
+        border: "1px solid var(--og-border)",
         borderRadius: 8,
         padding: 16,
-        background: "#fff",
-        color: "#203047",
+        background: "var(--og-bg)",
+        color: "var(--og-text)",
         font: "13px/1.45 system-ui,sans-serif",
       }}
     >
@@ -493,7 +501,7 @@ export function GridChart<T>({
               display: "flex",
               flexWrap: "wrap",
               gap: 10,
-              border: "1px solid #cbd5df",
+              border: "1px solid var(--og-border)",
               padding: 10,
             }}
           >
@@ -532,7 +540,7 @@ export function GridChart<T>({
           {locale.t("chart.export")}
         </button>
       </div>
-      <p style={{ margin: "0 0 8px", color: "#4e6175" }}>
+      <p style={{ margin: "0 0 8px", color: "var(--og-muted)" }}>
         {data.invalidRange
           ? locale.t("chart.rangeGone")
           : locale.t("chart.sourceSummary", {
@@ -590,14 +598,14 @@ export function GridChart<T>({
                 x2={width - right}
                 y1={y}
                 y2={y}
-                stroke="#d8e0e7"
+                stroke="var(--og-border)"
               />
               <text
                 x={left - 8}
                 y={y + 4}
                 textAnchor="end"
                 fontSize="10"
-                fill="#475b70"
+                fill="var(--og-muted)"
               >
                 {displayNumber(value)}
               </text>
@@ -609,7 +617,7 @@ export function GridChart<T>({
           x2={width - right}
           y1={top + plotHeight}
           y2={top + plotHeight}
-          stroke="#738398"
+          stroke="var(--og-control-border)"
         />
         {data.series.map((series, seriesIndex) => {
           const color = colorPalette[seriesIndex];
@@ -694,7 +702,7 @@ export function GridChart<T>({
                 y={top + plotHeight + 18}
                 textAnchor="middle"
                 fontSize="10"
-                fill="#475b70"
+                fill="var(--og-muted)"
               >
                 {pointLabel(point).length > 15
                   ? pointLabel(point).slice(0, 14) + "…"
@@ -707,7 +715,7 @@ export function GridChart<T>({
           y={safeHeight - 6}
           textAnchor="middle"
           fontSize="11"
-          fill="#203047"
+          fill="var(--og-text)"
         >
           {xLabel}
         </text>
@@ -717,7 +725,7 @@ export function GridChart<T>({
             y={top + plotHeight / 2}
             textAnchor="middle"
             fontSize="14"
-            fill="#475b70"
+            fill="var(--og-muted)"
           >
             {locale.t("chart.empty")}
           </text>

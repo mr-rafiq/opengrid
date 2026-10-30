@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
 });
 
 test("keeps unique top and bottom rows sticky while body scrolls and editing stays functional", async ({

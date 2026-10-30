@@ -11,6 +11,7 @@ const ids = (grid: Locator) =>
     );
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page.getByRole("button", { name: "Row dragging", exact: true }).click();
 });
 

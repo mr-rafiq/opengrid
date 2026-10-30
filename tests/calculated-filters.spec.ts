@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
 });
 
 test("custom range filters preserve valid state across invalid drafts and component remounts", async ({

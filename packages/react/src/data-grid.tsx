@@ -1,3 +1,4 @@
+import { GridIcon } from "./icons.js";
 import {
   useEffect,
   useId,
@@ -707,6 +708,31 @@ export function DataGrid<T>({
   const columnHeaderControls = useRef(new Map<string, HTMLDivElement>());
   const columnFilterControls = useRef(new Map<string, HTMLDivElement>());
   const columnChooser = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const node = columnChooser.current;
+    if (!node) return;
+    const document = node.ownerDocument;
+    const outside = (event: PointerEvent) => {
+      if (node.open && !node.contains(event.target as Node)) node.open = false;
+    };
+    const escape = (event: globalThis.KeyboardEvent) => {
+      if (
+        event.key === "Escape" &&
+        node.open &&
+        node.contains(document.activeElement)
+      ) {
+        event.preventDefault();
+        node.open = false;
+        node.querySelector("summary")?.focus();
+      }
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, [toolbar]);
   useLayoutEffect(() => {
     if (!focusedFilterColumnId || !popupHost) return;
     const id = focusedFilterColumnId,
@@ -3026,7 +3052,7 @@ export function DataGrid<T>({
                           }
                         }}
                       >
-                        {"\u2195"}
+                        <GridIcon name="grip" size={16} />
                       </button>
                     )}
                     {(node.kind === "row" || hierarchy.enabled) &&
@@ -3295,7 +3321,7 @@ export function DataGrid<T>({
                                   });
                                 }}
                               >
-                                {"\u270e"}
+                                <GridIcon name="note" size={14} />
                               </button>
                             )}
                           {index === 0 && (
@@ -3325,9 +3351,14 @@ export function DataGrid<T>({
                                     toggleDetails(node.id);
                                   }}
                                 >
-                                  {rowGeometry.detailHeights[row]
-                                    ? "\u229f"
-                                    : "\u229e"}
+                                  <GridIcon
+                                    name={
+                                      rowGeometry.detailHeights[row]
+                                        ? "chevronDown"
+                                        : "chevronRight"
+                                    }
+                                    size={16}
+                                  />
                                 </button>
                               )}
                               {node.children?.length ? (
@@ -3346,11 +3377,16 @@ export function DataGrid<T>({
                                     model.toggleExpanded(node.id);
                                   }}
                                 >
-                                  {state.expanded.includes(node.id)
-                                    ? "\u25be"
-                                    : direction === "rtl"
-                                      ? "\u25c2"
-                                      : "\u25b8"}
+                                  <GridIcon
+                                    name={
+                                      state.expanded.includes(node.id)
+                                        ? "chevronDown"
+                                        : direction === "rtl"
+                                          ? "chevronLeft"
+                                          : "chevronRight"
+                                    }
+                                    size={16}
+                                  />
                                 </button>
                               ) : null}
                             </span>
@@ -3394,6 +3430,7 @@ export function DataGrid<T>({
                               columnId: column.id,
                             }) && (
                               <button
+                                title={t("grid.editFocusedCell")}
                                 type="button"
                                 className="og-fill-handle"
                                 tabIndex={-1}
@@ -3500,7 +3537,7 @@ export function DataGrid<T>({
           style={{ zIndex: 7 }}
         >
           <label className="og-search">
-            <span aria-hidden="true">{"\u2315"}</span>
+            <GridIcon name="search" size={18} />
             <input
               aria-label={t("grid.searchLabel")}
               placeholder={t("grid.searchPlaceholder")}
@@ -3541,21 +3578,27 @@ export function DataGrid<T>({
                   }
                 }}
               >
-                {t("grid.editFocusedCell")}
+                <GridIcon name="edit" size={16} />
+                <span className="og-visually-hidden">
+                  {t("grid.editFocusedCell")}
+                </span>
               </button>
             )}
             {rowDragging && (
               <>
                 <button
+                  title={t("grid.moveUp")}
                   type="button"
                   aria-label={t("grid.moveUp")}
                   aria-describedby={rowMoveHelpId}
                   disabled={Boolean(rowMoveReason) || focusRow <= 0}
                   onClick={() => moveAdjacentRow(focus.rowId, -1, "cell")}
                 >
-                  {t("grid.moveUp")}
+                  <GridIcon name="arrowUp" size={16} />
+                  <span className="og-visually-hidden">{t("grid.moveUp")}</span>
                 </button>
                 <button
+                  title={t("grid.moveDown")}
                   type="button"
                   aria-label={t("grid.moveDown")}
                   aria-describedby={rowMoveHelpId}
@@ -3564,12 +3607,16 @@ export function DataGrid<T>({
                   }
                   onClick={() => moveAdjacentRow(focus.rowId, 1, "cell")}
                 >
-                  {t("grid.moveDown")}
+                  <GridIcon name="arrowDown" size={16} />
+                  <span className="og-visually-hidden">
+                    {t("grid.moveDown")}
+                  </span>
                 </button>
               </>
             )}
             {editMode === "row" && (
               <button
+                title={t("grid.editRow")}
                 type="button"
                 aria-haspopup="dialog"
                 disabled={
@@ -3587,34 +3634,47 @@ export function DataGrid<T>({
                   if (node && column) startEdit(node, column);
                 }}
               >
-                {t("grid.editRow")}
+                <GridIcon name="edit" size={16} />
+                <span className="og-visually-hidden">{t("grid.editRow")}</span>
               </button>
             )}
             <button
+              title={t("grid.find")}
               type="button"
               onClick={() => setFindOpen(!findOpen)}
               aria-expanded={findOpen}
             >
-              {t("grid.find")}
+              <GridIcon name="search" size={16} />
+              <span className="og-visually-hidden">{t("grid.find")}</span>
             </button>
             {notes !== false && (
-              <button type="button" onClick={() => openNote()}>
-                {t("grid.note")}
+              <button
+                title={t("grid.note")}
+                type="button"
+                onClick={() => openNote()}
+              >
+                <GridIcon name="note" size={16} />
+                <span className="og-visually-hidden">{t("grid.note")}</span>
               </button>
             )}
             {advancedFiltering && (
               <button
+                title={t("grid.advancedFilter")}
                 type="button"
                 aria-pressed={Boolean(state.advancedFilter)}
                 aria-expanded={filterBuilderOpen}
                 onClick={() => setFilterBuilderOpen(!filterBuilderOpen)}
               >
-                {t("grid.advancedFilter")}
+                <GridIcon name="filter" size={16} />
+                <span className="og-visually-hidden">
+                  {t("grid.advancedFilter")}
+                </span>
               </button>
             )}
             {effectiveCellSelection && (
               <>
                 <button
+                  title={t("grid.extendRange")}
                   type="button"
                   aria-pressed={ranges.extendOnTap}
                   aria-describedby={
@@ -3625,10 +3685,15 @@ export function DataGrid<T>({
                     ranges.setExtendOnTap((value) => !value);
                   }}
                 >
-                  {t("grid.extendRange")}
+                  <GridIcon name="range" size={16} />
+                  <span className="og-visually-hidden">
+                    {t("grid.extendRange")}
+                  </span>
                 </button>
                 <label className="og-fill-mode">
-                  {t("grid.fillMode")}{" "}
+                  <span className="og-visually-hidden">
+                    {t("grid.fillMode")}
+                  </span>
                   <select
                     aria-label={t("grid.fillMode")}
                     value={ranges.fillMode}
@@ -3643,51 +3708,70 @@ export function DataGrid<T>({
                   </select>
                 </label>
                 <button
+                  title={t("grid.copy")}
                   type="button"
                   onClick={ranges.copyToClipboard}
                   aria-label={t("grid.copyLabel")}
                 >
-                  {t("grid.copy")}
+                  <GridIcon name="copy" size={16} />
+                  <span className="og-visually-hidden">{t("grid.copy")}</span>
                 </button>
                 <button
+                  title={t("grid.paste")}
                   type="button"
                   onClick={ranges.pasteFromClipboard}
                   aria-label={t("grid.pasteLabel")}
                 >
-                  {t("grid.paste")}
+                  <GridIcon name="paste" size={16} />
+                  <span className="og-visually-hidden">{t("grid.paste")}</span>
                 </button>
                 <button
+                  title={t("grid.fillDown")}
                   type="button"
                   onClick={() => ranges.fill("down")}
                   aria-label={t("grid.fillDownLabel")}
                 >
-                  {t("grid.fillDown")}
+                  <GridIcon name="fill" size={16} />
+                  <span className="og-visually-hidden">
+                    {t("grid.fillDown")}
+                  </span>
                 </button>
               </>
             )}
             <button
+              title={t("grid.undo")}
               type="button"
               onClick={() => {
                 model.undo();
                 setAnnouncement(gridMessage("grid.undoRequested"));
               }}
             >
-              {t("grid.undo")}
+              <GridIcon name="undo" size={16} />
+              <span className="og-visually-hidden">{t("grid.undo")}</span>
             </button>
             <button
+              title={t("grid.redo")}
               type="button"
               onClick={() => {
                 model.redo();
                 setAnnouncement(gridMessage("grid.redoRequested"));
               }}
             >
-              {t("grid.redo")}
+              <GridIcon name="redo" size={16} />
+              <span className="og-visually-hidden">{t("grid.redo")}</span>
             </button>
-            <button type="button" onClick={downloadCsv}>
-              {t("grid.exportCsv")}
+            <button
+              title={t("grid.exportCsv")}
+              type="button"
+              onClick={downloadCsv}
+            >
+              <GridIcon name="download" size={16} />
+              <span className="og-visually-hidden">{t("grid.exportCsv")}</span>
             </button>
             <details className="og-chooser" ref={columnChooser}>
-              <summary>{t("grid.columns")}</summary>
+              <summary>
+                <GridIcon name="columns" size={16} /> {t("grid.columns")}
+              </summary>
               <div className="og-chooser-panel">
                 <strong>{t("grid.arrangeView")}</strong>
                 {allColumns.map((column, index) => (
@@ -3742,7 +3826,7 @@ export function DataGrid<T>({
                         )
                       }
                     >
-                      {"\u2190"}
+                      <GridIcon name="chevronLeft" size={16} />
                     </button>
                     <button
                       type="button"
@@ -3763,7 +3847,7 @@ export function DataGrid<T>({
                         )
                       }
                     >
-                      {"\u2192"}
+                      <GridIcon name="chevronRight" size={16} />
                     </button>
                   </div>
                 ))}
@@ -3783,10 +3867,20 @@ export function DataGrid<T>({
         </p>
       )}
       {toolbar && (
-        <p className="og-touch-help" dir="auto">
-          {t("grid.touchHelp")}
-          {rowDragging && <> {t("grid.touchMoveHelp")}</>}
-        </p>
+        <details className="og-interaction-help">
+          <summary>
+            <GridIcon name="help" size={14} /> {t("grid.keyboardHelp")}
+          </summary>
+          <p className="og-touch-help" dir="auto">
+            {t("grid.touchHelp")}
+            {rowDragging && <> {t("grid.touchMoveHelp")}</>}{" "}
+            {t("grid.help", {
+              target: t(
+                editMode === "row" ? "grid.helpEditRow" : "grid.helpEditCells",
+              ),
+            })}
+          </p>
+        </details>
       )}
       {rowDragging && (
         <p
@@ -4145,11 +4239,16 @@ export function DataGrid<T>({
                               className="og-sort-indicator"
                               aria-hidden="true"
                             >
-                              {sort?.direction === "asc"
-                                ? "\u2191"
-                                : sort?.direction === "desc"
-                                  ? "\u2193"
-                                  : "\u2195"}
+                              <GridIcon
+                                name={
+                                  sort?.direction === "asc"
+                                    ? "arrowUp"
+                                    : sort?.direction === "desc"
+                                      ? "arrowDown"
+                                      : "sort"
+                                }
+                                size={14}
+                              />
                               {sort && state.sorting.length > 1
                                 ? number(state.sorting.indexOf(sort) + 1)
                                 : ""}
@@ -4210,7 +4309,7 @@ export function DataGrid<T>({
                                 }
                               }}
                             >
-                              <span aria-hidden="true">⋮</span>
+                              <GridIcon name="more" size={16} />
                             </button>
                           )}
                           <div
@@ -4502,7 +4601,10 @@ export function DataGrid<T>({
                 setScrollTop(0);
               }}
             >
-              {direction === "rtl" ? "\u2192" : "\u2190"}
+              <GridIcon
+                name={direction === "rtl" ? "chevronRight" : "chevronLeft"}
+                size={16}
+              />
             </button>
             <button
               type="button"
@@ -4514,7 +4616,10 @@ export function DataGrid<T>({
                 setScrollTop(0);
               }}
             >
-              {direction === "rtl" ? "\u2190" : "\u2192"}
+              <GridIcon
+                name={direction === "rtl" ? "chevronLeft" : "chevronRight"}
+                size={16}
+              />
             </button>
           </div>
         )}

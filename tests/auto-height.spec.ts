@@ -213,6 +213,7 @@ test("pointer resizing remeasures content and Escape restores width and height",
     name: "Resize Notes",
     exact: true,
   });
+  await separator.scrollIntoViewIfNeeded();
   const box = (await separator.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();

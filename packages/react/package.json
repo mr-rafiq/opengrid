@@ -16,7 +16,8 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./styles.css": "./dist/styles.css"
+    "./styles.css": "./dist/styles.css",
+    "./themes.css": "./dist/themes.css"
   },
   "dependencies": {
     "@opengrid/core": "0.1.0"
@@ -26,7 +27,7 @@
     "react-dom": ">=18.0.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && node -e \"require('node:fs').copyFileSync('src/styles.css','dist/styles.css')\"",
+    "build": "tsc -p tsconfig.build.json && node -e \"for (const name of ['styles','themes']) require('node:fs').copyFileSync('src/'+name+'.css','dist/'+name+'.css')\"",
     "prepack": "node ../../scripts/package-assets.mjs"
   },
   "repository": {

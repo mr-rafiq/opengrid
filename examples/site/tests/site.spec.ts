@@ -173,7 +173,9 @@ test("mobile navigation, docs menu and no document-wide horizontal overflow", as
     fullPage: true,
   });
   await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await expect(page.locator("#main-navigation")).not.toBeVisible();
   await page
+    .getByRole("dialog", { name: "Main navigation", exact: true })
     .getByRole("navigation", { name: "Main navigation" })
     .getByRole("link", { name: "Documentation", exact: true })
     .click();
@@ -189,6 +191,17 @@ test("mobile navigation, docs menu and no document-wide horizontal overflow", as
     page.getByRole("button", { name: "Browse docs" }),
   ).toHaveAttribute("aria-expanded", "false");
   await page.getByRole("button", { name: "Browse docs" }).click();
+  await page
+    .locator("#docs-drawer details")
+    .filter({
+      has: page.getByRole("link", {
+        name: "Feature roadmap",
+        exact: true,
+        includeHidden: true,
+      }),
+    })
+    .locator("summary")
+    .click();
   await page
     .getByRole("navigation", { name: "Documentation", exact: true })
     .getByRole("link", { name: "Feature roadmap", exact: true })

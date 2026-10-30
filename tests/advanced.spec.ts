@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page.getByRole("grid", { name: "Portfolio holdings" }).waitFor();
 });
 test("Find reveals offscreen cells without changing the filtered row count", async ({

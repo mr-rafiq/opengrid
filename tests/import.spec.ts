@@ -3,9 +3,11 @@ test("round-trips an exported workbook into a separate typed preview", async ({
   page,
 }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page
     .getByRole("combobox", { name: "Dataset size" })
     .selectOption("100");
+  await page.getByText("Export data", { exact: true }).click();
   const downloading = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export XLSX", exact: true }).click();
   const workbook = await downloading;
@@ -27,6 +29,7 @@ test("rejects malformed workbook bytes and keeps the sample grid intact", async 
   page,
 }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await page.getByLabel("Import XLSX workbook", { exact: true }).setInputFiles({
     name: "broken.xlsx",
     mimeType:

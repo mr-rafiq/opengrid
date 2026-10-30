@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createGrid, type Column } from "@opengrid/core";
-import { DataGrid } from "@opengrid/react";
+import {
+  DataGrid,
+  GridIcon,
+  GridThemeSelect,
+  GridThemeProvider,
+} from "@opengrid/react";
+import { NavigationDrawer } from "../../shared/navigation-drawer";
+import "../../shared/navigation.css";
 import content from "virtual:site-content";
 
 const { base, repository, pages } = content;
@@ -18,23 +25,7 @@ const quickCode = `const model = createGrid({
 <DataGrid model={model} height={420} />`;
 
 function Arrow({ diagonal = false }: { diagonal?: boolean }) {
-  return (
-    <svg
-      aria-hidden="true"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <path
-        d={diagonal ? "M6 18 18 6M6 6h12v12" : "M4 12h15m-6-6 6 6-6 6"}
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <GridIcon name={diagonal ? "external" : "arrowRight"} />;
 }
 function Mark() {
   return (
@@ -47,29 +38,7 @@ function Mark() {
   );
 }
 function SearchIcon() {
-  return (
-    <svg
-      aria-hidden="true"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-    >
-      <circle
-        cx="10.5"
-        cy="10.5"
-        r="6.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-      />
-      <path
-        d="m16 16 4.5 4.5"
-        stroke="currentColor"
-        strokeWidth="1.7"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
+  return <GridIcon name="search" />;
 }
 
 interface Project {
@@ -483,7 +452,7 @@ function Home() {
           </h2>
         </div>
         <div>
-          <a className="button light" href={docsUrl("getting-started")}>
+          <a className="button primary" href={docsUrl("getting-started")}>
             Read the getting started guide <Arrow />
           </a>
           <a className="text-link" href={repository}>
@@ -496,6 +465,38 @@ function Home() {
 }
 
 type Page = (typeof pages)[number];
+function DocLinks({ page }: { page: Page }) {
+  return (
+    <nav aria-label="Documentation">
+      {content.groups.map((group, index) => (
+        <details
+          className="nav-group"
+          key={group}
+          open={page.section === group || index === 0}
+        >
+          <summary>
+            {group}
+            <GridIcon name="chevronDown" size={16} />
+          </summary>
+          {pages
+            .filter((item) => item.section === group)
+            .map((item) => (
+              <a
+                key={item.slug}
+                href={docsUrl(item.slug)}
+                aria-current={item.slug === page.slug ? "page" : undefined}
+              >
+                {item.title}
+              </a>
+            ))}
+        </details>
+      ))}
+      <a className="sidebar-repo" href={repository}>
+        Improve it on GitHub <GridIcon name="external" size={16} />
+      </a>
+    </nav>
+  );
+}
 function DocNavigation({
   page,
   open,
@@ -506,35 +507,19 @@ function DocNavigation({
   onClose: () => void;
 }) {
   return (
-    <aside
-      id="docs-sidebar"
-      className={`docs-sidebar ${open ? "mobile-open" : ""}`}
-    >
-      <button className="close-doc-menu" onClick={onClose}>
-        Close documentation menu <span aria-hidden="true">×</span>
-      </button>
-      <nav aria-label="Documentation">
-        {content.groups.map((group) => (
-          <div key={group} className="nav-group">
-            <h2>{group}</h2>
-            {pages
-              .filter((item) => item.section === group)
-              .map((item) => (
-                <a
-                  key={item.slug}
-                  href={docsUrl(item.slug)}
-                  aria-current={item.slug === page.slug ? "page" : undefined}
-                >
-                  {item.title}
-                </a>
-              ))}
-          </div>
-        ))}
-      </nav>
-      <a className="sidebar-repo" href={repository}>
-        Improve it on GitHub <Arrow diagonal />
-      </a>
-    </aside>
+    <>
+      <aside id="docs-sidebar" className="docs-sidebar">
+        <DocLinks page={page} />
+      </aside>
+      <NavigationDrawer
+        id="docs-drawer"
+        open={open}
+        onClose={onClose}
+        label="Documentation menu"
+      >
+        <DocLinks page={page} />
+      </NavigationDrawer>
+    </>
   );
 }
 function Documentation({ page }: { page: Page }) {
@@ -546,18 +531,6 @@ function Documentation({ page }: { page: Page }) {
     setNavOpen(false);
     menuButton.current?.focus();
   }
-  useEffect(() => {
-    if (!navOpen) return;
-    document.querySelector<HTMLAnchorElement>("#docs-sidebar nav a")?.focus();
-    function escape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeNavigation();
-      }
-    }
-    window.addEventListener("keydown", escape);
-    return () => window.removeEventListener("keydown", escape);
-  }, [navOpen]);
   useEffect(() => {
     function copy(event: MouseEvent) {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>(
@@ -598,10 +571,10 @@ function Documentation({ page }: { page: Page }) {
             ref={menuButton}
             className="doc-menu"
             aria-expanded={navOpen}
-            aria-controls="docs-sidebar"
+            aria-controls="docs-drawer"
             onClick={() => setNavOpen(!navOpen)}
           >
-            Browse docs <span aria-hidden="true">{navOpen ? "−" : "+"}</span>
+            <GridIcon name="book" size={16} /> Browse docs
           </button>
         </div>
         <article
@@ -781,7 +754,7 @@ export function App({ initialPath }: { initialPath?: string }) {
     return () => window.removeEventListener("keydown", key);
   }, []);
   return (
-    <>
+    <GridThemeProvider>
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>
@@ -796,16 +769,16 @@ export function App({ initialPath }: { initialPath?: string }) {
           <span className="version-pill">v0.1 · preview</span>
           <button
             className="mobile-menu-toggle"
-            aria-controls="main-navigation"
+            aria-controls="main-navigation-drawer"
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen(!menuOpen)}
           >
-            Menu <span aria-hidden="true">{menuOpen ? "−" : "+"}</span>
+            <GridIcon name="menu" /> Menu
           </button>
           <nav
             id="main-navigation"
             aria-label="Main navigation"
-            className={menuOpen ? "open" : ""}
+            className="desktop-navigation"
           >
             <a
               href={docsUrl("getting-started")}
@@ -818,6 +791,7 @@ export function App({ initialPath }: { initialPath?: string }) {
               GitHub <Arrow diagonal />
             </a>
           </nav>
+          <GridThemeSelect className="desktop-theme" />
           <button
             className="header-search"
             onClick={() => setSearchOpen(true)}
@@ -829,6 +803,22 @@ export function App({ initialPath }: { initialPath?: string }) {
           </button>
         </div>
       </header>
+      <NavigationDrawer
+        id="main-navigation-drawer"
+        desktopWidth={700}
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        label="Main navigation"
+      >
+        <nav aria-label="Main navigation">
+          <a href={docsUrl("getting-started")}>Documentation</a>
+          <a href={`${base}demo/`}>Playground</a>
+          <a href={repository}>
+            GitHub <GridIcon name="external" size={16} />
+          </a>
+        </nav>
+        <GridThemeSelect />
+      </NavigationDrawer>
       {home ? (
         <Home />
       ) : page ? (
@@ -877,6 +867,6 @@ export function App({ initialPath }: { initialPath?: string }) {
         </div>
       </footer>
       {searchOpen && <SearchDialog onClose={() => setSearchOpen(false)} />}
-    </>
+    </GridThemeProvider>
   );
 }

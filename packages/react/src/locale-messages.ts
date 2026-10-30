@@ -1,5 +1,11 @@
 /** OpenGrid-owned UI text. Headers, formatters and application/legacy error strings remain application-owned. */
 export interface GridMessageParams {
+  "theme.label": undefined;
+  "theme.system": undefined;
+  "theme.light": undefined;
+  "theme.dark": undefined;
+  "grid.keyboardHelp": undefined;
+
   "columnMenu.open": { column: string };
   "columnMenu.title": { column: string };
   "columnMenu.sortAsc": undefined;
@@ -520,6 +526,12 @@ export type GridMessageArgs<K extends GridMessageKey> =
     ? []
     : [params: Readonly<GridMessageParams[K]>];
 export const MESSAGE_PARAM_TYPES = Object.freeze({
+  "theme.label": {},
+  "theme.system": {},
+  "theme.light": {},
+  "theme.dark": {},
+  "grid.keyboardHelp": {},
+
   "columnMenu.open": { column: "string" },
   "columnMenu.title": { column: "string" },
   "columnMenu.sortAsc": {},

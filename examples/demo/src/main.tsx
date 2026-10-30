@@ -1,4 +1,9 @@
-import React, { useMemo, useState, useSyncExternalStore } from "react";
+import React, {
+  useMemo,
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createRoot } from "react-dom/client";
 import {
   createGrid,
@@ -12,12 +17,17 @@ import {
 } from "@opengrid/core";
 import {
   DataGrid,
+  GridIcon,
+  GridThemeSelect,
+  useGridTheme,
   GridChart,
   GridPrintView,
   NumberRangeFilter,
 } from "@opengrid/react";
 import "@opengrid/react/styles.css";
 import "./page.css";
+import { NavigationDrawer } from "../../shared/navigation-drawer";
+import "../../shared/navigation.css";
 import { FormulaLab } from "./formula-lab";
 import { RemoteLab } from "./remote-lab";
 import { HoldingDetail } from "./holding-detail";
@@ -175,7 +185,47 @@ const rangeFilterComponents = {
 function App() {
   const [size, setSize] = useState(1000);
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
-  const [dark, setDark] = useState(false);
+  const { resolved } = useGridTheme();
+  const dark = resolved === "dark";
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  useEffect(() => {
+    const outside = (event: PointerEvent) => {
+      document
+        .querySelectorAll<HTMLDetailsElement>(".export-menu[open]")
+        .forEach((menu) => {
+          if (!menu.contains(event.target as Node)) menu.open = false;
+        });
+    };
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      document
+        .querySelectorAll<HTMLDetailsElement>(".export-menu[open]")
+        .forEach((menu) => {
+          menu.open = false;
+          menu.querySelector("summary")?.focus();
+        });
+    };
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("keydown", escape);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("keydown", escape);
+    };
+  }, []);
+
+  const [collapsed, setCollapsed] = useState(false);
+  const [compactColumns] = useState(
+    () => window.matchMedia("(max-width: 600px)").matches,
+  );
+  const [activeSection, setActiveSection] = useState(
+    () => window.location.hash || "#explorer",
+  );
+  useEffect(() => {
+    const update = () => setActiveSection(window.location.hash || "#explorer");
+    window.addEventListener("hashchange", update);
+    return () => window.removeEventListener("hashchange", update);
+  }, []);
+
   const [pivotOpen, setPivotOpen] = useState(false);
   const [pivotMode, setPivotMode] = useState<
     | "raw"
@@ -233,8 +283,11 @@ function App() {
           })),
         ]
       : columns;
+    const responsiveSchema = compactColumns
+      ? schema.map((column) => ({ ...column, pinned: undefined }))
+      : schema;
     return groupHeaders
-      ? schema.map((column) => ({
+      ? responsiveSchema.map((column) => ({
           ...column,
           groupPath:
             column.id === "company"
@@ -248,8 +301,8 @@ function App() {
                       : "Profile",
                 ],
         }))
-      : schema;
-  }, [wide, groupHeaders]);
+      : responsiveSchema;
+  }, [wide, groupHeaders, compactColumns]);
   const model = useMemo(
     () =>
       createGrid({
@@ -361,18 +414,85 @@ function App() {
     }
   }
   return (
-    <div className={dark ? "workspace dark" : "workspace"}>
-      <aside className="rail">
-        <a className="brand" href="#" aria-label="OpenGrid home">
-          ▦
+    <div
+      className={`workspace ${dark ? "dark" : ""} ${collapsed ? "sidebar-collapsed" : ""}`}
+    >
+      <aside
+        className={`rail ${collapsed ? "collapsed" : ""}`}
+        aria-label="Playground sidebar"
+      >
+        <a
+          className="rail-brand"
+          href="https://mr-rafiq.github.io/opengrid/"
+          aria-label="OpenGrid home"
+        >
+          <GridIcon name="grid" size={24} />
+          <span>OpenGrid</span>
         </a>
-        <span className="rail-active" title="Data explorer">
-          ▤
-        </span>
-        <span title="Analytics">◴</span>
-        <span title="Source">⌘</span>
-        <span className="rail-bottom">OG</span>
+        <button
+          className="rail-collapse"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          aria-expanded={!collapsed}
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          <GridIcon name={collapsed ? "chevronRight" : "chevronLeft"} />
+          <span>Collapse</span>
+        </button>
+        <nav aria-label="Playground">
+          <a
+            href="#explorer"
+            aria-current={activeSection === "#explorer" ? "page" : undefined}
+            title="Data explorer"
+          >
+            <GridIcon name="grid" />
+            <span>Data explorer</span>
+          </a>
+          <a
+            href="#examples"
+            aria-current={activeSection === "#examples" ? "page" : undefined}
+            title="Examples"
+          >
+            <GridIcon name="code" />
+            <span>Examples</span>
+          </a>
+          <a
+            href="https://mr-rafiq.github.io/opengrid/docs/getting-started/"
+            title="Documentation"
+          >
+            <GridIcon name="book" />
+            <span>Documentation</span>
+          </a>
+          <a href="https://github.com/mr-rafiq/opengrid" title="GitHub">
+            <GridIcon name="external" />
+            <span>GitHub</span>
+          </a>
+        </nav>
       </aside>
+      <NavigationDrawer
+        id="playground-navigation"
+        open={navigationOpen}
+        onClose={() => setNavigationOpen(false)}
+        label="Playground navigation"
+      >
+        <nav aria-label="Playground">
+          <a href="#explorer" onClick={() => setNavigationOpen(false)}>
+            <GridIcon name="grid" />
+            Data explorer
+          </a>
+          <a href="#examples" onClick={() => setNavigationOpen(false)}>
+            <GridIcon name="code" />
+            Examples
+          </a>
+          <a href="https://mr-rafiq.github.io/opengrid/docs/getting-started/">
+            <GridIcon name="book" />
+            Documentation
+          </a>
+          <a href="https://github.com/mr-rafiq/opengrid">
+            <GridIcon name="external" />
+            GitHub
+          </a>
+        </nav>
+      </NavigationDrawer>
       <main>
         <nav>
           <a href="https://mr-rafiq.github.io/opengrid/" className="wordmark">
@@ -380,14 +500,20 @@ function App() {
           </a>
           <div className="nav-actions">
             <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
-              Feature roadmap ↗
+              Feature roadmap <GridIcon name="external" size={14} />
             </a>
-            <a href="https://github.com/mr-rafiq/opengrid">GitHub ↗</a>
+            <a href="https://github.com/mr-rafiq/opengrid">
+              GitHub <GridIcon name="external" size={14} />
+            </a>
+            <GridThemeSelect />
             <button
-              onClick={() => setDark(!dark)}
-              aria-label="Toggle dark theme"
+              className="playground-menu"
+              aria-label="Open playground navigation"
+              aria-expanded={navigationOpen}
+              aria-controls="playground-navigation"
+              onClick={() => setNavigationOpen(true)}
             >
-              {dark ? "☀" : "☾"}
+              <GridIcon name="menu" />
             </button>
           </div>
         </nav>
@@ -402,23 +528,29 @@ function App() {
               with {size.toLocaleString()} rows.
             </p>
           </div>
-          <div className="export-actions">
-            <button className="primary" onClick={download}>
-              ↓ Export CSV
-            </button>
-            <button
-              disabled={exporting !== null}
-              onClick={() => downloadDocument("xlsx")}
-            >
-              {exporting === "xlsx" ? "Preparing XLSX..." : "Export XLSX"}
-            </button>
-            <button
-              disabled={exporting !== null}
-              onClick={() => downloadDocument("pdf")}
-            >
-              {exporting === "pdf" ? "Preparing PDF..." : "Export PDF"}
-            </button>
-          </div>
+          <details className="export-menu">
+            <summary>
+              <GridIcon name="download" size={16} /> Export data{" "}
+              <GridIcon name="chevronDown" size={16} />
+            </summary>
+            <div className="export-actions">
+              <button className="primary" onClick={download}>
+                <GridIcon name="download" size={16} /> Export portfolio CSV
+              </button>
+              <button
+                disabled={exporting !== null}
+                onClick={() => downloadDocument("xlsx")}
+              >
+                {exporting === "xlsx" ? "Preparing XLSX..." : "Export XLSX"}
+              </button>
+              <button
+                disabled={exporting !== null}
+                onClick={() => downloadDocument("pdf")}
+              >
+                {exporting === "pdf" ? "Preparing PDF..." : "Export PDF"}
+              </button>
+            </div>
+          </details>
         </header>
         {exportError && <div role="alert">{exportError}</div>}
         <section className="summary">
@@ -443,84 +575,80 @@ function App() {
             <p>No runtime grid dependencies</p>
           </article>
         </section>
-        <section className="explorer">
+        <section className="explorer" id="explorer" tabIndex={-1}>
           <div className="explorer-top">
             <div>
               <span className="live-dot" />
               <h2>Portfolio explorer</h2>
               <span className="tag">v0.1 preview</span>
             </div>
-            <div
-              className="view-controls"
-              style={{
-                flex: "1 1 440px",
-                minWidth: 0,
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
-              <button aria-pressed={wide} onClick={() => setWide(!wide)}>
-                Wide schema
-              </button>
-              <button
-                aria-pressed={groupHeaders}
-                onClick={() => setGroupHeaders(!groupHeaders)}
-              >
-                Column groups
-              </button>
-              <button
-                aria-pressed={rowEditing}
-                onClick={() => setRowEditing(!rowEditing)}
-              >
-                Row editing
-              </button>
-              <button
-                aria-pressed={detailsOpen}
-                onClick={() => setDetailsOpen(!detailsOpen)}
-              >
-                Detail rows
-              </button>
-              <button
-                aria-pressed={pinnedRows}
-                onClick={() => setPinnedRows(!pinnedRows)}
-              >
-                Pinned rows
-              </button>
-              <button
-                aria-pressed={fullWidthRows}
-                onClick={() => setFullWidthRows(!fullWidthRows)}
-              >
-                Full-width rows
-              </button>
-              <button
-                aria-pressed={customFilters}
-                onClick={() => setCustomFilters(!customFilters)}
-              >
-                Custom filters
-              </button>
-              <button
-                aria-pressed={rowDragging}
-                onClick={() => setRowDragging(!rowDragging)}
-              >
-                Row dragging
-              </button>
-              <label>
-                Rows{" "}
-                <select
-                  aria-label="Dataset size"
-                  value={size}
-                  onChange={(e) => setSize(Number(e.target.value))}
+            <details className="view-options">
+              <summary>
+                <GridIcon name="settings" size={16} /> View options{" "}
+                <GridIcon name="chevronDown" size={16} />
+              </summary>
+              <div className="view-controls">
+                <button aria-pressed={wide} onClick={() => setWide(!wide)}>
+                  Wide schema
+                </button>
+                <button
+                  aria-pressed={groupHeaders}
+                  onClick={() => setGroupHeaders(!groupHeaders)}
                 >
-                  {[100, 1000, 10000, 100000].map((n) => (
-                    <option key={n} value={n}>
-                      {n.toLocaleString()}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button onClick={() => model.undo()}>↶ Undo</button>
-              <button onClick={() => model.redo()}>↷ Redo</button>
-            </div>
+                  Column groups
+                </button>
+                <button
+                  aria-pressed={rowEditing}
+                  onClick={() => setRowEditing(!rowEditing)}
+                >
+                  Row editing
+                </button>
+                <button
+                  aria-pressed={detailsOpen}
+                  onClick={() => setDetailsOpen(!detailsOpen)}
+                >
+                  Detail rows
+                </button>
+                <button
+                  aria-pressed={pinnedRows}
+                  onClick={() => setPinnedRows(!pinnedRows)}
+                >
+                  Pinned rows
+                </button>
+                <button
+                  aria-pressed={fullWidthRows}
+                  onClick={() => setFullWidthRows(!fullWidthRows)}
+                >
+                  Full-width rows
+                </button>
+                <button
+                  aria-pressed={customFilters}
+                  onClick={() => setCustomFilters(!customFilters)}
+                >
+                  Custom filters
+                </button>
+                <button
+                  aria-pressed={rowDragging}
+                  onClick={() => setRowDragging(!rowDragging)}
+                >
+                  Row dragging
+                </button>
+                <label>
+                  Rows{" "}
+                  <select
+                    aria-label="Dataset size"
+                    value={size}
+                    onChange={(e) => setSize(Number(e.target.value))}
+                  >
+                    {[100, 1000, 10000, 100000].map((n) => (
+                      <option key={n} value={n}>
+                        {n.toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </details>
           </div>
           <div className="view-tabs">
             <div role="group" aria-label="Data view">
@@ -542,7 +670,7 @@ function App() {
               onClick={() => setPivotOpen(!pivotOpen)}
               aria-expanded={pivotOpen}
             >
-              Σ Pivot summary
+              <GridIcon name="chart" size={16} /> Pivot summary
             </button>
           </div>
           <DataGrid
@@ -608,7 +736,9 @@ function App() {
                         `${i * 12},${13 + Math.sin(i + Number(row.id)) * 9}`,
                     ).join(" ")}
                     fill="none"
-                    stroke={row.change >= 0 ? "#16825d" : "#d64c64"}
+                    stroke={
+                      row.change >= 0 ? "var(--og-success)" : "var(--og-danger)"
+                    }
                     strokeWidth="1.8"
                   />
                 </svg>
@@ -629,6 +759,10 @@ function App() {
             </span>
           </div>
         </section>
+        <div id="examples" tabIndex={-1} className="examples-heading">
+          <h2>Explore features</h2>
+          <p>Open an example to try a focused workflow.</p>
+        </div>
         {pivotOpen && (
           <section className="pivot-panel">
             <h2>Shares by sector and region</h2>

@@ -111,7 +111,18 @@ test("touch taps sort/select and double-tap or Edit cell opens one retained edit
   await name.tap();
   await expect(name).toBeFocused();
   await expect(name).toHaveAttribute("aria-selected", "true");
-  await name.tap();
+  // Locator actionability/trace overhead can exceed the 350ms gesture window.
+  // Test the completed pair with native touch input and no assertions between taps.
+  await page.waitForTimeout(400);
+  const bounds = (await name.boundingBox())!;
+  await page.touchscreen.tap(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
+  await page.touchscreen.tap(
+    bounds.x + bounds.width / 2,
+    bounds.y + bounds.height / 2,
+  );
   const editor = name.getByRole("textbox");
   await expect(editor).toBeFocused();
   await editor.fill("Touch draft");

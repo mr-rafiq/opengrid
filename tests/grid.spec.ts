@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "node:fs";
 test.beforeEach(async ({ page }) => {
   await page.goto("/");
+  await page.getByText("View options", { exact: true }).click();
   await expect(
     page.getByRole("grid", { name: "Portfolio holdings" }),
   ).toBeVisible();
@@ -121,7 +122,7 @@ test("expands groups and trees, and renders pivot summary", async ({
     page.getByRole("button", { name: "Expand Technology", exact: true }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "Σ Pivot summary", exact: true })
+    .getByRole("button", { name: "Pivot summary", exact: true })
     .click();
   await expect(page.getByRole("table")).toBeVisible();
 });
@@ -154,7 +155,9 @@ for (const variant of ["flat", "dark", "grouped"] as const) {
     page,
   }) => {
     if (variant === "dark")
-      await page.getByRole("button", { name: "Toggle dark theme" }).click();
+      await page
+        .getByRole("combobox", { name: "Color theme" })
+        .selectOption("dark");
     if (variant === "grouped") {
       await page
         .getByRole("button", { name: "Group by sector", exact: true })
