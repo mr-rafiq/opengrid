@@ -268,6 +268,11 @@ export const esMessages = Object.freeze({
   "range.readFailed": "No se pudo leer el portapapeles",
   "remote.serverLabel": "Cuadrícula de datos del servidor",
   "remote.liveLabel": "Cuadrícula de datos en directo",
+  "remote.infiniteLabel": "Cuadrícula de datos infinitos",
+  "remote.infiniteCount": (params, format) =>
+    `${format.number(params.count)} ${format.plural(params.count, { one: "fila", other: "filas" })}`,
+  "remote.retryInfinite": "Reintentar filas infinitas",
+  "remote.emptyInfinite": "No hay filas",
   "remote.allGroups": "Todos los grupos",
   "remote.columns": "Columnas del servidor",
   "remote.loading": "Cargando filas del servidor... ",

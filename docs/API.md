@@ -185,6 +185,12 @@ loader.dispose();
 
 This loader is independent of `DataGrid`; an application must integrate its rows and count. `loadBlock(index)` deduplicates concurrent requests, clones responses and uses a bounded LRU cache. `setQuery` invalidates old generations and cancels pending requests; late results reject with `AbortError`. A failed request can be retried by calling it again. Responses require an exact nonnegative integer `rowCount`; unknown counts are unsupported. `invalidate()` clears the cache and cancels pending work. This is neither grouped server-side processing nor a live viewport subscription.
 
+### Observable infinite rows and React scrolling
+
+`InfiniteRowModel<T>` is a separate pull-based provider model with `InfiniteProvider<T>`, `InfiniteResponse<T>`, `InfiniteRowModelOptions<T>`, `InfiniteQuery`, `InfiniteSnapshot<T>` and `INFINITE_ROW_LIMITS`. A required pure `getRowId` captures stable resident IDs. `getRows(DataRequest)` returns rows and an optional/null count; full unknown blocks extend the estimate, terminal short blocks/counts end it. Exact counts and complete block lengths are validated consistently within each generation.
+
+`setViewport`, `setQuery`, `refresh`, `retry`, `getQuery`, `getRow`, `subscribe`, `getSnapshot` and `dispose` expose bounded windows/cache/request scheduling. Outstanding canceled promises retain concurrency slots until they settle. New queries reset to row zero; refresh retains the logical window. `InfiniteDataGrid` provides read-only sparse scrolling, fixed heights, pinned/windowed columns, bounded physical height, logical keyboard focus and unknown `aria-rowcount=-1`. Query controls are application-owned. No infinite write/selection/grouping/pivot/variable-height protocol is supplied. See [infinite rows](INFINITE_ROWS.md) for exact bounds, empty-block terminal rules, lifecycle, examples and remaining gaps.
+
 ### Hierarchical server-side and live viewport models
 
 **`ServerSideRowModel<T>`** forwards sort/filter/group/aggregate/pivot query descriptors to a provider, caches validated blocks by group route and block index, exposes stable subscription snapshots, cancels stale generations, refreshes/retries routes and applies atomic updates to already-loaded node IDs. The provider computes the requested operations; updates change the cache, not a backend. Add/remove/reorder persistence requires an application server write and refresh.

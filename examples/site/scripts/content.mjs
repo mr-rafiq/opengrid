@@ -64,6 +64,7 @@ const labels = {
   "column-menus": "Column header commands",
   "nested-menus": "Nested commands",
   "remote-grids": "Remote React grids",
+  "infinite-rows": "Infinite rows",
   "remote-models": "Remote data models",
   "show-values-as": "Analytical transforms",
   "aligned-columns": "Aligned columns",
@@ -109,6 +110,7 @@ const order = [
   "notes-ui",
   "remote-models",
   "remote-grids",
+  "infinite-rows",
   "formulas",
   "formula-grid",
   "calculated-columns",
@@ -164,6 +166,7 @@ const section = (slug) =>
       : [
             "remote-models",
             "remote-grids",
+            "infinite-rows",
             "formulas",
             "calculated-columns",
             "charts",

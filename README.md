@@ -19,7 +19,7 @@ npm ci
 npm run dev
 ```
 
-Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows and a 130-column schema. Try grouped/tree views, nested column headers, cell ranges, validated paste, row editing, Find, notes, advanced filters, nested detail grids, charts, the formula lab, and genuine XLSX/PDF downloads. The remote lab demonstrates grouped server blocks and a live million-row viewport using simulated local providers. Import a bounded XLSX workbook into a separate preview. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
+Open the printed localhost URL. Explore up to 100,000 deterministic portfolio rows and a 130-column schema. Try grouped/tree views, nested column headers, cell ranges, validated paste, row editing, Find, notes, advanced filters, nested detail grids, charts, the formula lab, and genuine XLSX/PDF downloads. The remote lab demonstrates grouped server blocks, scoped route notes, unknown-count infinite scrolling and million-row infinite/live views using simulated local providers. Import a bounded XLSX workbook into a separate preview. Data stays in the local browser. The trend graphics are illustrative sample values, not financial data.
 
 ## React quick start
 
@@ -85,7 +85,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - CSV with RFC 4180 escaping and spreadsheet formula neutralization; basic SVG sparklines.
 - A safe formula dependency engine with A1/local references, ranges, lazy IF, aggregates, targeted invalidation, cycle diagnostics and resource limits.
 - A bounded fixed-sheet formula model with explicit Formula/Literal cell editing, raw-expression history, atomic final-sheet validation and computed sort/filter/group/export values.
-- Separate flat infinite, hierarchical server block and live viewport strategies with cache/refresh/retry/stale-request handling.
+- Separate pull-based infinite, hierarchical server block and live viewport strategies with cache/refresh/retry/stale-request handling. [Infinite rows](docs/INFINITE_ROWS.md) include unknown totals, bounded outstanding requests and a read-only scrolling React binding.
 - Model/range-linked bar, line and scatter SVG charts with configuration controls, an underlying data table and SVG export.
 - Optional real XLSX/PDF output with typed workbook cells, multiple sheets, tables/frozen headers and paginated PDF reports.
 - Nested typed advanced-filter expressions with a builder, formatted-cell Find, plain-text cell notes and optional atomic row-edit dialogs.

@@ -7,6 +7,7 @@ import {
 } from "./hierarchy-selection.js";
 export * from "./analytics.js";
 export * from "./datasource.js";
+export * from "./infinite-row-model.js";
 export * from "./formulas.js";
 export * from "./ranges.js";
 export * from "./server-side.js";

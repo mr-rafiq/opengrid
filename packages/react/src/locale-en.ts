@@ -254,6 +254,11 @@ export const enMessages = Object.freeze({
   "range.readFailed": "Clipboard read failed",
   "remote.serverLabel": "Server data grid",
   "remote.liveLabel": "Live viewport data grid",
+  "remote.infiniteLabel": "Infinite data grid",
+  "remote.infiniteCount": (params, format) =>
+    `${format.number(params.count)} rows`,
+  "remote.retryInfinite": "Retry infinite rows",
+  "remote.emptyInfinite": "No rows",
   "remote.allGroups": "All groups",
   "remote.columns": "Server columns",
   "remote.loading": "Loading server rows... ",

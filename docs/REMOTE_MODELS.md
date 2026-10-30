@@ -1,6 +1,6 @@
 # Server-side and live viewport strategies
 
-OpenGrid has distinct remote-data primitives. They are original APIs, independent of React. They do **not** turn a `DataGrid` client-side `GridModel` into a complete server-backed renderer automatically. A rendering integration must map loaded data, expansion, placeholder/error rows and requested windows into its UI. The existing `InfiniteDataSource` remains the simpler flat, one-shot block loader.
+OpenGrid has distinct remote-data primitives. They are original APIs, independent of React. They do **not** turn a `DataGrid` client-side `GridModel` into a complete server-backed renderer automatically. A rendering integration must map loaded data, expansion, placeholder/error rows and requested windows into its UI. `InfiniteRowModel` now has a distinct read-only `InfiniteDataGrid` scroll binding with unknown/terminal counts and bounded outstanding requests; see [infinite rows](INFINITE_ROWS.md). The existing `InfiniteDataSource` remains the simpler exact-count, one-shot block loader.
 
 ## Hierarchical server-side model
 

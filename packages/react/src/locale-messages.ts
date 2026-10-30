@@ -226,6 +226,10 @@ export interface GridMessageParams {
   "range.readFailed": undefined;
   "remote.serverLabel": undefined;
   "remote.liveLabel": undefined;
+  "remote.infiniteLabel": undefined;
+  "remote.infiniteCount": { count: number };
+  "remote.retryInfinite": undefined;
+  "remote.emptyInfinite": undefined;
   "remote.allGroups": undefined;
   "remote.columns": undefined;
   "remote.loading": undefined;
@@ -741,6 +745,10 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "range.readFailed": {},
   "remote.serverLabel": {},
   "remote.liveLabel": {},
+  "remote.infiniteLabel": {},
+  "remote.infiniteCount": { count: "number" },
+  "remote.retryInfinite": {},
+  "remote.emptyInfinite": {},
   "remote.allGroups": {},
   "remote.columns": {},
   "remote.loading": {},

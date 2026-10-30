@@ -15,6 +15,8 @@ import {
   type GridModel,
   type GridState,
   type LiveViewportRowModel,
+  type InfiniteRowModel,
+  type ViewportSnapshot,
   type RowNode,
   type ServerNode,
   type ServerSideRowModel,
@@ -507,8 +509,39 @@ export interface LiveViewportDataGridProps<T> {
 }
 const MAX_SCROLL_HEIGHT = 8_000_000;
 
+export interface InfiniteDataGridProps<T> extends Omit<
+  LiveViewportDataGridProps<T>,
+  "model"
+> {
+  model: InfiniteRowModel<T>;
+}
+interface SparseWindowModel<T> {
+  subscribe(listener: () => void): () => void;
+  getSnapshot(): ViewportSnapshot<T> & {
+    estimatedRowCount?: number;
+    queryRevision?: number;
+  };
+  setViewport(startRow: number, endRow: number): void;
+  retry(): void;
+}
+interface SparseWindowGridProps<T> extends Omit<
+  LiveViewportDataGridProps<T>,
+  "model"
+> {
+  model: SparseWindowModel<T>;
+  mode: "live" | "infinite";
+}
+
 /** Sparse, read-only live grid. Large logical heights are mapped to a bounded browser scroll space. */
-export function LiveViewportDataGrid<T>({
+export function LiveViewportDataGrid<T>(props: LiveViewportDataGridProps<T>) {
+  return <SparseWindowGrid {...props} mode="live" />;
+}
+/** Sparse, read-only pull grid. Unknown counts extend as full blocks arrive. */
+export function InfiniteDataGrid<T>(props: InfiniteDataGridProps<T>) {
+  return <SparseWindowGrid {...props} mode="infinite" />;
+}
+function SparseWindowGrid<T>({
+  mode,
   model,
   columns: definitions,
   height = 400,
@@ -518,10 +551,12 @@ export function LiveViewportDataGrid<T>({
   ariaLabel: requestedAriaLabel,
   className = "",
   renderCell,
-}: LiveViewportDataGridProps<T>) {
+}: SparseWindowGridProps<T>) {
   assertGridDirection(direction);
   const { t, locale: language } = useGridLocale();
-  const ariaLabel = requestedAriaLabel ?? t("remote.liveLabel");
+  const ariaLabel =
+    requestedAriaLabel ??
+    t(mode === "infinite" ? "remote.infiniteLabel" : "remote.liveLabel");
   const snapshot = useSyncExternalStore(
     model.subscribe,
     model.getSnapshot,
@@ -552,7 +587,34 @@ export function LiveViewportDataGrid<T>({
   const cells = useRef(new Map<string, HTMLDivElement>());
   const pendingFocus = useRef(false);
   const ownsCellFocus = useRef(false);
-  const [scroll, setScroll] = useState({ top: 0, left: 0 });
+  const [scrollState, setScrollState] = useState({
+    top: 0,
+    left: 0,
+    model,
+    queryRevision: snapshot.queryRevision,
+  });
+  const windowOwnerChanged =
+    mode === "infinite" &&
+    (scrollState.model !== model ||
+      scrollState.queryRevision !== snapshot.queryRevision);
+  const scroll = {
+    top: windowOwnerChanged ? 0 : scrollState.top,
+    left: scrollState.left,
+  };
+  function setScroll(
+    update:
+      | { top: number; left: number }
+      | ((current: { top: number; left: number }) => {
+          top: number;
+          left: number;
+        }),
+  ) {
+    setScrollState((current) => ({
+      ...(typeof update === "function" ? update(current) : update),
+      model,
+      queryRevision: snapshot.queryRevision,
+    }));
+  }
   const [viewportWidth, setViewportWidth] = useState(800);
   const previousDirection = useRef(direction);
   function scrollMaximum(container: HTMLElement) {
@@ -603,13 +665,15 @@ export function LiveViewportDataGrid<T>({
     );
   }
   const [viewError, setViewError] = useState<string | null>(null);
-  const [focus, setFocus] = useState({
+  const [focusState, setFocus] = useState({
     index: 0,
     columnId: columns[0]?.id ?? "",
   });
+  const focus = windowOwnerChanged ? { ...focusState, index: 0 } : focusState;
   const count =
     snapshot.rowCount ??
     Math.max(
+      snapshot.estimatedRowCount ?? 0,
       snapshot.viewport.endRow,
       Math.ceil((safeHeight - 38) / safeRowHeight) + safeOverscan,
     );
@@ -648,6 +712,17 @@ export function LiveViewportDataGrid<T>({
     JSON.stringify([index, columnId]);
 
   useLayoutEffect(() => {
+    if (!windowOwnerChanged) return;
+    const container = viewport.current;
+    if (container) container.scrollTop = 0;
+    setScroll({ ...scroll, top: 0 });
+    setFocus((current) => ({ ...current, index: 0 }));
+    pendingFocus.current =
+      ownsCellFocus.current &&
+      (document.activeElement === document.body ||
+        Boolean(container?.contains(document.activeElement)));
+  }, [windowOwnerChanged, model, snapshot.queryRevision]);
+  useLayoutEffect(() => {
     const container = viewport.current;
     if (!container) return;
     const update = () => setViewportWidth(container.clientWidth || 800);
@@ -681,6 +756,11 @@ export function LiveViewportDataGrid<T>({
       setScroll((current) => ({ ...current, left: inline }));
   }, [direction, totalWidth, viewportWidth]);
   useEffect(() => {
+    if (
+      mode === "infinite" &&
+      model.getSnapshot().queryRevision !== snapshot.queryRevision
+    )
+      return;
     try {
       // A positive desired window keeps an empty provider's count stream alive.
       model.setViewport(first, snapshot.rowCount === 0 ? 1 : end);
@@ -688,22 +768,24 @@ export function LiveViewportDataGrid<T>({
     } catch (error) {
       setViewError(errorText(error));
     }
-  }, [model, first, end, snapshot.rowCount === 0]);
+  }, [model, first, end, snapshot.rowCount === 0, snapshot.queryRevision]);
   useLayoutEffect(() => {
     const container = viewport.current;
     if (container && container.scrollTop > physicalMaximum) {
       container.scrollTop = physicalMaximum;
       setScroll((current) => ({ ...current, top: physicalMaximum }));
     }
-    setFocus((current) => {
-      const index = Math.min(current.index, Math.max(0, count - 1)),
-        columnId = columns.some((column) => column.id === current.columnId)
-          ? current.columnId
-          : (columns[0]?.id ?? "");
-      return index === current.index && columnId === current.columnId
-        ? current
-        : { index, columnId };
-    });
+    const index = Math.min(focus.index, Math.max(0, count - 1)),
+      columnId = columns.some((column) => column.id === focus.columnId)
+        ? focus.columnId
+        : (columns[0]?.id ?? "");
+    if (index !== focus.index || columnId !== focus.columnId) {
+      pendingFocus.current =
+        ownsCellFocus.current &&
+        (document.activeElement === document.body ||
+          Boolean(container?.contains(document.activeElement)));
+      setFocus({ index, columnId });
+    }
   }, [
     count,
     physicalMaximum,
@@ -711,6 +793,15 @@ export function LiveViewportDataGrid<T>({
   ]);
   useLayoutEffect(() => {
     if (!pendingFocus.current) return;
+    const container = viewport.current;
+    if (
+      document.activeElement !== document.body &&
+      !container?.contains(document.activeElement)
+    ) {
+      pendingFocus.current = false;
+      ownsCellFocus.current = false;
+      return;
+    }
     const cell = cells.current.get(cellKey(focus.index, focus.columnId));
     if (cell) {
       cell.focus({ preventScroll: true });
@@ -834,7 +925,12 @@ export function LiveViewportDataGrid<T>({
         <span role="status" aria-live="polite">
           {snapshot.rowCount === null
             ? t("remote.countPending")
-            : t("remote.liveCount", { count: snapshot.rowCount })}
+            : t(
+                mode === "infinite"
+                  ? "remote.infiniteCount"
+                  : "remote.liveCount",
+                { count: snapshot.rowCount },
+              )}
           {snapshot.loading ? t("remote.loadingWindow") : ""}
         </span>
         <span>{t("remote.readOnly")}</span>
@@ -853,7 +949,9 @@ export function LiveViewportDataGrid<T>({
               }
             }}
           >
-            {t("remote.retryLive")}
+            {t(
+              mode === "infinite" ? "remote.retryInfinite" : "remote.retryLive",
+            )}
           </button>
         </div>
       )}
@@ -957,6 +1055,9 @@ export function LiveViewportDataGrid<T>({
                       role="gridcell"
                       aria-colindex={entry.index + 1}
                       aria-readonly="true"
+                      aria-label={
+                        !row ? t("remote.livePlaceholder") : undefined
+                      }
                       data-viewport-row={index}
                       data-column-id={column.id}
                       className={`og-cell ${column.pinned ? "og-pinned" : ""}`}
@@ -994,7 +1095,9 @@ export function LiveViewportDataGrid<T>({
         </div>
         {snapshot.rowCount === 0 && (
           <div role="status" className="og-empty">
-            {t("remote.emptyLive")}
+            {t(
+              mode === "infinite" ? "remote.emptyInfinite" : "remote.emptyLive",
+            )}
           </div>
         )}
       </div>
