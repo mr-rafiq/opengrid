@@ -445,7 +445,7 @@ export const esMessages = Object.freeze({
   "remote.liveCount": (params, _format) =>
     `${_format.number(params.count)} ${_format.plural(params.count, { one: "fila en directo", other: "filas en directo" })}`,
   "remote.loadingWindow": " - cargando ventana",
-  "remote.readOnly": "Proveedor en directo de solo lectura",
+  "remote.readOnly": "Proveedor de solo lectura",
   "chart.sourceSummary": (params, _format) =>
     `${_format.number(params.count)} ${_format.plural(params.count, { one: "fila de origen", other: "filas de origen" })}. Se muestran ${_format.number(params.shown)} de ${_format.number(params.total)} ${params.kind}.`,
   "chart.rowPoints": (params, _format) =>

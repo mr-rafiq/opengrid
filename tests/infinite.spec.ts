@@ -13,6 +13,9 @@ async function setup(page: Page) {
       exact: true,
     });
   await expect(cell(grid, 0)).toContainText("Record 0");
+  await expect(
+    region.getByText("Read-only provider", { exact: true }),
+  ).toBeVisible();
   return { region, grid, errors };
 }
 const cell = (grid: Locator, index: number, column = "name") =>

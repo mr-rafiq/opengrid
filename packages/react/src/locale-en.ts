@@ -417,7 +417,7 @@ export const enMessages = Object.freeze({
   "remote.liveCount": (params, _format) =>
     `${_format.number(params.count)} live rows`,
   "remote.loadingWindow": " - loading window",
-  "remote.readOnly": "Read-only live provider",
+  "remote.readOnly": "Read-only provider",
   "chart.sourceSummary": (params, _format) =>
     `${_format.number(params.count)} source rows. Showing ${_format.number(params.shown)} of ${_format.number(params.total)} ${params.kind}.`,
   "chart.rowPoints": (_params, _format) => `row points`,

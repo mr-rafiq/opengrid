@@ -60,6 +60,8 @@ describe("pull-based infinite React binding", () => {
     expect(grid.getAttribute("aria-rowcount")).toBe("38");
     expect(getRows).toHaveBeenCalledTimes(1);
     expect(screen.getByText("37 rows")).toBeTruthy();
+    expect(screen.getByText("Read-only provider")).toBeTruthy();
+    expect(screen.queryByText("Read-only live provider")).toBeNull();
     expect(screen.queryByText("37 live rows")).toBeNull();
     expect(grid.querySelectorAll('[role="row"]').length).toBeLessThan(15);
   });
