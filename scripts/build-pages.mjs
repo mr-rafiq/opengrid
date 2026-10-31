@@ -80,6 +80,15 @@ for (const page of content.pages) {
     ),
   );
 }
+await fs.mkdir(path.join(output, "showcase"), { recursive: true });
+await fs.writeFile(
+  path.join(output, "showcase", "index.html"),
+  htmlFor(
+    `${base}showcase/`,
+    "OpenGrid - Interactive participant showcase",
+    "Explore synthetic participants with working columns, filters, grouping and Minimal or Material styling in light and dark mode.",
+  ),
+);
 await fs.writeFile(
   path.join(output, "404.html"),
   htmlFor(
@@ -108,7 +117,7 @@ await fs.writeFile(
 );
 await fs.writeFile(
   path.join(output, "sitemap.xml"),
-  `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[base, ...content.pages.map((page) => `${base}docs/${page.slug}/`), `${base}demo/`].map((route) => `<url><loc>https://mr-rafiq.github.io${route}</loc></url>`).join("")}</urlset>`,
+  `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${[base, ...content.pages.map((page) => `${base}docs/${page.slug}/`), `${base}demo/`, `${base}showcase/`].map((route) => `<url><loc>https://mr-rafiq.github.io${route}</loc></url>`).join("")}</urlset>`,
 );
 await build({
   root: path.join(root, "examples/demo"),
