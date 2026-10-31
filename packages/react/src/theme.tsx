@@ -110,7 +110,13 @@ export function GridThemeProvider({ children }: { children: ReactNode }) {
   useGridTheme();
   return <>{children}</>;
 }
-export function GridThemeSelect({ className = "" }: { className?: string }) {
+export function GridThemeSelect({
+  className = "",
+  ariaLabel,
+}: {
+  className?: string;
+  ariaLabel?: string;
+}) {
   const { preference, resolved, setTheme } = useGridTheme();
   const { t } = useGridLocale();
   return (
@@ -125,9 +131,11 @@ export function GridThemeSelect({ className = "" }: { className?: string }) {
         }
         size={16}
       />
-      <span className="og-visually-hidden">{t("theme.label")}</span>
+      <span className="og-visually-hidden">
+        {ariaLabel ?? t("theme.label")}
+      </span>
       <select
-        aria-label={t("theme.label")}
+        aria-label={ariaLabel ?? t("theme.label")}
         value={preference}
         onChange={(event) =>
           setTheme(event.target.value as GridThemePreference)

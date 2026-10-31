@@ -85,6 +85,7 @@ const labels = {
   "calculated-columns": "Calculated columns",
 };
 const order = [
+  "showcase",
   "getting-started",
   "themes",
   "overview",

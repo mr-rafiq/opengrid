@@ -44,3 +44,9 @@ The showcase and playground share the same preference on their deployed origin. 
 New playground sessions below 600px start with unpinned columns so horizontal scrolling can reach every field. The Columns chooser can pin them explicitly; resizing does not discard a user's pin choices. This is an example-app default, not a library override of configured pins.
 
 Default row heights and the keyboard/editing model are unchanged. Responsive styling does not imply all custom application renderers are automatically responsive: constrain custom editors, full-width content and detail panels. Browser checks cover Chromium; no manual screen-reader certification is claimed.
+
+## Material preset and sidebar
+
+Wrap related components in `og-preset-material` to select the optional Material-inspired preset, independently of Light/Dark/System color mode. It uses flat surfaces, muted sentence-case headers, horizontal separators, underline filters and pink square checkboxes. Pass `rowHeight={48}` when you want the showcase's spacious rows; the preset does not override an application's explicit row sizing. The default remains Minimal. Keep popup hosts inside the same scope. Forced-colors mode restores native checkbox rendering.
+
+See the [participant showcase](SHOWCASE.md) for a working responsive sidebar, native mobile tools drawer and persistent style picker. No theme choice changes grid data or model state.

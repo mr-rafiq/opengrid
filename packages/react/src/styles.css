@@ -1274,3 +1274,357 @@
   flex-shrink: 0;
   max-width: 100%;
 }
+
+/* Optional model-bound sidebar; pair with a host modal drawer at narrow widths. */
+.og-side-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px;
+  direction: ltr;
+  min-width: 0;
+  color: var(--og-text);
+  background: var(--og-bg);
+  font:
+    13px/1.45 system-ui,
+    sans-serif;
+}
+.og-side-panel * {
+  box-sizing: border-box;
+}
+.og-side-tabs {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-inline-start: 1px solid var(--og-border);
+  padding: 8px 0;
+  background: var(--og-surface);
+}
+.og-side-tabs button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  writing-mode: vertical-rl;
+  min-width: 40px;
+  min-height: 110px;
+  padding: 12px 6px;
+  color: var(--og-muted);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+.og-side-tabs button[aria-selected="true"] {
+  color: var(--og-accent);
+  background: var(--og-selected);
+  box-shadow: inset -2px 0 var(--og-accent);
+}
+.og-side-body {
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: 12px;
+  overscroll-behavior: contain;
+}
+.og-side-panel :focus-visible {
+  outline: 2px solid var(--og-focus);
+  outline-offset: -2px;
+}
+.og-side-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+  color: var(--og-muted);
+}
+.og-side-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  border: 1px solid var(--og-control-border);
+  padding: 8px;
+  border-radius: 5px;
+  color: var(--og-text);
+  background: var(--og-bg);
+  font: inherit;
+}
+.og-side-tree details {
+  border-bottom: 1px solid var(--og-border);
+  padding: 3px 0;
+}
+.og-side-tree summary {
+  padding: 12px 2px;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+}
+.og-side-column,
+.og-side-group-check {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.og-side-column {
+  padding-inline-start: 18px;
+}
+.og-side-group-check {
+  color: var(--og-muted);
+  font-size: 12px;
+}
+.og-side-panel input[type="checkbox"] {
+  accent-color: var(--og-accent);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+}
+.og-side-panel .og-group-panel {
+  margin: 16px 0;
+  padding: 12px 0;
+  border-radius: 0;
+  border-width: 1px 0;
+}
+.og-side-panel .og-group-add-controls {
+  width: 100%;
+}
+.og-side-panel .og-group-panel select {
+  min-width: 0;
+  max-width: 100%;
+}
+.og-side-values h2 {
+  font: inherit;
+  font-weight: 650;
+  margin: 16px 0 8px;
+}
+.og-side-values > label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 48px;
+}
+.og-side-values > label span {
+  overflow-wrap: anywhere;
+}
+.og-side-values select {
+  width: 85px;
+  flex-shrink: 0;
+  min-height: 44px;
+  border: 1px solid var(--og-control-border);
+  border-radius: 5px;
+  padding: 6px;
+  color: var(--og-text);
+  background: var(--og-bg);
+  font: inherit;
+}
+.og-side-empty,
+.og-side-values p {
+  color: var(--og-muted);
+}
+.og-side-filters > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 54px;
+  border-bottom: 1px solid var(--og-border);
+}
+.og-side-filters > div > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.og-side-filters button {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Original Material-inspired preset. Color mode remains an independent choice.
+   Scope the class around the grid, sidebar and their popup hosts. */
+.og-preset-material {
+  --og-bg: #fff;
+  --og-surface: #fff;
+  --og-raised: #fff;
+  --og-border: #e2e4e8;
+  --og-accent: #c2185b;
+  --og-on-accent: #fff;
+  --og-selected: #fce8f0;
+  --og-hover: #f9f3f6;
+  --og-focus: #ae1450;
+  --og-check: #c2185b;
+}
+[data-og-theme="dark"] .og-preset-material,
+.og-dark .og-preset-material,
+.og-preset-material.og-dark {
+  --og-bg: #171c25;
+  --og-surface: #1f2632;
+  --og-raised: #202735;
+  --og-border: #37404d;
+  --og-accent: #ff80ab;
+  --og-on-accent: #171c25;
+  --og-selected: #42273b;
+  --og-hover: #332735;
+  --og-focus: #ff9ec0;
+  --og-check: #ff80ab;
+}
+.og-light .og-preset-material,
+.og-preset-material.og-light {
+  --og-bg: #fff;
+  --og-surface: #fff;
+  --og-raised: #fff;
+  --og-border: #e2e4e8;
+  --og-accent: #c2185b;
+  --og-on-accent: #fff;
+  --og-selected: #fce8f0;
+  --og-hover: #f9f3f6;
+  --og-focus: #ae1450;
+  --og-check: #c2185b;
+}
+@media (prefers-color-scheme: dark) {
+  :where(:root:not([data-og-theme])) .og-preset-material {
+    --og-bg: #171c25;
+    --og-surface: #1f2632;
+    --og-raised: #202735;
+    --og-border: #37404d;
+    --og-accent: #ff80ab;
+    --og-on-accent: #171c25;
+    --og-selected: #42273b;
+    --og-hover: #332735;
+    --og-focus: #ff9ec0;
+    --og-check: #ff80ab;
+  }
+}
+
+.og-preset-material .og-root {
+  border-radius: 2px;
+  box-shadow: none;
+}
+.og-preset-material .og-header-cell {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--og-muted);
+}
+.og-preset-material .og-header-cell,
+.og-preset-material .og-filter-cell,
+.og-preset-material .og-cell {
+  border-inline-end: 0;
+}
+.og-preset-material .og-row-alt {
+  background: var(--og-bg);
+}
+.og-preset-material .og-row-selected {
+  background: var(--og-selected);
+}
+.og-preset-material .og-row:hover {
+  background: var(--og-hover);
+}
+.og-preset-material .og-filter-cell input,
+.og-preset-material .og-side-search input {
+  background: transparent;
+  border-radius: 0;
+  border-width: 0 0 1px;
+  border-color: var(--og-control-border);
+}
+.og-preset-material .og-filter-cell input:focus,
+.og-preset-material .og-side-search input:focus {
+  border-bottom: 2px solid var(--og-accent);
+}
+.og-preset-material .og-group-panel {
+  border-radius: 0;
+  background: var(--og-bg);
+}
+.og-preset-material .og-group-chip {
+  border-radius: 3px;
+}
+.og-preset-material .og-side-tabs {
+  background: var(--og-bg);
+}
+.og-preset-material input[type="checkbox"] {
+  appearance: none;
+  display: inline-grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  padding: 0;
+  border: 2px solid var(--og-muted);
+  border-radius: 2px;
+  background: var(--og-bg);
+  vertical-align: middle;
+  cursor: pointer;
+}
+.og-preset-material input[type="checkbox"]:checked,
+.og-preset-material input[type="checkbox"]:indeterminate {
+  background: var(--og-check);
+  border-color: var(--og-check);
+}
+.og-preset-material input[type="checkbox"]:checked::before {
+  content: "";
+  width: 8px;
+  height: 4px;
+  border: solid var(--og-on-accent);
+  border-width: 0 0 2px 2px;
+  transform: translateY(-1px) rotate(-45deg);
+}
+.og-preset-material input[type="checkbox"]:indeterminate::before {
+  content: "";
+  width: 8px;
+  height: 2px;
+  background: var(--og-on-accent);
+}
+@media (forced-colors: active) {
+  .og-preset-material input[type="checkbox"] {
+    appearance: auto;
+  }
+  .og-preset-material input[type="checkbox"]::before {
+    display: none;
+  }
+}
+
+.og-preset-material .og-header-group {
+  color: var(--og-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+.og-side-panel .og-group-panel button,
+.og-side-panel .og-group-panel select {
+  min-height: 44px;
+}
+
+.og-side-panel .og-group-panel :is(button, select),
+.og-side-filters .og-condition-filter > button {
+  color: var(--og-text);
+  background: var(--og-bg);
+  border: 1px solid var(--og-border);
+  border-radius: 4px;
+  padding: 6px;
+  font: inherit;
+}
+.og-side-filters .og-condition-filter {
+  flex: 0 0 44px;
+  width: 44px;
+}
+.og-side-filters .og-condition-filter > button {
+  width: 44px;
+  display: inline-grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.og-side-tree {
+  max-height: 290px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.og-preset-material {
+  --blue: var(--og-accent);
+}
+.og-preset-material .og-root :focus-visible {
+  outline-color: var(--og-focus);
+}

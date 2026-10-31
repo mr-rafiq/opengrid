@@ -1,4 +1,5 @@
 import {
+  type ReactNode,
   useId,
   useLayoutEffect,
   useRef,
@@ -23,6 +24,8 @@ import {
 } from "./column-condition-draft.js";
 
 export interface ColumnConditionFilterProps<T> extends ColumnFilterProps<T> {
+  /** Optional decorative trigger content; label remains the accessible name. */
+  trigger?: ReactNode;
   /** Default four keeps common conditions compact. Values outside 1..16 are rejected. */
   maxConditions?: number;
 }
@@ -101,6 +104,7 @@ export function ColumnConditionFilter<T>({
   filter,
   getFilter,
   label,
+  trigger,
   onFilterChange,
   onClear,
   maxConditions = 4,
@@ -490,7 +494,7 @@ export function ColumnConditionFilter<T>({
           setOpen(true);
         }}
       >
-        {label}
+        {trigger ?? label}
       </button>
       {open && draft && (
         <FilterPopup>

@@ -102,3 +102,5 @@ export type { RowGroupPanelProps } from "./group-panel.js";
 
 export { ServerTreeDataGrid } from "./server-tree-grid.js";
 export type { ServerTreeDataGridProps } from "./server-tree-grid.js";
+export { GridSidePanel } from "./side-panel.js";
+export type { GridSidePanelProps, GridSidePanelLabels } from "./side-panel.js";

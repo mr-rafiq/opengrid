@@ -162,3 +162,5 @@ Use [hierarchy selection](docs/HIERARCHY_SELECTION.md) for collapsed/off-page re
 Use [themes and appearance](docs/themes.md) for shared light, dark and system preferences, semantic tokens and responsive navigation.
 
 See [row grouping and totals](docs/GROUPING.md) for the optional drag/native group panel, filtered subtotals/grand totals, aggregate sorting and bounded simultaneous server branches. The playground includes separate Grouping and Server grouping labs.
+
+Try the [participant showcase](https://mr-rafiq.github.io/opengrid/showcase/) for 22 fictional data columns, searchable Columns/Filters sidebar, grouping and selectable Minimal/Material styling in Light, Dark or System appearance. See [showcase usage and limits](docs/SHOWCASE.md).

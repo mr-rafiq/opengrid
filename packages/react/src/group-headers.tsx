@@ -507,7 +507,11 @@ export function HeaderGroupRows({
                   background,
                   borderBottom: `1px solid ${border}`,
                 }}
-              />
+              >
+                <span className="og-visually-hidden">
+                  {t("grid.rowControls")}
+                </span>
+              </div>
             )}
             {cells}
           </div>

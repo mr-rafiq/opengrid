@@ -105,3 +105,7 @@ See [remote models](REMOTE_MODELS.md) and [React bindings](REMOTE_GRIDS.md) for 
 These are engineering priorities, not a completion-date promise. Public source, passing tests and broader modules do not establish full AG Grid parity.
 
 The bounded server request scheduler and cached-refresh React retry are supported within the Partial server family. See [request limits and ownership](SERVER_REQUESTS.md); bounded mixed-route rendering and visible-cache reservations are now available through [server grouping](GROUPING.md#simultaneous-remote-branches); unlimited mode, writes and automatic pivot schemas remain open.
+
+### Participant showcase and sidebar
+
+The [participant showcase](SHOWCASE.md) adds original synthetic data, a model-bound `GridSidePanel` (visibility, typed filters, grouping and built-in/custom aggregate choices), and a distinct optional Material preset. This is a working resident-client slice of tool panels; enterprise-wide tool-panel customization and pivot UI parity remain partial. It is not a claim of complete AG Grid parity.

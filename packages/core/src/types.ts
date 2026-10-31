@@ -156,6 +156,8 @@ export interface GridModel<T> {
     position: "before" | "after",
   ): string | undefined;
   getColumns(): Column<T>[];
+  /** Owned definition copies in declaration order, without current layout overrides. */
+  getColumnDefinitions(): Column<T>[];
   /** Atomic client definition replacement; preserves compatible ID-based state. */
   setColumns(columns: readonly Column<T>[]): void;
   /** Monotonic definition epoch; layout/state edits do not increment it. */

@@ -7,6 +7,7 @@ import {
   GridThemeProvider,
 } from "@opengrid/react";
 import { NavigationDrawer } from "../../shared/navigation-drawer";
+import { ParticipantShowcase } from "./ParticipantShowcase";
 import "../../shared/navigation.css";
 import { RELEASE_VERSION, CREATOR_CREDIT } from "../../shared/release";
 import content from "virtual:site-content";
@@ -293,8 +294,8 @@ function Home() {
               <a className="button primary" href={docsUrl("getting-started")}>
                 Start building <Arrow />
               </a>
-              <a className="text-link" href={`${base}demo/`}>
-                Explore the playground <Arrow diagonal />
+              <a className="text-link" href={`${base}showcase/`}>
+                Try the live demo <Arrow diagonal />
               </a>
             </div>
           </div>
@@ -742,6 +743,7 @@ export function App({ initialPath }: { initialPath?: string }) {
     ? pages.find((item) => item.slug === relative.slice(5))
     : undefined;
   const home = relative === "" || relative === "index.html";
+  const showcase = relative === "showcase";
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
@@ -789,6 +791,12 @@ export function App({ initialPath }: { initialPath?: string }) {
             >
               Documentation
             </a>
+            <a
+              href={`${base}showcase/`}
+              aria-current={showcase ? "page" : undefined}
+            >
+              Live demo
+            </a>
             <a href={`${base}demo/`}>Playground</a>
             <a href={repository}>
               GitHub <Arrow diagonal />
@@ -815,6 +823,7 @@ export function App({ initialPath }: { initialPath?: string }) {
       >
         <nav aria-label="Main navigation">
           <a href={docsUrl("getting-started")}>Documentation</a>
+          <a href={`${base}showcase/`}>Live demo</a>
           <a href={`${base}demo/`}>Playground</a>
           <a href={repository}>
             GitHub <GridIcon name="external" size={16} />
@@ -824,6 +833,8 @@ export function App({ initialPath }: { initialPath?: string }) {
       </NavigationDrawer>
       {home ? (
         <Home />
+      ) : showcase ? (
+        <ParticipantShowcase />
       ) : page ? (
         <Documentation page={page} />
       ) : (

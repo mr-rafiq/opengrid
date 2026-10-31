@@ -26,6 +26,68 @@ const make = () =>
   });
 
 describe("atomic runtime column definitions", () => {
+  it("reads owned definition defaults without baking current view overrides into metadata updates", () => {
+    const aggregate = (values: unknown[]) => values.length;
+    const grid = createGrid({
+      rows,
+      getRowId: (row) => row.id,
+      columns: [
+        {
+          id: "value",
+          field: "a",
+          width: 120,
+          hidden: true,
+          pinned: "right",
+          groupPath: ["Stats"],
+          aggregate,
+        },
+        { id: "label", field: "label", width: 150 },
+      ],
+    });
+    grid.resizeColumn("value", 333);
+    grid.hideColumn("value", false);
+    grid.pinColumn("value", "left");
+    const definitions = grid.getColumnDefinitions();
+    expect(definitions.map((column) => column.id)).toEqual(["value", "label"]);
+    expect(definitions[0]).toMatchObject({
+      width: 120,
+      hidden: true,
+      pinned: "right",
+      groupPath: ["Stats"],
+      aggregate,
+    });
+    expect(grid.getColumns()[0]).toMatchObject({
+      width: 333,
+      hidden: false,
+      pinned: "left",
+    });
+    (definitions[0].groupPath as string[]).push("outside");
+    definitions[0].header = "outside";
+    expect(grid.getColumnDefinitions()[0].groupPath).toEqual(["Stats"]);
+    expect(grid.getColumnDefinitions()[0].header).toBeUndefined();
+    grid.setColumns(
+      grid
+        .getColumnDefinitions()
+        .map((column) =>
+          column.id === "value" ? { ...column, aggregate: "sum" } : column,
+        ),
+    );
+    expect(grid.getColumns()[0]).toMatchObject({
+      width: 333,
+      hidden: false,
+      pinned: "left",
+      aggregate: "sum",
+    });
+    expect(grid.getColumnWidthDefaults().value).toBe(120);
+    grid.setState({
+      columnVisibility: {},
+      columnWidths: {},
+      columnPinning: {},
+    });
+    expect(
+      grid.getColumns().find((column) => column.id === "value"),
+    ).toMatchObject({ width: 120, hidden: true, pinned: "right" });
+  });
   it("owns definitions, changes fields, and publishes one coherent epoch", () => {
     const grid = make(),
       listener = vi.fn(() => {

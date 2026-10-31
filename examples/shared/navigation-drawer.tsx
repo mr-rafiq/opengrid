@@ -50,6 +50,9 @@ export function NavigationDrawer({
       className="navigation-drawer"
       aria-label={label}
       onCancel={(event) => {
+        // A condition editor can be a nested top-layer dialog. Its Escape must
+        // close that editor without dismissing this owning tools drawer.
+        if (event.target !== event.currentTarget) return;
         event.preventDefault();
         onClose();
       }}

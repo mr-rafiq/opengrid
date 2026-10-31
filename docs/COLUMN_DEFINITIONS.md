@@ -27,6 +27,20 @@ model.setColumns([
 // Keep this model in useMemo/useState and pass it to <DataGrid model={model} />.
 ```
 
+## Read back definitions
+
+`model.getColumnDefinitions()` returns fresh owned copies in declaration order, before current width, visibility, pinning and order overrides. Group paths are copied; callback identity is retained. Use this when updating only metadata, for example an aggregate function, through `setColumns`. `getColumns()` instead describes the current resolved view. Passing that resolved view back as definitions would save its current layout as the new defaults.
+
+```ts
+model.setColumns(
+  model
+    .getColumnDefinitions()
+    .map((column) =>
+      column.id === "amount" ? { ...column, aggregate: "sum" } : column,
+    ),
+);
+```
+
 ## State and ownership
 
 Replacement validates the complete owned definitions and prospective state before installing them. IDs must be unique, nonempty strings; width/flex/span/cache/group-path checks are shared with construction. Configured widths and group paths are copied, and the internal definitions and default-width snapshot are frozen. Functions remain application-owned pure callbacks; this does not clone their external state.

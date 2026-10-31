@@ -2,6 +2,17 @@
 
 Created by Mohamed Rafiq.
 
+## 0.4.0 - 2026-10-31
+
+This source release adds the interactive participant showcase, a model-bound React sidebar and an optional original Material-inspired preset. Created by Mohamed Rafiq. Packages remain source/local-tarball previews, without npm publication.
+
+- 22 synthetic participant columns, grouped headers, country flags, star ratings, editable purchase checkboxes and 1k/10k/100k client-side data options.
+- Searchable expandable Columns/Filters sidebar, working visibility/grouping/aggregate controls and typed condition dialogs. Responsive native mobile tools drawer with keyboard focus return.
+- Separate Minimal/Material style and System/Light/Dark appearance controls; Material includes flat surfaces, horizontal separators, underline fields, spacious rows and square pink checked states.
+- Public static `/showcase/` route, source documentation and visible shared version; existing component playground remains available.
+- Owned `getColumnDefinitions()` readback keeps aggregate changes from baking current visibility, sizing or pinning into reset defaults.
+- New `GridSidePanel` API, optional `GridThemeSelect.ariaLabel` and decorative `ColumnConditionFilter.trigger`. Full AG Grid parity is not claimed; pivot configuration and remote sidebar adapters remain open.
+
 ## 0.3.0 — 2026-10-31
 
 This source release adds resident grouping controls and totals, aggregate sorting, and bounded simultaneous server branches. The grid, showcase, documentation and playground share the 0.3.0 release version and light/dark/system themes. Packages remain source/local-tarball previews and have not been published to npm.

@@ -931,6 +931,13 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       emit();
     },
     getColumns,
+    getColumnDefinitions: () =>
+      columns.map((column) => ({
+        ...column,
+        ...(column.groupPath === undefined
+          ? {}
+          : { groupPath: [...column.groupPath] }),
+      })),
     getColumnRevision: () => columnRevision,
     setColumns(input) {
       const before = state,

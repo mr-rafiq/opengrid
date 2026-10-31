@@ -25,11 +25,14 @@ export const COLUMN_DRAG_OWNER = "application/x-opengrid-column-owner";
 export interface RowGroupPanelProps<T> {
   model: GridModel<T>;
   className?: string;
+  /** Distinguish several synchronized panels on one page. */
+  ariaLabel?: string;
 }
 /** Optional resident row-group configuration with equivalent native controls for touch/keyboard. */
 export function RowGroupPanel<T>({
   model,
   className = "",
+  ariaLabel,
 }: RowGroupPanelProps<T>) {
   const state = useSyncExternalStore(
     model.subscribe,
@@ -102,7 +105,7 @@ export function RowGroupPanel<T>({
       ref={root}
       className={`og-group-panel ${dragOver ? "og-group-panel-over" : ""} ${className}`}
       role="region"
-      aria-label={t("grouping.panel")}
+      aria-label={ariaLabel ?? t("grouping.panel")}
       onDragOver={(event) => {
         if (event.dataTransfer.types.includes(COLUMN_DRAG_OWNER)) {
           event.preventDefault();
