@@ -10,7 +10,7 @@ Local production screenshot/interaction verification passed desktop 1440px and p
 
 The final serial validation on 2026-10-31 passed formatting, release consistency and strict TypeScript; **1,840 unit tests in 108 files in 238.14 seconds**; all three library ESM/declaration builds and the production demo; **158 single-worker Chromium scenarios in 7.4 minutes**; Pages generation with **59 guides**; and **17 site tests in 25.2 seconds**. Built-package checks also passed exported grouping/tree APIs and declarations, source-only total selection through pure SSR, copied 44px action styles and server projection without SSR provider calls or source-model mutation. The existing large demo/documentation/workbook chunk notices remain warnings; no performance claim follows from these checks.
 
-These are local candidate results. The separate clipboard lifecycle work is excluded, the visible release remains 0.2.0 with Created by Mohamed Rafiq, and no new public push or Pages deployment is included in this checkpoint. Remaining selective/pinned/tree/server total modes, aggregate formatting, automatic subtree scrolling, remote writes/selection/notes and pivot schema are explicitly tracked in the guide and ledger.
+These were local candidate results recorded before publication. The separate clipboard lifecycle work was excluded; the visible release at that checkpoint was 0.2.0 with Created by Mohamed Rafiq, and that checkpoint included no public push or Pages deployment. Remaining selective/pinned/tree/server total modes, aggregate formatting, automatic subtree scrolling, remote writes/selection/notes and pivot schema are explicitly tracked in the guide and ledger.
 
 ## Runtime client column definitions
 

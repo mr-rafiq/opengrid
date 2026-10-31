@@ -2,7 +2,9 @@
 
 Created by Mohamed Rafiq.
 
-## Unreleased
+## 0.3.0 — 2026-10-31
+
+This source release adds resident grouping controls and totals, aggregate sorting, and bounded simultaneous server branches. The grid, showcase, documentation and playground share the 0.3.0 release version and light/dark/system themes. Packages remain source/local-tarball previews and have not been published to npm.
 
 - Opaque sticky selection headers prevent scrolled column text from showing behind row controls in both themes.
 - Optional row-group panel with native keyboard/touch controls and model-owned header/chip dragging.
