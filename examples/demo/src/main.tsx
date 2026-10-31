@@ -28,6 +28,7 @@ import "@opengrid/react/styles.css";
 import "./page.css";
 import { NavigationDrawer } from "../../shared/navigation-drawer";
 import "../../shared/navigation.css";
+import { RELEASE_VERSION, CREATOR_CREDIT } from "../../shared/release";
 import { FormulaLab } from "./formula-lab";
 import { RemoteLab } from "./remote-lab";
 import { HoldingDetail } from "./holding-detail";
@@ -496,7 +497,10 @@ function App() {
       <main>
         <nav>
           <a href="https://mr-rafiq.github.io/opengrid/" className="wordmark">
-            OpenGrid <span>LAB</span>
+            OpenGrid{" "}
+            <span data-release-version={RELEASE_VERSION}>
+              v{RELEASE_VERSION}
+            </span>
           </a>
           <div className="nav-actions">
             <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
@@ -580,7 +584,9 @@ function App() {
             <div>
               <span className="live-dot" />
               <h2>Portfolio explorer</h2>
-              <span className="tag">v0.1 preview</span>
+              <span className="tag" data-release-version={RELEASE_VERSION}>
+                v{RELEASE_VERSION} preview
+              </span>
             </div>
             <details className="view-options">
               <summary>
@@ -1052,9 +1058,12 @@ function App() {
           {alignedOpen && <AlignedLab />}
         </section>
         <footer>
-          <span>Built for developers who want control.</span>
+          <span className="creator-credit">{CREATOR_CREDIT}</span>
           <span>
-            Early preview ·{" "}
+            <span data-release-version={RELEASE_VERSION}>
+              v{RELEASE_VERSION}
+            </span>{" "}
+            · Early preview ·{" "}
             <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
               See implemented features and remaining work
             </a>

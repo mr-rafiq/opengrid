@@ -1,5 +1,7 @@
 # OpenGrid
 
+Created by Mohamed Rafiq. See the [release notes](CHANGELOG.md) for version history.
+
 [Showcase and documentation](https://mr-rafiq.github.io/opengrid/) · [Interactive playground](https://mr-rafiq.github.io/opengrid/demo/)
 
 An original **MIT-licensed React and TypeScript data grid**, built around a framework-neutral engine. Sorting, filtering, editing, grouping, aggregation, tree data, column controls and virtualized rendering are usable today. This is an early preview with its own API, not a drop-in AG Grid replacement.

@@ -2136,3 +2136,13 @@ body:has(.docs-layout) {
 .code-block .hljs-variable {
   color: var(--og-text);
 }
+
+.site-footer .release-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.site-footer .creator-credit {
+  color: var(--og-text);
+  font-size: 12px;
+}

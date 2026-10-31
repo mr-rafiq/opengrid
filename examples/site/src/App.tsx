@@ -8,6 +8,7 @@ import {
 } from "@opengrid/react";
 import { NavigationDrawer } from "../../shared/navigation-drawer";
 import "../../shared/navigation.css";
+import { RELEASE_VERSION, CREATOR_CREDIT } from "../../shared/release";
 import content from "virtual:site-content";
 
 const { base, repository, pages } = content;
@@ -766,7 +767,9 @@ export function App({ initialPath }: { initialPath?: string }) {
               OpenGrid<span className="brand-period">.</span>
             </span>
           </a>
-          <span className="version-pill">v0.1 · preview</span>
+          <span className="version-pill" data-release-version={RELEASE_VERSION}>
+            v{RELEASE_VERSION} · preview
+          </span>
           <button
             className="mobile-menu-toggle"
             aria-controls="main-navigation-drawer"
@@ -847,11 +850,18 @@ export function App({ initialPath }: { initialPath?: string }) {
             <br />
             Made for your next idea.
           </p>
+          <p className="release-info">
+            <span className="creator-credit">{CREATOR_CREDIT}</span>
+            <span data-release-version={RELEASE_VERSION}>
+              Version {RELEASE_VERSION}
+            </span>
+          </p>
         </div>
         <div>
           <a href={docsUrl("getting-started")}>Documentation</a>
           <a href={docsUrl("feature-parity")}>Roadmap & scope</a>
           <a href={docsUrl("contributing")}>Contribute</a>
+          <a href={docsUrl("releases")}>Release notes</a>
           <a href={repository}>
             Source on GitHub <Arrow diagonal />
           </a>

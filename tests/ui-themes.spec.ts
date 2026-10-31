@@ -130,3 +130,47 @@ for (const theme of ["light", "dark"])
     );
     expect(violations).toEqual([]);
   });
+
+test("the playground shows the current workspace version and exact creator credit", async ({
+  page,
+}) => {
+  const version = JSON.parse(readFileSync("package.json", "utf8"))
+    .version as string;
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto("/");
+  for (const theme of ["light", "dark"]) {
+    await page
+      .getByRole("combobox", { name: "Color theme" })
+      .selectOption(theme);
+    await expect(page.locator(".wordmark [data-release-version]")).toHaveText(
+      `v${version}`,
+    );
+    const credit = page.getByText("Created by Mohamed Rafiq", { exact: true });
+    await credit.scrollIntoViewIfNeeded();
+    await expect(credit).toBeInViewport();
+    await expect(page.locator("footer [data-release-version]")).toHaveText(
+      `v${version}`,
+    );
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(375);
+  }
+});
+
+test("the narrow header wraps enlarged native controls without clipping the version", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 812 });
+  await page.goto("/");
+  await page.addStyleTag({ content: ".nav-actions { font-size: 18px; }" });
+  await expect(
+    page.getByRole("combobox", { name: "Color theme" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Open playground navigation" }),
+  ).toBeVisible();
+  await expect(page.locator(".wordmark [data-release-version]")).toBeVisible();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollWidth),
+  ).toBeLessThanOrEqual(320);
+});

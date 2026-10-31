@@ -41,6 +41,7 @@ export const slugify = (value) =>
 const labels = {
   "getting-started": "Getting started",
   themes: "Themes & appearance",
+  releases: "Release notes",
   overview: "Project overview",
   api: "API reference",
   "feature-parity": "Feature roadmap",
@@ -132,6 +133,7 @@ const order = [
   "import",
   "printing",
   "feature-parity",
+  "releases",
   "gap-inventory",
   "architecture",
   "contributing",
@@ -204,6 +206,7 @@ export function createContent() {
     }));
   sources.push(
     { source: "README.md", slug: "overview" },
+    { source: "CHANGELOG.md", slug: "releases" },
     { source: "CONTRIBUTING.md", slug: "contributing" },
     { source: "THIRD_PARTY_NOTICES.md", slug: "third-party-notices" },
     { source: "LICENSE", slug: "license" },

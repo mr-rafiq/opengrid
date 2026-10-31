@@ -150,3 +150,51 @@ test("mobile drawer closes when desktop navigation returns and restores a visibl
   ).toBeFocused();
   expect(await page.evaluate(() => document.body.style.overflow)).toBe("");
 });
+
+const releaseVersion = JSON.parse(readFileSync("package.json", "utf8"))
+  .version as string;
+for (const theme of ["light", "dark"])
+  test(`release version and creator credit remain visible on ${theme} desktop and mobile pages`, async ({
+    page,
+  }) => {
+    for (const width of [1280, 375]) {
+      await page.setViewportSize({ width, height: 900 });
+      for (const route of ["./", "docs/releases/", "demo/"]) {
+        await page.goto(route);
+        if (width < 700 && route !== "demo/") {
+          await page.getByRole("button", { name: "Menu", exact: true }).click();
+          await page
+            .getByRole("combobox", { name: "Color theme" })
+            .selectOption(theme);
+          await page.keyboard.press("Escape");
+        } else
+          await page
+            .getByRole("combobox", { name: "Color theme" })
+            .selectOption(theme);
+        const credit = page.getByText("Created by Mohamed Rafiq", {
+          exact: true,
+        });
+        await credit.scrollIntoViewIfNeeded();
+        await expect(credit).toBeInViewport();
+        const labels = page.locator("[data-release-version]");
+        expect(await labels.count()).toBeGreaterThan(0);
+        for (const label of await labels.all()) {
+          await expect(label).toHaveAttribute(
+            "data-release-version",
+            releaseVersion,
+          );
+          await expect(label).toContainText(releaseVersion);
+        }
+        await expect(
+          page.locator("[data-release-version]:visible").last(),
+        ).toBeVisible();
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBeLessThanOrEqual(width);
+        await expect(page.locator("html")).toHaveAttribute(
+          "data-og-theme",
+          theme,
+        );
+      }
+    }
+  });

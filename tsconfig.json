@@ -14,7 +14,8 @@
       "@opengrid/core": ["./packages/core/src/index.ts"],
       "@opengrid/react": ["./packages/react/src/index.tsx"],
       "@opengrid/export": ["./packages/export/src/index.ts"]
-    }
+    },
+    "resolveJsonModule": true
   },
   "include": ["packages", "examples", "tests", "*.ts"]
 }

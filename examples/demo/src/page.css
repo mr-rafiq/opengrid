@@ -564,3 +564,19 @@ footer a {
     display: none;
   }
 }
+
+footer .creator-credit {
+  color: var(--og-text);
+}
+
+@media (max-width: 540px) {
+  .workspace > main > nav {
+    flex-wrap: wrap;
+    padding-block: 10px;
+    row-gap: 8px;
+  }
+  .nav-actions {
+    max-width: 100%;
+    flex-wrap: wrap;
+  }
+}

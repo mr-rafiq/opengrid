@@ -1,6 +1,6 @@
 {
   "name": "opengrid-workspace",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "workspaces": [
@@ -13,12 +13,13 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "dev": "npm run dev -w opengrid-demo",
-    "check": "npm run typecheck && npm test && npm run build",
+    "check": "npm run check:version && npm run typecheck && npm test && npm run build",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build:pages": "node scripts/build-pages.mjs",
+    "build:pages": "npm run check:version && node scripts/build-pages.mjs",
     "test:site": "playwright test --config examples/site/playwright.config.ts",
-    "dev:site": "npm run dev -w opengrid-site"
+    "dev:site": "npm run dev -w opengrid-site",
+    "check:version": "node scripts/check-version.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
