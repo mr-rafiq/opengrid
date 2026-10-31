@@ -96,3 +96,6 @@ export type {
 
 export * from "./theme.js";
 export * from "./icons.js";
+
+export { RowGroupPanel } from "./group-panel.js";
+export type { RowGroupPanelProps } from "./group-panel.js";

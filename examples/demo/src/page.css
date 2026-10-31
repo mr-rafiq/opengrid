@@ -588,3 +588,20 @@ footer .creator-credit {
   min-width: 0;
   margin-top: 6px;
 }
+
+.grouping-lab-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-block: 12px;
+}
+.grouping-lab-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.grouping-lab p {
+  color: var(--og-muted);
+  max-width: 72ch;
+}

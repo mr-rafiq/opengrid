@@ -484,6 +484,17 @@ export interface GridMessageParams {
   "conditionFilter.membership": undefined;
   "conditionFilter.required": undefined;
   "conditionFilter.failed": undefined;
+  "grouping.panel": undefined;
+  "grouping.drop": undefined;
+  "grouping.choose": undefined;
+  "grouping.allAdded": undefined;
+  "grouping.add": undefined;
+  "grouping.grandTotal": undefined;
+  "grouping.sort": { column: string };
+  "grouping.earlier": { column: string };
+  "grouping.later": { column: string };
+  "grouping.remove": { column: string };
+  "grouping.total": { group: string };
   "formula.mode": undefined;
   "formula.literal": undefined;
   "formula.formula": undefined;
@@ -1192,6 +1203,17 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "conditionFilter.membership": {},
   "conditionFilter.required": {},
   "conditionFilter.failed": {},
+  "grouping.panel": {},
+  "grouping.drop": {},
+  "grouping.choose": {},
+  "grouping.allAdded": {},
+  "grouping.add": {},
+  "grouping.grandTotal": {},
+  "grouping.sort": { column: "string" },
+  "grouping.earlier": { column: "string" },
+  "grouping.later": { column: "string" },
+  "grouping.remove": { column: "string" },
+  "grouping.total": { group: "string" },
   "formula.mode": {},
   "formula.literal": {},
   "formula.formula": {},

@@ -634,6 +634,17 @@ export const esMessages = Object.freeze({
   "formula.formula": "Fórmula",
   "formula.modeHelp":
     "Literal guarda un valor. Fórmula evalúa una expresión. Alt+M enfoca el selector de modo; Intro en el selector vuelve a la entrada. Tab desde la entrada confirma la celda. Cambiar de modo conserva el texto del borrador.",
+  "grouping.panel": "Agrupar filas",
+  "grouping.drop": "Arrastre columnas aquí para agrupar",
+  "grouping.choose": "Columna para agrupar",
+  "grouping.allAdded": "Todas las columnas añadidas",
+  "grouping.add": "Añadir grupo",
+  "grouping.grandTotal": "Total general",
+  "grouping.sort": (params) => `Ordenar grupo por ${params.column}`,
+  "grouping.earlier": (params) => `Mover agrupación ${params.column} antes`,
+  "grouping.later": (params) => `Mover agrupación ${params.column} después`,
+  "grouping.remove": (params) => `Quitar agrupación ${params.column}`,
+  "grouping.total": (params) => `Total de ${params.group}`,
 } satisfies GridMessages);
 export const esES: GridLocale = Object.freeze({
   id: "es-ES",

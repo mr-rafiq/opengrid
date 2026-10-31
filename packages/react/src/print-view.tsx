@@ -15,7 +15,9 @@ export interface GridPrintColumn {
 }
 export interface GridPrintRow {
   readonly key: string;
-  readonly kind: "row" | "group";
+  readonly kind: "row" | "group" | "total";
+  readonly total?: "group" | "grand";
+  readonly totalValue?: string;
   readonly depth: number;
   readonly cells: readonly string[];
   readonly groupLabel?: string;
@@ -144,6 +146,8 @@ export function buildGridPrintSnapshot<T>(
             ? node.aggregates[column.id]
             : undefined
           : model.getValue(node.data, column.id);
+      if (node.kind === "total" && index === 0)
+        return `${node.total === "grand" ? "Grand total" : `Total ${node.label ?? ""}`}${value === undefined ? "" : `: ${printable(value)}`}`;
       return node.data !== undefined && column.valueFormatter
         ? printable(column.valueFormatter(value, node.data))
         : printable(value);
@@ -153,6 +157,18 @@ export function buildGridPrintSnapshot<T>(
       kind: node.kind,
       depth: node.depth,
       cells: Object.freeze(cells),
+      ...(node.kind === "total"
+        ? {
+            total: node.total,
+            groupLabel: node.label,
+            totalValue:
+              node.aggregates &&
+              definitions[0] &&
+              Object.hasOwn(node.aggregates, definitions[0].id)
+                ? printable(node.aggregates[definitions[0].id])
+                : undefined,
+          }
+        : {}),
       ...(node.kind === "group"
         ? {
             groupLabel: printable(node.label ?? node.id),
@@ -370,7 +386,7 @@ export function GridPrintView<T>({
                     <tr
                       key={row.key}
                       className={
-                        row.kind === "group" ? "og-print-group-row" : undefined
+                        row.kind !== "row" ? "og-print-group-row" : undefined
                       }
                       data-print-kind={row.kind}
                       data-print-depth={row.depth}
@@ -381,7 +397,9 @@ export function GridPrintView<T>({
                           index === 0 &&
                           row.groupLabel !== undefined
                             ? `${row.groupLabel}${row.leafCount === undefined ? "" : ` (${locale.number(row.leafCount)})`}`
-                            : capturedCell;
+                            : row.kind === "total" && index === 0
+                              ? `${row.total === "grand" ? locale.t("grouping.grandTotal") : locale.t("grouping.total", { group: row.groupLabel ?? "" })}${row.totalValue === undefined ? "" : `: ${row.totalValue}`}`
+                              : capturedCell;
                         return index === 0 ? (
                           <th
                             key={snapshot.columns[index].id}

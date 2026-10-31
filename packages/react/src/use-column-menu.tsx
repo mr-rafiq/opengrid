@@ -320,6 +320,7 @@ export function useColumnMenu<T>({
         {
           kind: "action",
           id: grouped ? "ungroup" : "group",
+          disabled: !grouped && column.groupable === false,
           label: gridMessage(
             grouped ? "columnMenu.ungroup" : "columnMenu.group",
             { column: label },

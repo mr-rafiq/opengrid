@@ -20,6 +20,7 @@ const plan = (values: unknown[], options: Partial<RowSpanOptions<Item>> = {}) =>
   createRowSpanPlan(rows(values), column, { getValue: valueOf, ...options });
 const exclusions: Partial<RowSpanRow<Item>>[] = [
   { kind: "group" },
+  { kind: "total" },
   { leaf: false },
   { fullWidth: true },
   { detailHeight: 5 },

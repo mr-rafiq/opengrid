@@ -29,6 +29,8 @@ export interface Column<T> {
   validate?: (value: unknown, row: T) => string | undefined;
   compare?: (a: unknown, b: unknown) => number;
   aggregate?: Aggregate;
+  /** Allow this column in row grouping controls. Defaults to true. */
+  groupable?: boolean;
 }
 export interface Sort {
   columnId: string;
@@ -92,10 +94,15 @@ export interface GridState {
   pageSize: number;
   groupBy: string[];
   expanded: string[];
+  /** Totals use filtered source values and participate in ordinary row pagination. */
+  groupTotalRow?: false | "top" | "bottom";
+  grandTotalRow?: false | "top" | "bottom";
 }
 export interface RowNode<T> {
   id: string;
-  kind: "row" | "group";
+  kind: "row" | "group" | "total";
+  total?: "group" | "grand";
+  parentId?: string;
   data?: T;
   depth: number;
   label?: string;

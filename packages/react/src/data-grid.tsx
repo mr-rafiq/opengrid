@@ -1,3 +1,8 @@
+import {
+  RowGroupPanel,
+  columnDragOwner,
+  COLUMN_DRAG_OWNER,
+} from "./group-panel.js";
 import { GridIcon } from "./icons.js";
 import {
   useEffect,
@@ -157,6 +162,7 @@ export interface DataGridProps<T> {
   columnOverscan?: number;
   virtualizeColumns?: boolean;
   columnGroups?: boolean;
+  rowGroupPanel?: false | "always" | "whenGrouped";
   selectionMode?: "single" | "multiple" | "none";
   /** Multiple-selection subtrees include source parents; filtered actions retain hidden selections. */
   hierarchySelection?: HierarchySelectionMode;
@@ -326,6 +332,7 @@ export function DataGrid<T>({
   columnOverscan = 200,
   virtualizeColumns = true,
   columnGroups = true,
+  rowGroupPanel = false,
   selectionMode = "multiple",
   hierarchySelection = "self",
   cellSelection = true,
@@ -2481,6 +2488,7 @@ export function DataGrid<T>({
       case " ":
         if (
           selectionMode !== "none" &&
+          node.kind !== "total" &&
           (node.kind === "row" || hierarchy.enabled)
         ) {
           event.preventDefault();
@@ -2805,6 +2813,7 @@ export function DataGrid<T>({
       case " ":
         if (
           selectionMode !== "none" &&
+          node.kind !== "total" &&
           (node.kind === "row" || hierarchy.enabled)
         ) {
           event.preventDefault();
@@ -2915,7 +2924,7 @@ export function DataGrid<T>({
                   : undefined
             }
             data-og-row-id={node.id}
-            className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : ""}`}
+            className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : node.kind === "total" ? "og-total-row" : ""}`}
             style={{
               top: rowGeometry.offset(row),
               height: rowGeometry.baseHeights[row],
@@ -3055,7 +3064,8 @@ export function DataGrid<T>({
                         <GridIcon name="grip" size={16} />
                       </button>
                     )}
-                    {(node.kind === "row" || hierarchy.enabled) &&
+                    {node.kind !== "total" &&
+                      (node.kind === "row" || hierarchy.enabled) &&
                       selectionMode !== "none" && (
                         <SelectionCheckbox
                           tabIndex={-1}
@@ -3407,7 +3417,22 @@ export function DataGrid<T>({
                                 : undefined
                             }
                           >
-                            {node.kind === "group" && index === 0 ? (
+                            {node.kind === "total" && index === 0 ? (
+                              <>
+                                <span>
+                                  {node.total === "grand"
+                                    ? t("grouping.grandTotal")
+                                    : t("grouping.total", {
+                                        group: node.label ?? "",
+                                      })}
+                                </span>
+                                {value !== undefined && (
+                                  <span className="og-total-first-value">
+                                    {display}
+                                  </span>
+                                )}
+                              </>
+                            ) : node.kind === "group" && index === 0 ? (
                               <>
                                 {node.label}{" "}
                                 <span className="og-group-count">
@@ -3973,6 +3998,10 @@ export function DataGrid<T>({
           onClose={() => setFilterBuilderOpen(false)}
         />
       )}
+      {(rowGroupPanel === "always" ||
+        (rowGroupPanel === "whenGrouped" && state.groupBy.length > 0)) && (
+        <RowGroupPanel model={model} />
+      )}
       <div className="og-grid-frame">
         <div
           className="og-viewport"
@@ -4211,12 +4240,16 @@ export function DataGrid<T>({
                             className="og-sort"
                             disabled={column.sortable === false}
                             draggable
-                            onDragStart={(event) =>
+                            onDragStart={(event) => {
                               event.dataTransfer.setData(
                                 "text/opengrid-column",
                                 column.id,
-                              )
-                            }
+                              );
+                              event.dataTransfer.setData(
+                                COLUMN_DRAG_OWNER,
+                                columnDragOwner(model),
+                              );
+                            }}
                             aria-label={t("grid.sortColumn", {
                               column: column.header ?? column.id,
                             })}

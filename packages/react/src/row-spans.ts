@@ -2,7 +2,7 @@ import type { RowRegion } from "./row-projection.js";
 
 export interface RowSpanRow<T> {
   readonly id: string;
-  readonly kind: "row" | "group";
+  readonly kind: "row" | "group" | "total";
   readonly data?: T;
   readonly leaf?: boolean;
   readonly depth?: number;
@@ -217,8 +217,8 @@ export function createRowSpanPlan<T>(
     )
       throw new TypeError("Row spans require unique nonempty row IDs");
     seenRows.add(row.id);
-    if (row.kind !== "row" && row.kind !== "group")
-      throw new TypeError("Row span kind must be row or group");
+    if (row.kind !== "row" && row.kind !== "group" && row.kind !== "total")
+      throw new TypeError("Row span kind must be row, group or total");
     const scope = regions.indexOf(row.region);
     if (scope < 0 || scope < previousScope)
       throw new TypeError(

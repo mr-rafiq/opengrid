@@ -1,3 +1,4 @@
+import { GroupingLab } from "./grouping-lab";
 import React, {
   useMemo,
   useEffect,
@@ -184,6 +185,7 @@ const rangeFilterComponents = {
   shares: NumberRangeFilter,
 };
 function App() {
+  const [groupingOpen, setGroupingOpen] = useState(false);
   const [size, setSize] = useState(1000);
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
   const { resolved } = useGridTheme();
@@ -1056,6 +1058,15 @@ function App() {
             Aligned columns lab
           </button>
           {alignedOpen && <AlignedLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setGroupingOpen(!groupingOpen)}
+            aria-expanded={groupingOpen}
+          >
+            Grouping lab
+          </button>
+          {groupingOpen && <GroupingLab />}
         </section>
         <footer>
           <span className="creator-credit">{CREATOR_CREDIT}</span>

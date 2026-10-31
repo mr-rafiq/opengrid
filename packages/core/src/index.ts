@@ -86,6 +86,8 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
   if (!Array.isArray(input)) throw new TypeError("Columns must be an array");
   const columns = input.map((column) => {
     const widthConstraints = getColumnWidthConstraints(column);
+    if (column.groupable !== undefined && typeof column.groupable !== "boolean")
+      throw new TypeError("Column groupable must be a boolean");
     if (
       column.flex !== undefined &&
       (typeof column.flex !== "number" ||
@@ -245,6 +247,15 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   ): GridState {
     if (!Number.isFinite(next.pageSize) || next.pageSize < 1)
       throw new RangeError("pageSize must be positive");
+    for (const key of ["groupTotalRow", "grandTotalRow"] as const) {
+      if (
+        next[key] !== undefined &&
+        next[key] !== false &&
+        next[key] !== "top" &&
+        next[key] !== "bottom"
+      )
+        throw new TypeError(`${key} must be false, top or bottom`);
+    }
     const order = [...new Set(next.columnOrder.filter((id) => index.has(id)))];
     order.push(
       ...definitions
@@ -290,7 +301,13 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       columnPinning: { ...next.columnPinning },
       page: Math.max(0, Math.floor(Number.isFinite(next.page) ? next.page : 0)),
       pageSize: Math.floor(next.pageSize),
-      groupBy: [...new Set(next.groupBy.filter((id) => index.has(id)))],
+      groupBy: [
+        ...new Set(
+          next.groupBy.filter(
+            (id) => index.has(id) && index.get(id)!.groupable !== false,
+          ),
+        ),
+      ],
       expanded: [...new Set(next.expanded)],
     };
     for (const column of definitions) {
@@ -519,6 +536,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     depth: number,
     path: unknown[],
     budget?: HierarchyBudget,
+    positions = new Map(rows.map((row, index) => [row, index])),
   ): RowNode<T>[] {
     takeHierarchyBudget(budget, 0, groupRows.length);
     if (depth >= state.groupBy.length) {
@@ -537,20 +555,60 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       existing.push(row);
       groups.set(value, existing);
     }
-    return [...groups].map(([value, children]) => {
+    const projected = [...groups].map(([value, children]) => {
       const next = [...path, groupKey(value)];
       const id = syntheticId(`group:${JSON.stringify(next)}`);
       takeHierarchyBudget(budget, 1, 0, id);
-      return {
+      const node: RowNode<T> = {
         id,
         kind: "group",
         depth,
         label: blank(value) ? "(blank)" : String(value),
-        children: group(children, depth + 1, next, budget),
+        children: group(children, depth + 1, next, budget, positions),
         leafCount: children.length,
         aggregates: budget ? undefined : aggregates(children),
       };
+      return {
+        node,
+        value,
+        order: children.reduce(
+          (first, row) => Math.min(first, positions.get(row) ?? Infinity),
+          Infinity,
+        ),
+      };
     });
+    // Source structure is stable; leaf sorting alone must not reorder groups.
+    projected.sort((a, b) => {
+      if (!budget)
+        for (const sort of state.sorting) {
+          const column = requireColumn(sort.columnId);
+          if (column.id !== state.groupBy[depth] && !column.aggregate) continue;
+          const left =
+            column.id === state.groupBy[depth]
+              ? a.value
+              : a.node.aggregates?.[column.id];
+          const right =
+            column.id === state.groupBy[depth]
+              ? b.value
+              : b.node.aggregates?.[column.id];
+          if (blank(left) || blank(right)) {
+            if (blank(left) && blank(right)) continue;
+            return blank(left) ? 1 : -1;
+          }
+          const x = comparable(left, column.type) as string | number | bigint;
+          const y = comparable(right, column.type) as string | number | bigint;
+          const order = column.compare
+            ? column.compare(left, right)
+            : x === y
+              ? 0
+              : x < y
+                ? -1
+                : 1;
+          if (order) return (sort.direction === "asc" ? 1 : -1) * order;
+        }
+      return a.order - b.order;
+    });
+    return projected.map((item) => item.node);
   }
   function tree(filtered: T[], budget?: HierarchyBudget): RowNode<T>[] {
     interface Branch {
@@ -619,10 +677,42 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     const visit = (items: RowNode<T>[]) => {
       for (const item of items) {
         flat.push(item);
-        if (item.children && expanded.has(item.id)) visit(item.children);
+        if (item.children && expanded.has(item.id)) {
+          const total: RowNode<T> | undefined =
+            item.kind === "group" &&
+            state.groupBy.length > 0 &&
+            !options.getTreePath &&
+            state.groupTotalRow
+              ? {
+                  id: syntheticId(`total:${JSON.stringify(item.id)}`),
+                  kind: "total",
+                  total: "group",
+                  parentId: item.id,
+                  depth: item.depth + 1,
+                  label: item.label,
+                  aggregates: item.aggregates,
+                  leafCount: item.leafCount,
+                }
+              : undefined;
+          if (total && state.groupTotalRow === "top") flat.push(total);
+          visit(item.children);
+          if (total && state.groupTotalRow === "bottom") flat.push(total);
+        }
       }
     };
+    const grand: RowNode<T> | undefined = state.grandTotalRow
+      ? {
+          id: syntheticId("total:grand"),
+          kind: "total",
+          total: "grand",
+          depth: 0,
+          aggregates: aggregates(filtered),
+          leafCount: filtered.length,
+        }
+      : undefined;
+    if (grand && state.grandTotalRow === "top") flat.push(grand);
     visit(nodes);
+    if (grand && state.grandTotalRow === "bottom") flat.push(grand);
     modelCache = flat;
     return flat;
   }

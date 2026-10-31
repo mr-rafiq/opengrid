@@ -1136,3 +1136,110 @@
   font-size: 12px;
   font-weight: 400;
 }
+
+.og-group-panel {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--og-border);
+  background: var(--og-bg);
+  min-width: 0;
+}
+.og-group-panel-over {
+  box-shadow: inset 0 0 0 2px var(--og-accent);
+}
+.og-group-panel-label {
+  font-weight: 600;
+  font-size: 12px;
+}
+.og-group-empty {
+  color: var(--og-muted);
+  font-size: 12px;
+}
+.og-group-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+.og-group-chip {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  max-width: 100%;
+  padding-inline: 4px;
+  border: 1px solid var(--og-border);
+  border-radius: 5px;
+  background: var(--og-surface);
+}
+.og-group-chip > button {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 32px;
+  padding: 4px;
+  border-color: transparent;
+  background: transparent;
+}
+.og-group-chip > button[data-group-focus] {
+  overflow-wrap: anywhere;
+  min-width: 0;
+  text-align: start;
+}
+.og-group-chip > .og-icon {
+  flex-shrink: 0;
+  color: var(--og-muted);
+}
+.og-group-add-controls {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+.og-group-add-controls select {
+  min-width: 0;
+  max-width: 180px;
+  flex: 1;
+}
+.og-group-add-controls button {
+  white-space: nowrap;
+}
+.og-group-chip:dir(rtl) > button:not([data-group-focus]) > svg {
+  transform: scaleX(-1);
+}
+.og-total-row {
+  background: var(--og-surface);
+  font-weight: 600;
+  box-shadow: inset 0 1px 0 var(--og-border);
+}
+.og-total-first-value {
+  margin-inline-start: 12px;
+}
+@media (pointer: coarse) {
+  .og-group-chip > button {
+    min-width: 40px;
+    min-height: 44px;
+  }
+}
+@media (max-width: 540px) {
+  .og-group-panel {
+    padding: 8px;
+  }
+  .og-group-add-controls {
+    width: 100%;
+    margin-inline-start: 0;
+  }
+  .og-group-add-controls select {
+    max-width: none;
+  }
+}

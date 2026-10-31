@@ -425,3 +425,7 @@ Both command providers accept `kind: "submenu"` with `id`, `label`, optional `di
 ## Runtime column definitions
 
 Client `model.setColumns(readonlyDefinitions)` atomically replaces the schema while preserving compatible explicit-ID state and resident data history. `model.getColumnRevision()` identifies accepted definition changes independently of layout edits. Incompatible advanced filters reject the operation; compiled formula/calculated factories require explicit recreation. Mounted editors/ranges/staged filters and fixed-schema alignment links cannot silently continue through replacement. See the full [runtime definition contract](COLUMN_DEFINITIONS.md).
+
+## Row grouping and totals
+
+See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `Column.groupable`, aggregate ordering and projected total nodes. `GridState.groupTotalRow` / `grandTotalRow` accept false, top or bottom; they default to disabled.

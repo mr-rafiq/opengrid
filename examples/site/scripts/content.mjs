@@ -41,6 +41,7 @@ export const slugify = (value) =>
 const labels = {
   "getting-started": "Getting started",
   themes: "Themes & appearance",
+  grouping: "Row grouping & totals",
   releases: "Release notes",
   overview: "Project overview",
   api: "API reference",
@@ -118,6 +119,7 @@ const order = [
   "set-filters",
   "find-notes",
   "notes-ui",
+  "grouping",
   "remote-models",
   "server-requests",
   "remote-grids",
@@ -179,6 +181,7 @@ const section = (slug) =>
         ].includes(slug)
       ? "Grid experience"
       : [
+            "grouping",
             "remote-models",
             "server-requests",
             "remote-grids",

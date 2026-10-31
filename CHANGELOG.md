@@ -2,6 +2,12 @@
 
 Created by Mohamed Rafiq.
 
+## Unreleased
+
+- Opaque sticky selection headers prevent scrolled column text from showing behind row controls in both themes.
+- Optional row-group panel with native keyboard/touch controls and model-owned header/chip dragging.
+- Filtered subtotal/grand-total rows, aggregate sorting, localized labels and print-view integration.
+
 ## 0.2.0 — 2026-10-31
 
 This release adds a minimal responsive interface and shared light, dark and system appearance across the React grid, showcase, documentation and playground.
