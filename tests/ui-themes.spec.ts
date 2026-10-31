@@ -194,3 +194,36 @@ test("the workbook picker remains usable within a narrow page with larger native
     ).toBeLessThanOrEqual(320);
   }
 });
+
+for (const theme of ["light", "dark"])
+  test(`sticky selection headers obscure scrolled columns in ${theme} mode`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/");
+    await page
+      .getByRole("combobox", { name: "Color theme" })
+      .selectOption(theme);
+    const grid = page.getByRole("grid", { name: "Portfolio holdings" });
+    await grid.evaluate((element) => {
+      element.scrollLeft = 600;
+    });
+    await expect
+      .poll(() => grid.evaluate((element) => element.scrollLeft))
+      .toBeGreaterThan(200);
+    const headers = grid.locator(".og-header .og-selection");
+    await expect(headers).toHaveCount(2);
+    const surface = await grid
+      .locator(".og-header")
+      .evaluate((element) => getComputedStyle(element).backgroundColor);
+    expect(surface).not.toBe("rgba(0, 0, 0, 0)");
+    for (const header of await headers.all()) {
+      await expect(header).toBeInViewport();
+      expect(
+        await header.evaluate(
+          (element) => getComputedStyle(element).backgroundColor,
+        ),
+      ).toBe(surface);
+    }
+    await expect(headers.first().getByRole("checkbox")).toBeEnabled();
+  });

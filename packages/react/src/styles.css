@@ -376,7 +376,8 @@
 .og-row .og-selection {
   background: inherit;
 }
-.og-header .og-pinned {
+.og-header .og-pinned,
+.og-header .og-selection {
   background: var(--og-surface);
 }
 .og-selection {
