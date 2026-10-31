@@ -174,3 +174,23 @@ test("the narrow header wraps enlarged native controls without clipping the vers
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(320);
 });
+
+test("the workbook picker remains usable within a narrow page with larger native fonts", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 812 });
+  await page.goto("/");
+  const upload = page.getByLabel("Import XLSX workbook", { exact: true });
+  for (const size of [16, 18]) {
+    await page.addStyleTag({
+      content: `input[type=file] { font-size: ${size}px; }`,
+    });
+    await expect(upload).toBeEnabled();
+    const bounds = await upload.boundingBox();
+    expect(bounds!.width).toBeGreaterThan(200);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(320);
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(320);
+  }
+});
