@@ -2852,7 +2852,9 @@ export function DataGrid<T>({
       visibleLeafIds.every((id) => selected.has(id));
   function selectPage() {
     if (hierarchy.enabled) {
-      hierarchy.toggle(rows.map((node) => node.id));
+      hierarchy.toggle(
+        rows.filter((node) => node.kind !== "total").map((node) => node.id),
+      );
       return;
     }
     const next = new Set(state.selected);

@@ -17,7 +17,10 @@ export function GroupingLab() {
             field: "name",
             header: "Customer",
             width: 180,
-            pinned: "left",
+            pinned:
+              typeof window !== "undefined" && window.innerWidth <= 600
+                ? null
+                : "left",
             groupable: false,
           },
           { id: "team", field: "team", header: "Team", width: 130 },
@@ -112,6 +115,7 @@ export function GroupingLab() {
       </div>
       <DataGrid
         model={model}
+        toolbar={false}
         rowGroupPanel="always"
         height={390}
         ariaLabel="Grouped orders"

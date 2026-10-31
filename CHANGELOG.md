@@ -7,6 +7,8 @@ Created by Mohamed Rafiq.
 - Opaque sticky selection headers prevent scrolled column text from showing behind row controls in both themes.
 - Optional row-group panel with native keyboard/touch controls and model-owned header/chip dragging.
 - Filtered subtotal/grand-total rows, aggregate sorting, localized labels and print-view integration.
+- Simultaneously expanded read-only server branches with route-qualified IDs, explicit branch paging, bounded cache reservations, real refresh/retry and query fencing.
+- Source-only hierarchy page selection with totals, fully contained 44px branch actions, and a compact focused phone grouping demo.
 
 ## 0.2.0 — 2026-10-31
 

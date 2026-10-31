@@ -429,3 +429,5 @@ Client `model.setColumns(readonlyDefinitions)` atomically replaces the schema wh
 ## Row grouping and totals
 
 See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `Column.groupable`, aggregate ordering and projected total nodes. `GridState.groupTotalRow` / `grandTotalRow` accept false, top or bottom; they default to disabled.
+
+`ServerTreeDataGrid` adds read-only simultaneous remote branches. `projectServerTree` provides the core projection, `ServerSideSnapshot.queryRevision` tracks query ownership, and `setActiveBlocks` / `releaseActiveBlocks` reserve bounded visible cache addresses. See [remote branch contracts](GROUPING.md#simultaneous-remote-branches).

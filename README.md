@@ -160,3 +160,5 @@ Use the [searchable choice editor](docs/RICH_SELECT.md) for virtualized string c
 Use [hierarchy selection](docs/HIERARCHY_SELECTION.md) for collapsed/off-page resident subtrees, native mixed states and filtered source eligibility. Source-backed tree parents participate when eligible; generated group IDs never enter selected data.
 
 Use [themes and appearance](docs/themes.md) for shared light, dark and system preferences, semantic tokens and responsive navigation.
+
+See [row grouping and totals](docs/GROUPING.md) for the optional drag/native group panel, filtered subtotals/grand totals, aggregate sorting and bounded simultaneous server branches. The playground includes separate Grouping and Server grouping labs.

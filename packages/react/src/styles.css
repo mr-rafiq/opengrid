@@ -1243,3 +1243,34 @@
     max-width: none;
   }
 }
+
+.og-server-tree-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+}
+.og-server-tree-status [role="alert"] {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.og-server-tree > .og-toolbar {
+  flex-wrap: wrap;
+}
+.og-server-tree > .og-toolbar > span {
+  flex: 1;
+  min-width: 180px;
+  white-space: normal;
+}
+
+.og-server-tree-status button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 6px 10px;
+  flex-shrink: 0;
+  max-width: 100%;
+}

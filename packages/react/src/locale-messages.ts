@@ -484,6 +484,13 @@ export interface GridMessageParams {
   "conditionFilter.membership": undefined;
   "conditionFilter.required": undefined;
   "conditionFilter.failed": undefined;
+  "grouping.remoteControls": undefined;
+  "grouping.remoteLabel": undefined;
+  "grouping.remoteHint": undefined;
+  "grouping.remoteDepth": undefined;
+  "grouping.collapseAll": undefined;
+  "grouping.loadMore": undefined;
+  "grouping.emptyBranch": undefined;
   "grouping.panel": undefined;
   "grouping.drop": undefined;
   "grouping.choose": undefined;
@@ -1203,6 +1210,13 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "conditionFilter.membership": {},
   "conditionFilter.required": {},
   "conditionFilter.failed": {},
+  "grouping.remoteControls": {},
+  "grouping.remoteLabel": {},
+  "grouping.remoteHint": {},
+  "grouping.remoteDepth": {},
+  "grouping.collapseAll": {},
+  "grouping.loadMore": {},
+  "grouping.emptyBranch": {},
   "grouping.panel": {},
   "grouping.drop": {},
   "grouping.choose": {},

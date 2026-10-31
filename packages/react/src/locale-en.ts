@@ -611,6 +611,14 @@ export const enMessages = Object.freeze({
   "grouping.later": (params) => `Move grouping ${params.column} later`,
   "grouping.remove": (params) => `Remove grouping ${params.column}`,
   "grouping.total": (params) => `Total ${params.group}`,
+  "grouping.remoteControls": "Server branch controls",
+  "grouping.remoteLabel": "Server grouped rows",
+  "grouping.remoteHint":
+    "Expand several groups together. Each branch keeps its own pages.",
+  "grouping.remoteDepth": "The maximum expanded depth is 32 levels.",
+  "grouping.collapseAll": "Collapse all branches",
+  "grouping.loadMore": "Load more in this branch",
+  "grouping.emptyBranch": "No rows in this branch",
 } satisfies GridMessages);
 export const enUS: GridLocale = Object.freeze({
   id: "en-US",

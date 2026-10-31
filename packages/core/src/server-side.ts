@@ -53,6 +53,7 @@ export interface LoadedServerBlock<T> extends ServerBlockAddress {
 }
 export interface ServerSideSnapshot<T> {
   revision: number;
+  queryRevision: number;
   blocks: readonly LoadedServerBlock<T>[];
   loading: readonly ServerBlockAddress[];
   errors: readonly (ServerBlockAddress & { message: string })[];
@@ -189,8 +190,11 @@ export class ServerSideRowModel<T> {
   private listeners = new Set<() => void>();
   private disposed = false;
   private revision = 0;
+  private queryRevision = 0;
+  private activeBlocks = new Map<object, Set<string>>();
   private snapshot: ServerSideSnapshot<T> = freeze({
     revision: 0,
+    queryRevision: 0,
     blocks: [],
     loading: [],
     errors: [],
@@ -277,6 +281,7 @@ export class ServerSideRowModel<T> {
     this.snapshot = freeze(
       structuredClone({
         revision: ++this.revision,
+        queryRevision: this.queryRevision,
         blocks: [...this.cache.values()],
         loading: [...this.pending.values()].map(
           ({ groupKeys, blockIndex }) => ({ groupKeys, blockIndex }),
@@ -310,11 +315,63 @@ export class ServerSideRowModel<T> {
     this.cache.clear();
     this.errors.clear();
     this.query = next;
+    this.queryRevision++;
     this.cancel(previous);
     this.publish();
     for (const request of previous) request.controller.abort();
     this.notify();
     this.pump();
+  }
+  /** Atomically reserve cache addresses for a visible consumer. Release on unmount.
+   * Reservations across all owners cannot exceed maxBlocks; the cache remains bounded.
+   */
+  setActiveBlocks(
+    owner: object,
+    addresses: readonly ServerBlockAddress[],
+  ): void {
+    this.alive();
+    if (!owner || (typeof owner !== "object" && typeof owner !== "function"))
+      throw new TypeError("Active block owner must be an object");
+    if (!Array.isArray(addresses) || addresses.length > this.maxBlocks)
+      throw new RangeError("Active server blocks exceed cache capacity");
+    const next = new Set<string>();
+    for (const address of addresses) {
+      assertRoute(address.groupKeys);
+      if (
+        !integer(address.blockIndex) ||
+        !integer((address.blockIndex + 1) * this.blockSize)
+      )
+        throw new RangeError("Invalid active server block index");
+      next.add(addressKey(address.groupKeys, address.blockIndex));
+    }
+    const combined = new Set(next);
+    for (const [other, keys] of this.activeBlocks)
+      if (other !== owner) for (const key of keys) combined.add(key);
+    if (
+      combined.size > this.maxBlocks ||
+      (next.size &&
+        !this.activeBlocks.has(owner) &&
+        this.activeBlocks.size >= 128)
+    )
+      throw new RangeError(
+        "Active server blocks exceed cache capacity; collapse another branch or release a consumer",
+      );
+    if (next.size) this.activeBlocks.set(owner, next);
+    else this.activeBlocks.delete(owner);
+  }
+  releaseActiveBlocks(owner: object): void {
+    this.activeBlocks.delete(owner);
+  }
+  private trimCache<V>(cache: Map<string, V>) {
+    const active = new Set(
+      [...this.activeBlocks.values()].flatMap((keys) => [...keys]),
+    );
+    while (cache.size > this.maxBlocks) {
+      const key = [...cache.keys()].find((candidate) => !active.has(candidate));
+      if (key === undefined)
+        throw new Error("Server active cache invariant violated");
+      cache.delete(key);
+    }
   }
   private owns(task: ServerTask<T>) {
     return (
@@ -413,8 +470,7 @@ export class ServerSideRowModel<T> {
           blockIndex: task.blockIndex,
           message: error.message,
         });
-        while (this.errors.size > this.maxBlocks)
-          this.errors.delete(this.errors.keys().next().value!);
+        this.trimCache(this.errors);
         task.reject(error);
       } else {
         this.cache.set(task.key, {
@@ -422,8 +478,7 @@ export class ServerSideRowModel<T> {
           blockIndex: task.blockIndex,
           response: copy!,
         });
-        while (this.cache.size > this.maxBlocks)
-          this.cache.delete(this.cache.keys().next().value!);
+        this.trimCache(this.cache);
         this.errors.delete(task.key);
         task.resolve(copy!);
       }
@@ -449,10 +504,16 @@ export class ServerSideRowModel<T> {
         "Invalid server response: supply a complete contiguous block and exact route rowCount",
       );
     const ids = new Set<string>();
+    const keys = new Set<string>();
     for (const node of response.nodes) {
       validateNode(node);
       if (ids.has(node.id)) throw new Error("Duplicate server node ID");
       ids.add(node.id);
+      if (node.kind === "group") {
+        if (keys.has(node.key))
+          throw new Error("Server group keys must be unique within a route");
+        keys.add(node.key);
+      }
     }
     if (
       response.pivotColumns &&
@@ -474,6 +535,12 @@ export class ServerSideRowModel<T> {
         );
       if (block.response.nodes.some((node) => ids.has(node.id)))
         throw new Error("Server node IDs must be unique within a route");
+      if (
+        block.response.nodes.some(
+          (node) => node.kind === "group" && keys.has(node.key),
+        )
+      )
+        throw new Error("Server group keys must be unique within a route");
     }
   }
   loadBlock(
@@ -628,6 +695,7 @@ export class ServerSideRowModel<T> {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.activeBlocks.clear();
     const previous = [...this.pending.values()];
     this.pending.clear();
     this.cache.clear();

@@ -1,3 +1,4 @@
+import { ServerGroupingLab } from "./server-grouping-lab";
 import { GroupingLab } from "./grouping-lab";
 import React, {
   useMemo,
@@ -185,6 +186,7 @@ const rangeFilterComponents = {
   shares: NumberRangeFilter,
 };
 function App() {
+  const [serverGroupingOpen, setServerGroupingOpen] = useState(false);
   const [groupingOpen, setGroupingOpen] = useState(false);
   const [size, setSize] = useState(1000);
   const [mode, setMode] = useState<"flat" | "group" | "tree">("flat");
@@ -1067,6 +1069,15 @@ function App() {
             Grouping lab
           </button>
           {groupingOpen && <GroupingLab />}
+        </section>
+        <section className="pivot-panel">
+          <button
+            onClick={() => setServerGroupingOpen(!serverGroupingOpen)}
+            aria-expanded={serverGroupingOpen}
+          >
+            Server grouping lab
+          </button>
+          {serverGroupingOpen && <ServerGroupingLab />}
         </section>
         <footer>
           <span className="creator-credit">{CREATOR_CREDIT}</span>

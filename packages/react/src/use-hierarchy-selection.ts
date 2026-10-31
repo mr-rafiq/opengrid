@@ -49,7 +49,9 @@ export function useHierarchySelection<T>(
     try {
       const resolved = readPlan(model, mode, state).resolve(state.selected);
       const pageState = resolved.getUnionState(
-        visibleNodes.map((node) => node.id),
+        visibleNodes
+          .filter((node) => node.kind !== "total")
+          .map((node) => node.id),
       );
       return { resolved, pageState, error: undefined };
     } catch (reason: unknown) {

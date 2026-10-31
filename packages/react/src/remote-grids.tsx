@@ -85,6 +85,11 @@ export function ServerDataGrid<T>({
   );
   const query = useMemo(() => model.getQuery(), [model, snapshot]);
   const queryKey = queryIdentity(query);
+  const cacheOwner = useMemo(() => ({}), [model]);
+  useEffect(
+    () => () => model.releaseActiveBlocks(cacheOwner),
+    [model, cacheOwner],
+  );
   const [route, setRoute] = useState<string[]>([]);
   const routeKey = JSON.stringify(route);
   const noteScopeKey = JSON.stringify([queryKey, routeKey]);
@@ -188,6 +193,14 @@ export function ServerDataGrid<T>({
     setPage({ queryKey, routeKey, index: Math.max(0, next) });
 
   useEffect(() => {
+    try {
+      model.setActiveBlocks(cacheOwner, [
+        { groupKeys: route, blockIndex: index },
+      ]);
+    } catch (error) {
+      setRequestError(errorText(error));
+      return;
+    }
     const attemptKey = JSON.stringify([
       routeKey,
       index,
@@ -223,7 +236,7 @@ export function ServerDataGrid<T>({
     return () => {
       active = false;
     };
-  }, [model, routeKey, index, queryKey, retryRequest, snapshot]);
+  }, [model, cacheOwner, routeKey, index, queryKey, retryRequest, snapshot]);
   useEffect(() => {
     if (pageCount !== null && index >= pageCount) setIndex(pageCount - 1);
   }, [pageCount, index, queryKey, routeKey]);
@@ -276,7 +289,13 @@ export function ServerDataGrid<T>({
       },
       setFilter(columnId, filter?: Filter) {
         const filters = model.getQuery().filters;
-        if (filter) filters[columnId] = filter;
+        if (filter)
+          Object.defineProperty(filters, columnId, {
+            value: filter,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
         else delete filters[columnId];
         updateQuery({ filters });
       },

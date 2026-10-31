@@ -161,6 +161,16 @@ describe("resident grouping controls and total rows", () => {
     render(<DataGrid model={model} hierarchySelection="subtree" />);
     expect(screen.getByText("Grand total")).toBeTruthy();
     expect(screen.getByText("Total A")).toBeTruthy();
+    expect(screen.queryByRole("alert")).toBeNull();
+    const selectPage = screen.getByRole<HTMLInputElement>("checkbox", {
+      name: "Select page subtrees",
+    });
+    expect(selectPage.disabled).toBe(false);
+    fireEvent.click(selectPage);
+    expect([...model.getState().selected].sort()).toEqual(["a", "b"]);
+    fireEvent.click(selectPage);
+    expect(model.getState().selected).toEqual([]);
+
     const total = document.querySelector<HTMLElement>(".og-total-row")!;
     expect(within(total).queryByRole("checkbox")).toBeNull();
     const amount = total.querySelector<HTMLElement>(

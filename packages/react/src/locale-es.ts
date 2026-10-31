@@ -645,6 +645,14 @@ export const esMessages = Object.freeze({
   "grouping.later": (params) => `Mover agrupación ${params.column} después`,
   "grouping.remove": (params) => `Quitar agrupación ${params.column}`,
   "grouping.total": (params) => `Total de ${params.group}`,
+  "grouping.remoteControls": "Controles de ramas del servidor",
+  "grouping.remoteLabel": "Filas agrupadas del servidor",
+  "grouping.remoteHint":
+    "Expanda varios grupos. Cada rama conserva sus páginas.",
+  "grouping.remoteDepth": "La profundidad máxima es de 32 niveles.",
+  "grouping.collapseAll": "Contraer todas las ramas",
+  "grouping.loadMore": "Cargar más en esta rama",
+  "grouping.emptyBranch": "No hay filas en esta rama",
 } satisfies GridMessages);
 export const esES: GridLocale = Object.freeze({
   id: "es-ES",
