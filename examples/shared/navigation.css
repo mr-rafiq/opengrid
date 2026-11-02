@@ -17,7 +17,12 @@
 .navigation-drawer::backdrop {
   background: var(--og-backdrop);
 }
+.navigation-drawer[open] {
+  display: flex;
+  flex-direction: column;
+}
 .drawer-heading {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -37,10 +42,11 @@
   cursor: pointer;
 }
 .drawer-content {
+  flex: 1;
+  min-height: 0;
   padding: 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  max-height: calc(100dvh - 82px);
 }
 .drawer-content nav {
   display: flex;

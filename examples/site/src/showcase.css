@@ -36,12 +36,18 @@
   overflow: clip;
 }
 .showcase-controls {
-  display: flex;
+  display: grid;
+  grid-template-columns:
+    minmax(140px, 200px) minmax(100px, 130px) minmax(120px, 140px)
+    minmax(0, 1fr);
   align-items: end;
-  flex-wrap: wrap;
   gap: 16px;
   padding: 20px;
   border-bottom: 1px solid var(--og-border);
+}
+.showcase-controls > * {
+  min-width: 0;
+  max-width: 100%;
 }
 .showcase-controls > label,
 .showcase-appearance {
@@ -72,8 +78,7 @@
   padding: 5px;
 }
 .showcase-quick {
-  flex: 1;
-  min-width: 180px !important;
+  min-width: 0;
 }
 .showcase-grid-layout {
   display: grid;
@@ -148,7 +153,27 @@
 .showcase-workbench .navigation-drawer .drawer-content {
   padding: 0;
 }
+.showcase-workbench .navigation-drawer .og-side-panel {
+  min-height: 0;
+  height: 100%;
+}
 @media (max-width: 1000px) {
+  .showcase-controls {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-areas: "size style appearance" "search search tools";
+  }
+  .showcase-controls > label:first-child {
+    grid-area: size;
+  }
+  .showcase-controls > label:nth-child(2) {
+    grid-area: style;
+  }
+  .showcase-appearance {
+    grid-area: appearance;
+  }
+  .showcase-quick {
+    grid-area: search;
+  }
   .showcase-page {
     width: calc(100% - 32px);
     margin-top: 28px;
@@ -160,6 +185,7 @@
     display: none;
   }
   .showcase-tools-toggle {
+    grid-area: tools;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -171,18 +197,43 @@
     color: var(--og-text);
     background: var(--og-bg);
     cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    line-height: 1.4;
+  }
+  .showcase-tools-toggle svg {
+    flex-shrink: 0;
   }
   .showcase-intro {
     align-items: start;
     flex-direction: column;
     gap: 12px;
   }
-  .showcase-workbench .navigation-drawer .og-side-panel {
-    min-height: 0;
-    height: min(730px, calc(100dvh - 120px));
+}
+@media (max-width: 768px) {
+  /* The chooser stays beside its label; chips get the entire next row. */
+  .showcase-grid > .og-root > .og-group-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 190px);
+    gap: 8px;
+  }
+  .showcase-grid > .og-root > .og-group-panel > .og-group-drop-target {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+  }
+  .showcase-grid > .og-root > .og-group-panel > .og-group-add-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+    margin: 0;
+  }
+  .showcase-grid > .og-root > .og-group-panel > .og-group-add-controls select {
+    width: 100%;
+    max-width: none;
   }
 }
-@media (max-width: 520px) {
+@media (max-width: 480px) {
   .showcase-page {
     width: calc(100% - 24px);
     margin-top: 24px;
@@ -190,15 +241,16 @@
   .showcase-controls {
     gap: 12px;
     padding: 16px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "size style" "appearance appearance" "search tools";
   }
-  .showcase-controls > label:first-child {
-    flex-basis: 100%;
+  .showcase-appearance {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
-  .showcase-controls > label:first-child select {
-    width: 100%;
-  }
-  .showcase-controls .showcase-quick {
-    flex-basis: 100%;
+  .showcase-appearance .og-theme-select {
+    max-width: 180px;
   }
   .showcase-status {
     padding: 8px 12px;

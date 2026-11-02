@@ -2,6 +2,17 @@
 
 Created by Mohamed Rafiq.
 
+## 0.4.2 - 2026-11-02
+
+This patch improves phone, tablet and landscape layouts of the participant showcase and shared website navigation. Created by Mohamed Rafiq. No npm publication.
+
+- Bounded header action slots keep Menu and documentation search reachable on narrow screens.
+- Explicit responsive toolbar rows keep dataset, style, appearance, quick search and Columns & filters controls inside their container.
+- Phone/tablet grouping places the column chooser beside its label and gives chips and the drop target a complete row; multiple groups retain native reorder/remove alternatives.
+- The showcase grid adapts its height to the viewport and visible rows while keeping all 22 columns available through its own horizontal scrollbar.
+- Native navigation and tools drawers use the remaining viewport height for scrollable content, including short landscape screens.
+- Production browser coverage includes 320/375/390/556/768/1440px, both presets and color modes, live resizing, short landscape touch interactions and enlarged text.
+
 ## 0.4.1 - 2026-11-02
 
 This source correction completes the sidebar-to-grouping drag path in the participant showcase. Created by Mohamed Rafiq. No npm publication.

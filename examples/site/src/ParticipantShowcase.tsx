@@ -20,6 +20,13 @@ import {
 } from "./participant-data";
 import "./showcase.css";
 
+const subscribeViewport = (listener: () => void) => {
+  window.addEventListener("resize", listener);
+  return () => window.removeEventListener("resize", listener);
+};
+const readViewportHeight = () => window.innerHeight;
+const serverViewportHeight = () => 900;
+
 function CountryFlag({ country }: { country: string }) {
   // Original geometric flags; decorative because the adjacent label names the country.
   return (
@@ -99,6 +106,11 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 export function ParticipantShowcase() {
+  const viewportHeight = useSyncExternalStore(
+    subscribeViewport,
+    readViewportHeight,
+    serverViewportHeight,
+  );
   const model = useMemo(
     () =>
       createGrid({
@@ -122,6 +134,16 @@ export function ParticipantShowcase() {
   const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const recordGroupWidth = useRef<number | null>(null);
   const grouped = state.groupBy.length > 0;
+  const rowHeight = preset === "material" ? 48 : 40;
+  // Include the grouped/leaf/filter header bands and native horizontal scrollbar.
+  const gridHeight = Math.max(
+    240,
+    Math.min(
+      590,
+      Math.floor(viewportHeight * 0.65),
+      model.getRowModel().length * rowHeight + 120,
+    ),
+  );
   useEffect(() => {
     const record = model.getColumns().find((column) => column.id === "record");
     if (!record) return;
@@ -211,8 +233,8 @@ export function ParticipantShowcase() {
           <span className="section-kicker">INTERACTIVE SHOWCASE</span>
           <h1>Room to explore.</h1>
           <p>
-            Drag a header or sidebar grip into Row groups. Combine columns to
-            explore nested groups.
+            Choose a column and Add group, or drag a header into Row groups.
+            Swipe inside the grid for more columns.
           </p>
         </div>
         <a href="../docs/showcase/">
@@ -234,7 +256,7 @@ export function ParticipantShowcase() {
             >
               {[1000, 10000, 100000].map((count) => (
                 <option key={count} value={count}>
-                  {count.toLocaleString("en-US")} rows · 22 columns
+                  {count.toLocaleString("en-US")} rows
                 </option>
               ))}
             </select>
@@ -290,8 +312,8 @@ export function ParticipantShowcase() {
               ariaLabel="Participant showcase"
               toolbar={false}
               pagination={false}
-              height={590}
-              rowHeight={preset === "material" ? 48 : 40}
+              height={gridHeight}
+              rowHeight={rowHeight}
               rowGroupPanel="always"
               rowDragging
               selectionMode="multiple"

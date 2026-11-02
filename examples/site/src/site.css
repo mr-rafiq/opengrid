@@ -2075,8 +2075,20 @@ body {
     height: 64px;
   }
   .header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    width: 100%;
+    min-width: 0;
     padding-inline: 16px;
-    gap: 10px;
+    gap: 8px;
+  }
+  .header-inner .brand {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .header-inner .brand > span {
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .site-header .desktop-navigation,
   .desktop-theme {
@@ -2087,9 +2099,18 @@ body {
     align-items: center;
     gap: 6px;
     min-height: 44px;
-    margin-left: auto;
+    margin: 0;
+    padding: 8px;
+    border: 0;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--og-text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
   }
   .header-search {
+    margin: 0;
     width: 44px;
     height: 44px;
     justify-content: center;
