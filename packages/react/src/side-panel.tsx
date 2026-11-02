@@ -355,7 +355,10 @@ export function GridSidePanel<T>({
             {matches
               .filter((column) => column.filterable !== false)
               .map((column) => (
-                <div key={column.id}>
+                <div
+                  key={column.id}
+                  data-filter-active={Object.hasOwn(state.filters, column.id)}
+                >
                   <span>{column.header ?? column.id}</span>
                   <ColumnConditionFilter
                     model={model}

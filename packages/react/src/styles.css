@@ -216,10 +216,9 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.055em;
-  font-weight: 650;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--og-muted);
 }
 .og-root .og-sort {
   height: 100%;
@@ -230,14 +229,18 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 0 12px;
+  gap: 6px;
+  padding: 0 10px;
   text-align: start;
   font: inherit;
   color: inherit;
 }
 .og-root .og-sort:disabled {
   opacity: 1;
+  cursor: default;
+}
+.og-root .og-sort:focus-visible {
+  outline-offset: -2px;
 }
 .og-sort span:first-child {
   overflow: hidden;
@@ -245,9 +248,55 @@
   white-space: nowrap;
 }
 .og-sort-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
   font-size: 13px;
   color: var(--og-muted);
   letter-spacing: 0;
+}
+.og-header-cell[aria-sort] {
+  color: var(--og-text);
+}
+.og-header-group-content {
+  min-width: 0;
+}
+.og-root .og-header-group-toggle,
+.og-header-group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.og-header-group-toggle > .og-icon {
+  flex-shrink: 0;
+}
+.og-header-group-toggle > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.og-header-group-toggle[aria-pressed="true"]:dir(rtl) > .og-icon {
+  transform: rotate(180deg);
+}
+.og-header-group-toggle[aria-pressed="true"] {
+  color: var(--og-accent);
+}
+.og-root .og-header-group-toggle:focus-visible {
+  outline-offset: -2px;
 }
 .og-resizer {
   position: absolute;
@@ -981,21 +1030,22 @@
   overflow-wrap: anywhere;
 }
 .og-header-cell[data-og-column-menus="true"] .og-sort {
-  padding-inline-end: 30px;
+  padding-inline-end: 38px;
 }
 .og-root .og-column-menu-trigger {
   position: absolute;
-  inset-inline-end: 10px;
-  top: 6px;
-  width: 24px;
-  min-width: 24px;
-  height: 24px;
-  min-height: 24px;
+  inset-inline-end: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  min-height: 28px;
   padding: 0;
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: inherit;
+  color: var(--og-muted);
   display: grid;
   place-items: center;
   font-size: 18px;
@@ -1003,8 +1053,17 @@
   cursor: pointer;
 }
 .og-root .og-column-menu-trigger:hover:not(:disabled),
-.og-root .og-column-menu-trigger:focus-visible {
+.og-root .og-column-menu-trigger:focus-visible,
+.og-root .og-column-menu-trigger[aria-expanded="true"] {
   background: var(--og-selected, #e2f3ee);
+  color: var(--og-text);
+}
+.og-root .og-column-menu-trigger:focus-visible {
+  outline-offset: -2px;
+}
+.og-root .og-column-menu-trigger:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .og-context-menu-chevron:dir(rtl) {
   transform: scaleX(-1);
@@ -1090,7 +1149,20 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  min-height: 30px;
+  min-height: 32px;
+}
+.og-chooser[open] > summary {
+  color: var(--og-accent);
+  background: var(--og-selected);
+  border-color: var(--og-control-border);
+}
+.og-chooser > summary:hover {
+  background: var(--og-hover);
+}
+@media (pointer: coarse) {
+  .og-chooser > summary {
+    min-height: 44px;
+  }
 }
 @media (max-width: 600px) {
   .og-chooser-panel {
@@ -1187,8 +1259,19 @@
   min-width: 28px;
   min-height: 32px;
   padding: 4px;
-  border-color: transparent;
+  border: 0;
   background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.og-group-chip > button:hover:not(:disabled) {
+  background: var(--og-hover);
+  border-radius: 3px;
+}
+.og-group-chip > button:disabled {
+  color: var(--og-muted);
+  opacity: 0.45;
+  cursor: default;
 }
 .og-group-chip > button[data-group-focus] {
   overflow-wrap: anywhere;
@@ -1509,6 +1592,9 @@
   font-weight: 500;
   color: var(--og-muted);
 }
+.og-preset-material .og-header-cell[aria-sort] {
+  color: var(--og-text);
+}
 .og-preset-material .og-header-cell,
 .og-preset-material .og-filter-cell,
 .og-preset-material .og-cell {
@@ -1592,12 +1678,11 @@
   font-size: 12px;
   font-weight: 500;
 }
-.og-side-panel .og-group-panel button,
-.og-side-panel .og-group-panel select {
-  min-height: 44px;
+.og-side-panel .og-group-add-controls :is(button, select) {
+  min-height: 36px;
 }
 
-.og-side-panel .og-group-panel :is(button, select),
+.og-side-panel .og-group-add-controls :is(button, select),
 .og-side-filters .og-condition-filter > button {
   color: var(--og-text);
   background: var(--og-bg);
@@ -1611,10 +1696,60 @@
   width: 44px;
 }
 .og-side-filters .og-condition-filter > button {
-  width: 44px;
+  width: 32px;
+  min-height: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
   display: inline-grid;
   place-items: center;
   cursor: pointer;
+}
+.og-side-filters .og-condition-filter > button:hover,
+.og-side-filters .og-condition-filter > button[aria-expanded="true"],
+.og-side-category-heading > button:hover {
+  background: var(--og-hover);
+  border-radius: 4px;
+}
+.og-side-filters [data-filter-active="true"] .og-condition-filter > button {
+  color: var(--og-accent);
+  background: var(--og-selected);
+  border-radius: 4px;
+}
+.og-column-option > button {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 4px;
+  color: var(--og-muted);
+}
+@media (pointer: coarse) {
+  .og-root .og-header-group-toggle {
+    min-height: 36px;
+    height: 36px;
+  }
+  .og-side-panel .og-group-add-controls :is(button, select),
+  .og-side-filters .og-condition-filter > button,
+  .og-column-option > button {
+    min-height: 44px;
+  }
+  .og-side-filters .og-condition-filter > button,
+  .og-column-option > button {
+    width: 44px;
+  }
+  .og-root .og-column-menu-trigger {
+    width: 36px;
+    min-height: 36px;
+    height: 36px;
+    inset-inline-end: 12px;
+  }
+  .og-header-cell[data-og-column-menus="true"] .og-sort {
+    padding-inline-end: 52px;
+  }
 }
 
 .og-side-tree {

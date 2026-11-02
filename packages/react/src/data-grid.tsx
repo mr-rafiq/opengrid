@@ -4270,24 +4270,26 @@ export function DataGrid<T>({
                             <span data-og-size-text="header">
                               {column.header ?? column.id}
                             </span>
-                            <span
-                              className="og-sort-indicator"
-                              aria-hidden="true"
-                            >
-                              <GridIcon
-                                name={
-                                  sort?.direction === "asc"
-                                    ? "arrowUp"
-                                    : sort?.direction === "desc"
-                                      ? "arrowDown"
-                                      : "sort"
-                                }
-                                size={14}
-                              />
-                              {sort && state.sorting.length > 1
-                                ? number(state.sorting.indexOf(sort) + 1)
-                                : ""}
-                            </span>
+                            {sort && (
+                              <span
+                                className="og-sort-indicator"
+                                aria-hidden="true"
+                              >
+                                <GridIcon
+                                  name={
+                                    sort?.direction === "asc"
+                                      ? "arrowUp"
+                                      : sort?.direction === "desc"
+                                        ? "arrowDown"
+                                        : "sort"
+                                  }
+                                  size={14}
+                                />
+                                {sort && state.sorting.length > 1
+                                  ? number(state.sorting.indexOf(sort) + 1)
+                                  : ""}
+                              </span>
+                            )}
                           </button>
                           {columnMenu !== false && (
                             <button

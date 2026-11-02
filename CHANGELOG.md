@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.4.3 - 2026-11-02
+
+This patch unifies column controls in the grid and sidebar. Created by Mohamed Rafiq. No npm publication.
+
+- Grouped headers use an inline label and SVG disclosure chevron with one quiet button, replacing narrow boxed plus/minus glyphs. Collapse, keyboard focus and RTL behavior are retained.
+- Sentence-case leaf headers reserve aligned menu targets and display sort arrows only for active sorting, keeping narrow labels readable.
+- Header menus, sidebar filters, grouping chips and column-chooser actions share restrained hover, focus, open, disabled and active-filter states without repeated nested boxes.
+- The showcase Columns & filters launcher uses the same column icon family. Minimal and Material remain distinct in light/dark, with responsive and native touch alternatives preserved.
+
 ## 0.4.2 - 2026-11-02
 
 This patch improves phone, tablet and landscape layouts of the participant showcase and shared website navigation. Created by Mohamed Rafiq. No npm publication.

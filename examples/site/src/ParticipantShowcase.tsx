@@ -301,7 +301,7 @@ export function ParticipantShowcase() {
             aria-controls="showcase-tools"
             aria-expanded={tools}
           >
-            <GridIcon name="settings" size={18} />
+            <GridIcon name="columns" size={18} />
             Columns & filters
           </button>
         </div>

@@ -50,3 +50,7 @@ Default row heights and the keyboard/editing model are unchanged. Responsive sty
 Wrap related components in `og-preset-material` to select the optional Material-inspired preset, independently of Light/Dark/System color mode. It uses flat surfaces, muted sentence-case headers, horizontal separators, underline filters and pink square checkboxes. Pass `rowHeight={48}` when you want the showcase's spacious rows; the preset does not override an application's explicit row sizing. The default remains Minimal. Keep popup hosts inside the same scope. Forced-colors mode restores native checkbox rendering.
 
 See the [participant showcase](SHOWCASE.md) for a working responsive sidebar, native mobile tools drawer and persistent style picker. No theme choice changes grid data or model state.
+
+## Column control density
+
+Grouped headers use a single text-and-chevron disclosure button. Leaf headers keep their column menu visible and show a sort arrow only while sorted. Menus, chooser actions and sidebar filters use quiet icon controls with visible hover/focus states; an applied sidebar filter receives the theme accent. Native keyboard names and sort/resize/drag behavior are retained. Both Minimal and Material use the same controls, with their own surfaces and accent colors.

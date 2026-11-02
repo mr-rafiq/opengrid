@@ -1,4 +1,5 @@
 import { useGridLocale } from "./locale.js";
+import { GridIcon } from "./icons.js";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ColumnWindowEntry, WindowColumn } from "./column-window.js";
@@ -328,12 +329,12 @@ export function HeaderGroupRows({
       padding: `0 ${Math.min(10, cell.width / 2)}px`,
       overflow: "hidden",
       whiteSpace: "nowrap",
-      fontWeight: 600,
+      fontWeight: 500,
       fontSize: 12,
       borderInlineEnd: `1px solid ${border}`,
       borderBottom: `1px solid ${border}`,
       background,
-      color: "var(--og-text, #233246)",
+      color: "var(--og-muted, #536c80)",
       ...(cell.pinned === "left"
         ? {
             position: "sticky",
@@ -441,6 +442,7 @@ export function HeaderGroupRows({
                 {onToggle && cell.label && (
                   <button
                     type="button"
+                    className="og-header-group-toggle"
                     aria-label={t(
                       isCollapsed ? "headers.expand" : "headers.collapse",
                       { path: cell.path.join(" / ") },
@@ -455,23 +457,21 @@ export function HeaderGroupRows({
                         };
                       onToggle([...cell.path]);
                     }}
-                    style={{
-                      border: `1px solid ${border}`,
-                      borderRadius: 3,
-                      background: "var(--og-bg, #fff)",
-                      color: "inherit",
-                      cursor: "pointer",
-                      width: 22,
-                      height: 22,
-                      flexShrink: 0,
-                    }}
                   >
-                    {isCollapsed ? "+" : "−"}
+                    <span>{cell.label}</span>
+                    <GridIcon
+                      name={isCollapsed ? "chevronRight" : "chevronDown"}
+                      size={14}
+                    />
                   </button>
                 )}
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {cell.label}
-                </span>
+                {(!onToggle || !cell.label) && (
+                  <span
+                    style={{ overflow: "hidden", textOverflow: "ellipsis" }}
+                  >
+                    {cell.label}
+                  </span>
+                )}
               </div>
             </div>,
           );
