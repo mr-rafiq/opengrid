@@ -1,36 +1,21 @@
 import { useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { ServerSideRowModel } from "@opengrid/core";
+import { ServerTreeDataGrid, ServerSidePanel, GridIcon } from "@opengrid/react";
+import { NavigationDrawer } from "../../shared/navigation-drawer";
 import {
-  ServerSideRowModel,
-  matchesFilter,
-  type Column,
-  type ServerNode,
-} from "@opengrid/core";
-import { ServerTreeDataGrid } from "@opengrid/react";
-type Order = { name: string; team: string; amount: number };
-const columns: Column<Order>[] = [
-  { id: "name", field: "name", header: "Order", pinned: "left", width: 180 },
-  {
-    id: "amount",
-    field: "amount",
-    header: "Amount",
-    type: "number",
-    width: 140,
-  },
-];
-const orders: Order[] = [
-  { name: "Remote A 1", team: "A", amount: 1 },
-  { name: "Remote A 2", team: "A", amount: 9 },
-  { name: "Remote A 3", team: "A", amount: 5 },
-  { name: "Remote B 1", team: "B", amount: 4 },
-  { name: "Remote B 2", team: "B", amount: 4 },
-  { name: "Remote B 3", team: "B", amount: 8 },
-];
+  serverGroupingColumns,
+  serverGroupingResponse,
+  type ServerOrder,
+} from "./server-grouping-provider";
 export function ServerGroupingLab() {
   const failA = useRef(false);
   const [rtl, setRtl] = useState(false);
+  const [columns, setColumns] = useState(serverGroupingColumns);
+  const [tools, setTools] = useState(false);
+  const [preset, setPreset] = useState("minimal");
   const model = useMemo(
     () =>
-      new ServerSideRowModel<Order>(
+      new ServerSideRowModel<ServerOrder>(
         {
           getRows: async (request) => {
             await new Promise((resolve) => setTimeout(resolve, 60));
@@ -40,69 +25,7 @@ export function ServerGroupingLab() {
               failA.current = false;
               throw Error("Demo branch A is offline");
             }
-            const filtered = orders.filter((row) =>
-              columns.every(
-                (column) =>
-                  !Object.hasOwn(request.filters, column.id) ||
-                  matchesFilter(
-                    column.field ? row[column.field] : undefined,
-                    request.filters[column.id],
-                    column,
-                  ),
-              ),
-            );
-            let nodes: ServerNode<Order>[] = request.groupKeys.length
-              ? filtered
-                  .filter((row) => row.team === request.groupKeys[0])
-                  .map((data, index) => ({
-                    kind: "row",
-                    id: String(index),
-                    data,
-                  }))
-              : ["A", "B"].flatMap((key) => {
-                  const members = filtered.filter((row) => row.team === key);
-                  return members.length
-                    ? [
-                        {
-                          kind: "group" as const,
-                          id: key,
-                          key,
-                          label: `Team ${key}`,
-                          childCount: members.length,
-                          aggregates: {
-                            amount: members.reduce(
-                              (sum, row) => sum + row.amount,
-                              0,
-                            ),
-                          },
-                        },
-                      ]
-                    : [];
-                });
-            nodes = nodes
-              .map((node, index) => ({ node, index }))
-              .sort((a, b) => {
-                for (const sort of request.sorting) {
-                  const value = (node: ServerNode<Order>) =>
-                    node.kind === "row"
-                      ? sort.columnId === "amount"
-                        ? node.data.amount
-                        : node.data.name
-                      : sort.columnId === "amount"
-                        ? node.aggregates?.amount
-                        : node.label;
-                  const x = value(a.node) as string | number,
-                    y = value(b.node) as string | number;
-                  const order = x === y ? 0 : x < y ? -1 : 1;
-                  if (order) return (sort.direction === "asc" ? 1 : -1) * order;
-                }
-                return a.index - b.index;
-              })
-              .map((item) => item.node);
-            return {
-              nodes: nodes.slice(request.startRow, request.endRow),
-              rowCount: nodes.length,
-            };
+            return serverGroupingResponse(request);
           },
         },
         {
@@ -122,11 +45,15 @@ export function ServerGroupingLab() {
     model.getSnapshot,
   );
   return (
-    <section aria-label="Remote grouping example" className="grouping-lab">
+    <section
+      aria-label="Remote grouping example"
+      className={`grouping-lab ${preset === "material" ? "og-preset-material" : ""}`}
+    >
       <p>
         Open both teams together, load more independently, and retry a failed
         branch while its sibling stays visible. Sorting and filtering execute in
-        the demo provider.
+        the demo provider. The sidebar sends real grouping, value and condition
+        requests; column visibility stays in this view.
       </p>
       <div className="grouping-lab-controls">
         <button
@@ -137,6 +64,7 @@ export function ServerGroupingLab() {
           Refresh server groups
         </button>
         <button
+          disabled={model.getQuery().rowGroupColumns[0] !== "team"}
           onClick={() => {
             failA.current = true;
             void model.refreshRoute(["A"], { purge: false }).catch(() => {});
@@ -156,13 +84,60 @@ export function ServerGroupingLab() {
           Cached blocks: {snapshot.blocks.length} / {model.maxBlocks}
         </span>
       </div>
-      <ServerTreeDataGrid
-        model={model}
-        columns={columns}
-        height={440}
-        direction={rtl ? "rtl" : "ltr"}
-        ariaLabel="Simultaneous server groups"
-      />
+      <div className="server-grid-options">
+        <label>
+          Grid style
+          <select
+            aria-label="Server grid style"
+            value={preset}
+            onChange={(event) => setPreset(event.target.value)}
+          >
+            <option value="minimal">Minimal</option>
+            <option value="material">Material</option>
+          </select>
+        </label>
+        <button
+          className="server-tools-toggle"
+          aria-haspopup="dialog"
+          aria-controls="server-grouping-tools"
+          aria-expanded={tools}
+          onClick={() => setTools(true)}
+        >
+          <GridIcon name="columns" size={18} />
+          Server columns &amp; filters
+        </button>
+      </div>
+      <div className="server-grid-workbench">
+        <div className="server-grid-main">
+          <ServerTreeDataGrid
+            model={model}
+            columns={columns}
+            height={440}
+            direction={rtl ? "rtl" : "ltr"}
+            ariaLabel="Simultaneous server groups"
+          />
+        </div>
+        <aside className="server-grid-sidebar" aria-label="Server sidebar">
+          <ServerSidePanel
+            model={model}
+            columns={columns}
+            onColumnsChange={setColumns}
+          />
+        </aside>
+      </div>
+      <NavigationDrawer
+        id="server-grouping-tools"
+        desktopWidth={1000}
+        label="Server tools"
+        open={tools}
+        onClose={() => setTools(false)}
+      >
+        <ServerSidePanel
+          model={model}
+          columns={columns}
+          onColumnsChange={setColumns}
+        />
+      </NavigationDrawer>
     </section>
   );
 }

@@ -104,3 +104,7 @@ React provider-integration tests cover routes, breadcrumbs, paging, authoritativ
 Still missing: full server expansion/selection semantics, cache-backed cross-route editing, master/detail remote models, row dragging/spanning, automatic server pivot schema generation, transport-specific authentication/backoff and complete AG Grid server/viewport API compatibility. The bindings are working subsets, not claims of complete remote-grid parity.
 
 Cached server refresh failures now retry through a new single-block provider request while retaining the old rows until replacement. Empty results have an announcement outside the ARIA grid without a fake logical data row. See [server request scheduling](SERVER_REQUESTS.md) and the manual provider queue example inside Remote model lab.
+
+## Provider sidebar and compatible column updates
+
+`ServerSidePanel` configures actual provider queries and controlled visibility for `ServerTreeDataGrid`/`ServerDataGrid`. Compatible runtime definitions retain stable-ID widths/order/pinning; visibility changes retain branch state. Share `onColumnsChange` with the breadcrumb binding to mirror its chooser. Provider group amounts use row-free `aggregateFormatter` with the live built-in operation; opaque operations have no fabricated built-in identity or descendant count. See [provider sidebar](SERVER_SIDEBAR.md) for the exact read-only scope and application responsibilities.

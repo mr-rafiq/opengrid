@@ -166,3 +166,5 @@ See [row grouping and totals](docs/GROUPING.md) for the optional drag/native gro
 Try the [participant showcase](https://mr-rafiq.github.io/opengrid/showcase/) for 22 fictional data columns, searchable Columns/Filters sidebar, grouping and selectable Minimal/Material styling in Light, Dark or System appearance. See [showcase usage and limits](docs/SHOWCASE.md).
 
 Its Records/Pivot switch connects a live source to the read-only matrix and responsive Pivot fields panel. See [client pivot tables](docs/CLIENT_PIVOT.md) for composition, limits and remaining partial scope.
+
+Use the [provider sidebar](docs/SERVER_SIDEBAR.md) for server block/tree grouping, aggregation and typed filters with controlled column visibility. The Server grouping lab demonstrates actual synthetic provider execution and a responsive themed sidebar; remote writes/pivot and infinite/viewport panels remain open.

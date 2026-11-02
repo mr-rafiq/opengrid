@@ -2191,3 +2191,37 @@
   overflow: auto;
   overscroll-behavior: contain;
 }
+
+.og-server-side-hint {
+  margin: 0;
+  color: var(--og-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  flex-shrink: 0;
+}
+.og-side-panel .og-group-drop-icon {
+  display: none;
+}
+.og-side-panel .og-group-drop-target {
+  display: block;
+  padding: 6px;
+}
+.og-side-panel .og-group-chips {
+  width: 100%;
+  min-width: 0;
+}
+.og-side-panel .og-group-chip {
+  width: 100%;
+  gap: 1px;
+  padding-inline: 3px;
+}
+.og-side-panel .og-group-chip > button[data-group-focus] {
+  flex: 1;
+  padding-inline: 0;
+}
+.og-side-panel .og-group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

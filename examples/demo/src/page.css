@@ -521,16 +521,40 @@ footer a {
   }
 }
 
-.pivot-panel button:not(.og-root button),
-.pivot-panel select:not(.og-root select),
-.pivot-panel input:not(.og-root input) {
+.pivot-panel
+  button:not(
+    .og-root button,
+    .og-side-panel button,
+    .og-pivot-panel button,
+    .navigation-drawer button
+  ),
+.pivot-panel
+  select:not(
+    .og-root select,
+    .og-side-panel select,
+    .og-pivot-panel select,
+    .navigation-drawer select
+  ),
+.pivot-panel
+  input:not(
+    .og-root input,
+    .og-side-panel input,
+    .og-pivot-panel input,
+    .navigation-drawer input
+  ) {
   background: var(--og-bg);
   color: var(--og-text);
   border: 1px solid var(--og-control-border);
   border-radius: 5px;
   padding: 6px 8px;
 }
-.pivot-panel button:not(.og-root button) {
+.pivot-panel
+  button:not(
+    .og-root button,
+    .og-side-panel button,
+    .og-pivot-panel button,
+    .navigation-drawer button
+  ) {
   min-height: 36px;
   margin: 3px;
 }
@@ -604,4 +628,72 @@ footer .creator-credit {
 .grouping-lab p {
   color: var(--og-muted);
   max-width: 72ch;
+}
+
+.server-grid-options {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0;
+  min-width: 0;
+}
+.server-grid-options label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--og-muted);
+}
+.server-grid-options select,
+.server-tools-toggle {
+  min-height: 44px;
+  border: 1px solid var(--og-control-border);
+  border-radius: 5px;
+  padding: 7px 10px;
+  background: var(--og-bg);
+  color: var(--og-text);
+  font: inherit;
+}
+.server-tools-toggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.server-grid-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 280px;
+  min-width: 0;
+  border: 1px solid var(--og-border);
+  border-radius: 8px;
+  overflow: clip;
+}
+.server-grid-main {
+  min-width: 0;
+}
+.server-grid-main .og-root {
+  border: 0;
+  border-radius: 0;
+}
+.server-grid-sidebar {
+  position: relative;
+  min-width: 0;
+  border-inline-start: 1px solid var(--og-border);
+}
+.server-grid-sidebar > .og-side-panel {
+  position: absolute;
+  inset: 0;
+}
+@media (max-width: 1000px) {
+  .server-grid-workbench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .server-grid-sidebar {
+    display: none;
+  }
+  .server-tools-toggle {
+    display: inline-flex;
+  }
 }

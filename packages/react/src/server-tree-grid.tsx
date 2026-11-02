@@ -1,3 +1,5 @@
+import { withColumnDragOwner } from "./group-panel.js";
+import { formatServerAggregate } from "./server-aggregate-formatting.js";
 import {
   useEffect,
   useLayoutEffect,
@@ -299,48 +301,79 @@ export function ServerTreeDataGrid<T>({
     () => new Map(columns.map((column) => [column.id, column])),
     [columns],
   );
+  const mappedColumns = useMemo(
+    () =>
+      columns.map<Column<RecordEntry<T>>>((column) => ({
+        ...column,
+        field: undefined,
+        editable: false,
+        groupable: false,
+        colSpan: undefined,
+        spanRows: undefined,
+        autoHeight: undefined,
+        valueGetter: (record) => {
+          const entry = record.entry;
+          if (entry.kind !== "node") return undefined;
+          const node = entry.node;
+          if (node.kind === "group")
+            return node.aggregates && Object.hasOwn(node.aggregates, column.id)
+              ? node.aggregates[column.id]
+              : undefined;
+          return column.valueGetter
+            ? column.valueGetter(node.data)
+            : column.field
+              ? node.data[column.field]
+              : (node.data as Record<string, unknown>)[column.id];
+        },
+        valueFormatter: (value, record) =>
+          record.entry.kind === "node" &&
+          record.entry.node.kind === "row" &&
+          column.valueFormatter
+            ? column.valueFormatter(value, record.entry.node.data)
+            : value == null
+              ? ""
+              : String(value),
+        valueParser: undefined,
+        validate: undefined,
+      })),
+    [columns],
+  );
   const local = useMemo(
     () =>
       createGrid<RecordEntry<T>>({
         rows: [],
         getRowId: (record) => record.id,
-        columns: columns.map((column) => ({
-          ...column,
-          field: undefined,
-          editable: false,
-          groupable: false,
-          colSpan: undefined,
-          spanRows: undefined,
-          autoHeight: undefined,
-          valueGetter: (record) => {
-            const entry = record.entry;
-            if (entry.kind !== "node") return undefined;
-            const node = entry.node;
-            if (node.kind === "group")
-              return node.aggregates &&
-                Object.hasOwn(node.aggregates, column.id)
-                ? node.aggregates[column.id]
-                : undefined;
-            return column.valueGetter
-              ? column.valueGetter(node.data)
-              : column.field
-                ? node.data[column.field]
-                : (node.data as Record<string, unknown>)[column.id];
-          },
-          valueFormatter: (value, record) =>
-            record.entry.kind === "node" &&
-            record.entry.node.kind === "row" &&
-            column.valueFormatter
-              ? column.valueFormatter(value, record.entry.node.data)
-              : value == null
-                ? ""
-                : String(value),
-          valueParser: undefined,
-          validate: undefined,
-        })),
+        columns: mappedColumns,
       }),
-    [model, columns],
+    [model],
   );
+  const columnSource = useRef<{
+    local: GridModel<RecordEntry<T>>;
+    columns: Column<T>[];
+  } | null>(null);
+  useLayoutEffect(() => {
+    const previous = columnSource.current;
+    const visibility = { ...local.getState().columnVisibility };
+    const old = new Map(
+      previous?.local === local
+        ? previous.columns.map((column) => [column.id, column])
+        : [],
+    );
+    let changed = false;
+    for (const column of columns) {
+      if (
+        old.has(column.id) &&
+        !!old.get(column.id)!.hidden !== !!column.hidden
+      ) {
+        delete visibility[column.id];
+        changed = true;
+      }
+    }
+    local.setColumns(mappedColumns);
+    if (changed) local.setState({ columnVisibility: visibility });
+    columnSource.current = { local, columns };
+  }, [local, columns, mappedColumns]);
+
   useLayoutEffect(() => {
     local.setRows(plan.entries.map((entry) => ({ id: entry.id, entry })));
     local.setState({
@@ -384,52 +417,55 @@ export function ServerTreeDataGrid<T>({
         ...(patch.filters === undefined ? {} : { filters: patch.filters }),
       });
     };
-    return {
-      ...local,
-      getFilteredRows: local.getRows,
-      getRowModel: nodes,
-      getPageRows: nodes,
-      getPageCount: () => 1,
-      toggleExpanded: (id) => actions.current.toggle(id),
-      setState: query,
-      setSort: (columnId, direction, multi = false) =>
-        query({
-          sorting: [
-            ...(multi
-              ? model
-                  .getQuery()
-                  .sorting.filter((sort) => sort.columnId !== columnId)
-              : []),
-            ...(direction ? [{ columnId, direction }] : []),
-          ],
-        }),
-      setFilter: (columnId, filter?: Filter) => {
-        const filters = model.getQuery().filters;
-        if (filter)
-          Object.defineProperty(filters, columnId, {
-            value: filter,
-            enumerable: true,
-            configurable: true,
-            writable: true,
-          });
-        else delete filters[columnId];
-        query({ filters });
+    return withColumnDragOwner<GridModel<RecordEntry<T>>>(
+      {
+        ...local,
+        getFilteredRows: local.getRows,
+        getRowModel: nodes,
+        getPageRows: nodes,
+        getPageCount: () => 1,
+        toggleExpanded: (id) => actions.current.toggle(id),
+        setState: query,
+        setSort: (columnId, direction, multi = false) =>
+          query({
+            sorting: [
+              ...(multi
+                ? model
+                    .getQuery()
+                    .sorting.filter((sort) => sort.columnId !== columnId)
+                : []),
+              ...(direction ? [{ columnId, direction }] : []),
+            ],
+          }),
+        setFilter: (columnId, filter?: Filter) => {
+          const filters = model.getQuery().filters;
+          if (filter)
+            Object.defineProperty(filters, columnId, {
+              value: filter,
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+          else delete filters[columnId];
+          query({ filters });
+        },
+        editCell: () => "Server data is read only",
+        batchEdit: () => "Server data is read only",
+        undo: () => false,
+        redo: () => false,
+        moveRows: () => "Server order is provider-authoritative",
+        getRowReorderStatus: () =>
+          Object.freeze({
+            allowed: false,
+            reason: "read-only",
+            message: "Server order is provider-authoritative",
+          }),
+        applyTransaction: () => {
+          throw new Error("Use loaded-node provider transactions");
+        },
       },
-      editCell: () => "Server data is read only",
-      batchEdit: () => "Server data is read only",
-      undo: () => false,
-      redo: () => false,
-      moveRows: () => "Server order is provider-authoritative",
-      getRowReorderStatus: () =>
-        Object.freeze({
-          allowed: false,
-          reason: "read-only",
-          message: "Server order is provider-authoritative",
-        }),
-      applyTransaction: () => {
-        throw new Error("Use loaded-node provider transactions");
-      },
-    };
+      model,
+    );
   }, [local, model]);
   return (
     <section
@@ -510,9 +546,18 @@ export function ServerTreeDataGrid<T>({
         }}
         renderCell={({ value, row, column }) => {
           const entry = row.entry;
-          if (entry.kind !== "node" || entry.node.kind !== "row")
-            return value == null ? "" : String(value);
-          const original = originals.get(column.id)!;
+          if (entry.kind !== "node") return value == null ? "" : String(value);
+          const original = originals.get(column.id);
+          if (!original) return value == null ? "" : String(value);
+          if (entry.node.kind === "group")
+            return formatServerAggregate(
+              original,
+              value,
+              entry.node,
+              model.getQuery(),
+              entry.id,
+              entry.depth,
+            );
           return renderCell
             ? renderCell({
                 value,

@@ -23,7 +23,7 @@ export interface GridSidePanelLabels {
   collapseGroup: string;
   expandGroup: string;
 }
-const defaults: GridSidePanelLabels = {
+export const DEFAULT_SIDE_PANEL_LABELS: Readonly<GridSidePanelLabels> = {
   columns: "Columns",
   filters: "Filters",
   search: "Search columns",
@@ -63,7 +63,7 @@ export function GridSidePanel<T>({
     model.getState,
     model.getState,
   );
-  const text = { ...defaults, ...labels };
+  const text = { ...DEFAULT_SIDE_PANEL_LABELS, ...labels };
   const id = useId();
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const [tab, setTab] = useState(0);

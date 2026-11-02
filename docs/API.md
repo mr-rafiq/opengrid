@@ -398,7 +398,7 @@ DataGrid accepts sizingRef for explicit proportional sizeColumnsToFit, rendered-
 
 ## Column condition filters
 
-ScalarFilter contains the scalar operators, including notContains. CompoundFilter joins 1â€“16 scalar conditions with op and/or; Filter is their union. Advanced AST condition leaves remain ScalarFilter. Core preparation helpers own and validate new groups before client/remote state mutation.
+ScalarFilter contains the scalar operators, including notContains. CompoundFilter joins 1–16 scalar conditions with op and/or; Filter is their union. Advanced AST condition leaves remain ScalarFilter. Core preparation helpers own and validate new groups before client/remote state mutation.
 
 ColumnConditionFilter registers through filterComponents and defaults to four staged conditions (configurable to 16). ColumnFilterProps.getFilter optionally reads the latest authoritative applied filter for conflict fencing. DataGrid supplies it from current model state; DataGridProps.getColumnFilter can override that read for an adapter, and ServerDataGrid uses the provider query. The getter guards popups and does not replace rendered model state. See [typed column conditions](COLUMN_FILTERS.md).
 
@@ -439,3 +439,7 @@ See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `
 ## Integrated client pivot composition
 
 `buildClientPivotReport(model, configuration, options?)` creates an immutable bounded matrix from filtered source records. `exportClientPivotCsv(report)` exports formatted headers/cells and totals using CSV formula neutralization. React `useClientPivot` supplies a stable read-only output model and pinned grand-total IDs; controlled `PivotPanel` edits Rows/Columns/Values with owner-checked drag/drop and native alternatives. This is separate from the older `pivot()` utility above. See [client pivot tables](CLIENT_PIVOT.md) for types, examples, limits and remaining partial scope.
+
+## Provider sidebar
+
+`ServerSidePanel({ model, columns, onColumnsChange, className?, labels? })` binds a real `ServerSideRowModel` to controlled visibility and provider query grouping/values/typed conditions. `ServerDataGrid.onColumnsChange` optionally mirrors its chooser into that same schema. `RowGroupPanelModel<T>` exposes the narrower subscribed grouping/sorting contract; existing client models remain compatible. See [provider sidebar](SERVER_SIDEBAR.md) for ownership, formatting, composition and remaining partial scope.

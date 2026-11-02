@@ -107,3 +107,6 @@ export { GridSidePanel } from "./side-panel.js";
 export type { GridSidePanelProps, GridSidePanelLabels } from "./side-panel.js";
 export { PivotPanel } from "./pivot-panel.js";
 export type { PivotPanelProps, PivotPanelLabels } from "./pivot-panel.js";
+export { ServerSidePanel } from "./server-side-panel.js";
+export type { ServerSidePanelProps } from "./server-side-panel.js";
+export type { RowGroupPanelModel } from "./group-panel.js";

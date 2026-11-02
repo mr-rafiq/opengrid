@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import type { DragEvent } from "react";
-import type { GridModel } from "@opengrid/core";
+import type { GridModel, Sort } from "@opengrid/core";
 import { GridIcon } from "./icons.js";
 import { useGridLocale } from "./locale.js";
 
@@ -22,8 +22,25 @@ export function columnDragOwner(model: object): string {
   return owner;
 }
 export const COLUMN_DRAG_OWNER = "application/x-opengrid-column-owner";
+/** Internal alias for provider-backed facades sharing a real server query owner. */
+export function withColumnDragOwner<T extends object>(
+  facade: T,
+  owner: object,
+): T {
+  owners.set(facade, columnDragOwner(owner));
+  return facade;
+}
+export interface RowGroupPanelModel<T> extends Pick<
+  GridModel<T>,
+  "subscribe" | "getColumns" | "setState" | "setSort"
+> {
+  getState(): Readonly<{
+    groupBy: readonly string[];
+    sorting: readonly Sort[];
+  }>;
+}
 export interface RowGroupPanelProps<T> {
-  model: GridModel<T>;
+  model: RowGroupPanelModel<T>;
   className?: string;
   /** Distinguish several synchronized panels on one page. */
   ariaLabel?: string;
@@ -152,6 +169,7 @@ export function RowGroupPanel<T>({
                     type="button"
                     data-group-focus={column.id}
                     aria-label={t("grouping.sort", { column: name })}
+                    title={name}
                     disabled={column.sortable === false}
                     aria-pressed={Boolean(sort)}
                     onClick={(event) =>
@@ -166,7 +184,7 @@ export function RowGroupPanel<T>({
                       )
                     }
                   >
-                    {name}
+                    <span className="og-group-name">{name}</span>
                     {sort && (
                       <GridIcon
                         name={

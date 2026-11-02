@@ -1,3 +1,5 @@
+import { withColumnDragOwner } from "./group-panel.js";
+import { formatServerAggregate } from "./server-aggregate-formatting.js";
 import {
   useEffect,
   useLayoutEffect,
@@ -44,6 +46,8 @@ const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
 
 export interface ServerDataGridProps<T> {
+  /** Share the callback with ServerSidePanel to mirror the built-in chooser. */
+  onColumnsChange?: (columns: Column<T>[]) => void;
   model: ServerSideRowModel<T>;
   columns: Column<T>[];
   height?: number;
@@ -74,6 +78,7 @@ export function ServerDataGrid<T>({
   className = "",
   renderCell,
   notes,
+  onColumnsChange,
 }: ServerDataGridProps<T>) {
   assertGridDirection(direction);
   const { t, locale: language, number } = useGridLocale();
@@ -149,41 +154,73 @@ export function ServerDataGrid<T>({
     () => new Map(columns.map((column) => [column.id, column])),
     [columns],
   );
+  const mappedColumns = useMemo(
+    () =>
+      columns.map<Column<ServerRecord<T>>>((column) => ({
+        ...column,
+        field: undefined,
+        editable: false,
+        // Span geometry currently belongs to the client DataGrid contract.
+        colSpan: undefined,
+        spanRows: undefined,
+        autoHeight: undefined,
+        valueGetter: (record) => {
+          if (record.node.kind === "group")
+            return record.node.aggregates &&
+              Object.hasOwn(record.node.aggregates, column.id)
+              ? record.node.aggregates[column.id]
+              : undefined;
+          return column.valueGetter
+            ? column.valueGetter(record.node.data)
+            : column.field
+              ? record.node.data[column.field]
+              : (record.node.data as Record<string, unknown>)[column.id];
+        },
+        valueFormatter: (value, record) =>
+          record.node.kind === "row" && column.valueFormatter
+            ? column.valueFormatter(value, record.node.data)
+            : stringValue(value),
+        valueParser: undefined,
+        validate: undefined,
+      })),
+    [columns],
+  );
   const local = useMemo(
     () =>
       createGrid<ServerRecord<T>>({
         rows: [],
         getRowId: (record) => record.node.id,
-        columns: columns.map((column) => ({
-          ...column,
-          field: undefined,
-          editable: false,
-          // Span geometry currently belongs to the client DataGrid contract.
-          colSpan: undefined,
-          spanRows: undefined,
-          autoHeight: undefined,
-          valueGetter: (record) => {
-            if (record.node.kind === "group")
-              return record.node.aggregates &&
-                Object.hasOwn(record.node.aggregates, column.id)
-                ? record.node.aggregates[column.id]
-                : undefined;
-            return column.valueGetter
-              ? column.valueGetter(record.node.data)
-              : column.field
-                ? record.node.data[column.field]
-                : (record.node.data as Record<string, unknown>)[column.id];
-          },
-          valueFormatter: (value, record) =>
-            record.node.kind === "row" && column.valueFormatter
-              ? column.valueFormatter(value, record.node.data)
-              : stringValue(value),
-          valueParser: undefined,
-          validate: undefined,
-        })),
+        columns: mappedColumns,
       }),
-    [model, columns],
+    [model],
   );
+  const columnSource = useRef<{
+    local: GridModel<ServerRecord<T>>;
+    columns: Column<T>[];
+  } | null>(null);
+  useLayoutEffect(() => {
+    const previous = columnSource.current;
+    const visibility = { ...local.getState().columnVisibility };
+    const old = new Map(
+      previous?.local === local
+        ? previous.columns.map((column) => [column.id, column])
+        : [],
+    );
+    let changed = false;
+    for (const column of columns) {
+      if (
+        old.has(column.id) &&
+        !!old.get(column.id)!.hidden !== !!column.hidden
+      ) {
+        delete visibility[column.id];
+        changed = true;
+      }
+    }
+    local.setColumns(mappedColumns);
+    if (changed) local.setState({ columnVisibility: visibility });
+    columnSource.current = { local, columns };
+  }, [local, columns, mappedColumns]);
+
   const viewState = useSyncExternalStore(
     local.subscribe,
     local.getState,
@@ -268,63 +305,66 @@ export function ServerDataGrid<T>({
         });
       local.setState(patch);
     };
-    return {
-      ...local,
-      // Never call the client model's sorted/filtered derived rows: provider order is authoritative.
-      getFilteredRows: local.getRows,
-      getRowModel: nodes,
-      getPageRows: nodes,
-      getPageCount: () => 1,
-      setState: updateQuery,
-      setSort(columnId, direction, multi = false) {
-        const current = model.getQuery().sorting;
-        updateQuery({
-          sorting: [
-            ...(multi
-              ? current.filter((sort) => sort.columnId !== columnId)
-              : []),
-            ...(direction ? [{ columnId, direction }] : []),
-          ],
-        });
-      },
-      setFilter(columnId, filter?: Filter) {
-        const filters = model.getQuery().filters;
-        if (filter)
-          Object.defineProperty(filters, columnId, {
-            value: filter,
-            enumerable: true,
-            configurable: true,
-            writable: true,
+    return withColumnDragOwner<GridModel<ServerRecord<T>>>(
+      {
+        ...local,
+        // Never call the client model's sorted/filtered derived rows: provider order is authoritative.
+        getFilteredRows: local.getRows,
+        getRowModel: nodes,
+        getPageRows: nodes,
+        getPageCount: () => 1,
+        setState: updateQuery,
+        setSort(columnId, direction, multi = false) {
+          const current = model.getQuery().sorting;
+          updateQuery({
+            sorting: [
+              ...(multi
+                ? current.filter((sort) => sort.columnId !== columnId)
+                : []),
+              ...(direction ? [{ columnId, direction }] : []),
+            ],
           });
-        else delete filters[columnId];
-        updateQuery({ filters });
+        },
+        setFilter(columnId, filter?: Filter) {
+          const filters = model.getQuery().filters;
+          if (filter)
+            Object.defineProperty(filters, columnId, {
+              value: filter,
+              enumerable: true,
+              configurable: true,
+              writable: true,
+            });
+          else delete filters[columnId];
+          updateQuery({ filters });
+        },
+        setQuickFilter() {
+          throw new Error(
+            "Global quick search is not part of the server provider contract; use column filters",
+          );
+        },
+        editCell: () =>
+          "Server data is read only; persist edits through your provider",
+        batchEdit: () =>
+          "Server data is read only; persist edits through your provider",
+        getRowReorderStatus: () =>
+          Object.freeze({
+            allowed: false,
+            reason: "read-only",
+            message:
+              "Server row order is provider-authoritative; managed reordering is unavailable",
+          }),
+        moveRows: () =>
+          "Server row order is provider-authoritative; managed reordering is unavailable",
+        undo: () => false,
+        redo: () => false,
+        applyTransaction() {
+          throw new Error(
+            "Use the server model's explicit loaded-node transaction API",
+          );
+        },
       },
-      setQuickFilter() {
-        throw new Error(
-          "Global quick search is not part of the server provider contract; use column filters",
-        );
-      },
-      editCell: () =>
-        "Server data is read only; persist edits through your provider",
-      batchEdit: () =>
-        "Server data is read only; persist edits through your provider",
-      getRowReorderStatus: () =>
-        Object.freeze({
-          allowed: false,
-          reason: "read-only",
-          message:
-            "Server row order is provider-authoritative; managed reordering is unavailable",
-        }),
-      moveRows: () =>
-        "Server row order is provider-authoritative; managed reordering is unavailable",
-      undo: () => false,
-      redo: () => false,
-      applyTransaction() {
-        throw new Error(
-          "Use the server model's explicit loaded-node transaction API",
-        );
-      },
-    };
+      model,
+    );
   }, [local, model]);
 
   function retry() {
@@ -397,9 +437,16 @@ export function ServerDataGrid<T>({
                       column: column.header ?? column.id,
                     })}
                     checked={!column.hidden}
-                    onChange={(event) =>
-                      local.hideColumn(column.id, !event.target.checked)
-                    }
+                    onChange={(event) => {
+                      onColumnsChange?.(
+                        columns.map((item) =>
+                          item.id === column.id
+                            ? { ...item, hidden: !event.target.checked }
+                            : item,
+                        ),
+                      );
+                      local.hideColumn(column.id, !event.target.checked);
+                    }}
                   />
                   {column.header ?? column.id}
                 </label>
@@ -408,14 +455,18 @@ export function ServerDataGrid<T>({
                     column: column.header ?? column.id,
                   })}
                   value={column.pinned ?? ""}
-                  onChange={(event) =>
-                    local.pinColumn(
-                      column.id,
+                  onChange={(event) => {
+                    const pinned =
                       event.target.value === ""
                         ? null
-                        : (event.target.value as "left" | "right"),
-                    )
-                  }
+                        : (event.target.value as "left" | "right");
+                    onColumnsChange?.(
+                      columns.map((item) =>
+                        item.id === column.id ? { ...item, pinned } : item,
+                      ),
+                    );
+                    local.pinColumn(column.id, pinned);
+                  }}
                 >
                   <option value="">{t("grid.unpinned")}</option>
                   <option value="left">{t("grid.pinLeft")}</option>
@@ -481,10 +532,18 @@ export function ServerDataGrid<T>({
                   ? ""
                   : ` (${number(node.childCount)})`}
               </button>
+            ) : originalColumns.has(column.id) ? (
+              formatServerAggregate(
+                originalColumns.get(column.id)!,
+                value,
+                node,
+                model.getQuery(),
+              )
             ) : (
               stringValue(value)
             );
-          const original = originalColumns.get(column.id)!;
+          const original = originalColumns.get(column.id);
+          if (!original) return stringValue(value);
           return renderCell
             ? renderCell({
                 value,

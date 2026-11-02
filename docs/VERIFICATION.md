@@ -1,5 +1,19 @@
 # Verification record
 
+## Provider sidebar (0.7.0)
+
+The 2026-11-02 local checkpoint adds `ServerSidePanel` with actual server block/tree query controls and application-owned visibility. Shared grouping controls accept a subscribed grouping/sorting adapter without resident rows. Both bindings retain compatible column layout; the breadcrumb chooser can mirror its schema. Provider aggregate slots use row-free formatting with the live built-in operation and no invented descendant count. The [provider sidebar contract](SERVER_SIDEBAR.md) owns the exact partial scope.
+
+Formatting, six-manifest/lockfile consistency and strict TypeScript passed; the strict check took **166.26 seconds**. All **1,916 unit tests in 118 files passed in 254.48 seconds**, followed by all three library ESM/declaration/CSS builds and the production demo. Built-package ESM/declaration/CSS/SSR smoke passed with **zero provider requests, column callbacks or provider snapshot mutations during SSR**.
+
+All **164 single-worker Chromium grid scenarios passed in 8.2 minutes**. Pages generation passed with **62 documentation routes**, showcase, landing, demo and 404. All six new provider-sidebar scenarios also passed against the production artifact under `/opengrid/demo/` in **33.8 seconds**. The complete site suite passed **59 scenarios in 2.6 minutes**, including prior grouping/pivot/column-control flows, generated links, themes, version and creator credit. Local private ports prevent accidental preview reuse between worktrees; checks run serially.
+
+Regressions exercise actual provider requests, nested grouping/counts/routes, sum/average/count formatting, typed conditions and stale/retryable draft ownership, external descriptor preservation, controlled visibility, resized width retention, chooser restore and native drag ownership. A locator typo and new test-only typing errors were corrected before the final strict/unit run; they did not require product behavior changes.
+
+Actual screenshot review caught playground form styles overriding component-owned sidebar buttons and wrapping Team vertically. Excluding component controls from those outer styles and tightening sidebar chip spacing restores ghost icons and readable names; full titles/accessible labels retain long field names. Native browser regressions require zero-border secondary controls and single-line chip geometry. Reviewed production screenshots include desktop Minimal light and 320px Material dark; automation spans 320/375/390/556/768/1440px, both presets/color modes, real header/sidebar dragging, native Add/reorder/remove, touch/nested Escape/focus return and short landscape. Scoped axe runs report no serious/critical findings in the exercised modes.
+
+This remains a local checkpoint, without deployment, physical-device/screen-reader or performance certification. Existing large-bundle notices remain warnings. Backend writes/server-wide selection, server pivot/schema UI, provider-wide distinct values, infinite/viewport panels and richer remote totals/details remain open. Separate clipboard lifecycle changes are not included.
+
 ## Client aggregate formatting and pivot matrix (0.6.0)
 
 The local 2026-11-02 checkpoint adds row-free aggregate formatting, an immutable bounded client pivot report, controlled Rows/Columns/Values controls, a source-refreshing read-only React model and a responsive showcase mode. Sum/average/minimum/maximum/count and weighted source-derived totals share formatting without synthetic source rows. CSV includes real totals and formula neutralization. The [client pivot guide](CLIENT_PIVOT.md) defines supported types, limits and remaining partial scope.

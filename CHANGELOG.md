@@ -2,6 +2,17 @@
 
 Created by Mohamed Rafiq.
 
+## 0.7.0 - 2026-11-02
+
+This source milestone connects a responsive sidebar to actual server block/tree providers. Created by Mohamed Rafiq. No npm publication.
+
+- Controlled `ServerSidePanel` visibility, searchable column categories, owned header/sidebar dragging and native row-group controls, built-in value operations and staged typed conditions publish real provider queries.
+- Server bindings retain stable-ID column layout and branch state for visibility changes. The breadcrumb chooser can mirror its schema through `onColumnsChange`.
+- Group amounts use row-free aggregate formatting with the live requested operation; source-row callbacks still receive real records.
+- A synthetic asynchronous demo executes nested grouping, aggregation, filters, sort and paging. Minimal/Material desktop panel/mobile drawer share light/dark themes and keyboard/touch alternatives.
+- Playground form styles no longer add boxes to component-owned sidebar buttons. Sidebar group names remain readable with compact controls rather than vertical letter wrapping.
+- No server pivot/schema UI, backend writes, infinite/viewport sidebar or server-wide distinct-value/selection claim. See [provider sidebar](docs/SERVER_SIDEBAR.md).
+
 ## 0.6.0 - 2026-11-02
 
 This source milestone adds a bounded client pivot matrix and functional React configuration. Created by Mohamed Rafiq. No npm publication.
@@ -63,7 +74,7 @@ This source release adds the interactive participant showcase, a model-bound Rea
 - Owned `getColumnDefinitions()` readback keeps aggregate changes from baking current visibility, sizing or pinning into reset defaults.
 - New `GridSidePanel` API, optional `GridThemeSelect.ariaLabel` and decorative `ColumnConditionFilter.trigger`. Full AG Grid parity is not claimed; pivot configuration and remote sidebar adapters remain open.
 
-## 0.3.0 â€” 2026-10-31
+## 0.3.0 — 2026-10-31
 
 This source release adds resident grouping controls and totals, aggregate sorting, and bounded simultaneous server branches. The grid, showcase, documentation and playground share the 0.3.0 release version and light/dark/system themes. Packages remain source/local-tarball previews and have not been published to npm.
 
@@ -73,7 +84,7 @@ This source release adds resident grouping controls and totals, aggregate sortin
 - Simultaneously expanded read-only server branches with route-qualified IDs, explicit branch paging, bounded cache reservations, real refresh/retry and query fencing.
 - Source-only hierarchy page selection with totals, fully contained 44px branch actions, and a compact focused phone grouping demo.
 
-## 0.2.0 â€” 2026-10-31
+## 0.2.0 — 2026-10-31
 
 This release adds a minimal responsive interface and shared light, dark and system appearance across the React grid, showcase, documentation and playground.
 
@@ -87,6 +98,6 @@ All workspace packages now use the same release version. The packages remain sou
 
 The feature-parity goal remains ongoing; see the [feature ledger](docs/FEATURE_PARITY.md) for working subsets and limitations. Third-party and contributor notices remain in [dependency notices](THIRD_PARTY_NOTICES.md) and the [MIT license](LICENSE).
 
-## 0.1.0 â€” 2026-10-29
+## 0.1.0 — 2026-10-29
 
 Initial public React and TypeScript preview with a framework-neutral core, interactive examples and an explicit feature-parity roadmap. Subsequent development through this preview expanded the grid, exports, remote models, editing and documentation before the 0.2.0 appearance release.
