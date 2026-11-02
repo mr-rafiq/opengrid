@@ -398,7 +398,7 @@ DataGrid accepts sizingRef for explicit proportional sizeColumnsToFit, rendered-
 
 ## Column condition filters
 
-ScalarFilter contains the scalar operators, including notContains. CompoundFilter joins 1–16 scalar conditions with op and/or; Filter is their union. Advanced AST condition leaves remain ScalarFilter. Core preparation helpers own and validate new groups before client/remote state mutation.
+ScalarFilter contains the scalar operators, including notContains. CompoundFilter joins 1â€“16 scalar conditions with op and/or; Filter is their union. Advanced AST condition leaves remain ScalarFilter. Core preparation helpers own and validate new groups before client/remote state mutation.
 
 ColumnConditionFilter registers through filterComponents and defaults to four staged conditions (configurable to 16). ColumnFilterProps.getFilter optionally reads the latest authoritative applied filter for conflict fencing. DataGrid supplies it from current model state; DataGridProps.getColumnFilter can override that read for an adapter, and ServerDataGrid uses the provider query. The getter guards popups and does not replace rendered model state. See [typed column conditions](COLUMN_FILTERS.md).
 
@@ -435,3 +435,7 @@ See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `
 ### Aggregate display
 
 `Column.aggregateFormatter(value, context)` and `formatAggregateValue(column, value, node)` provide source-row-free formatting for group/subtotal/grand-total cells and print snapshots. Callbacks return strings and receive immutable metadata, including the current aggregate operation. Defaults preserve raw display; see [grouping and aggregate formatting](GROUPING.md#formatting-aggregate-values).
+
+## Integrated client pivot composition
+
+`buildClientPivotReport(model, configuration, options?)` creates an immutable bounded matrix from filtered source records. `exportClientPivotCsv(report)` exports formatted headers/cells and totals using CSV formula neutralization. React `useClientPivot` supplies a stable read-only output model and pinned grand-total IDs; controlled `PivotPanel` edits Rows/Columns/Values with owner-checked drag/drop and native alternatives. This is separate from the older `pivot()` utility above. See [client pivot tables](CLIENT_PIVOT.md) for types, examples, limits and remaining partial scope.

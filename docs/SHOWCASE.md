@@ -39,3 +39,7 @@ import "@opengrid/react/styles.css";
 Source: [participant data](../examples/site/src/participant-data.ts), [showcase component](../examples/site/src/ParticipantShowcase.tsx), [sidebar](../packages/react/src/side-panel.tsx).
 
 Grouped Bank balance values use USD formatting for sum/average/min/max, while count remains a whole number. Other numeric aggregates use up to two decimals and Win rate uses one percent decimal. These are explicit demo column formatters; raw values and aggregate operations are unchanged.
+
+## Client pivot table
+
+Choose **Pivot table** to summarize filtered participants. **Pivot fields** offers Rows, Columns, Values, aggregation choices and totals, in the right panel or mobile tools drawer. Use native Add/move/remove controls or drag fields from Available fields. The default matrix is country by game, with bank balance/wins. Currency formatting follows sum/average/min/max, while count stays integer. **Pivot CSV** exports the current formatted matrix and totals. Returning to **Records** retains source state/edits. This is a bounded flat client matrix; [client pivot tables](CLIENT_PIVOT.md) documents exact limits and unsupported hierarchy/server behavior.

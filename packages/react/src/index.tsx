@@ -1,4 +1,5 @@
 export * from "./data-grid.js";
+export * from "./use-client-pivot.js";
 export { AUTO_ROW_HEIGHT_LIMITS } from "./auto-row-heights.js";
 export type {
   AutoRowHeightOptions,
@@ -104,3 +105,5 @@ export { ServerTreeDataGrid } from "./server-tree-grid.js";
 export type { ServerTreeDataGridProps } from "./server-tree-grid.js";
 export { GridSidePanel } from "./side-panel.js";
 export type { GridSidePanelProps, GridSidePanelLabels } from "./side-panel.js";
+export { PivotPanel } from "./pivot-panel.js";
+export type { PivotPanelProps, PivotPanelLabels } from "./pivot-panel.js";

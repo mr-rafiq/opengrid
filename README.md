@@ -83,7 +83,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Rectangular cell selection, Shift-key/pointer extension, quoted TSV copy/paste, atomic validation/undo, down/right fills and numeric/BigInt series.
 - Native text/number/date/checkbox/select/multiline editors, asynchronous choices and typed custom-editor hooks.
 - Searchable single-choice rich editors with 10,000 virtualized options, exact string IDs, async retry, staged validation and atomic row-form integration.
-- Expandable grouping and path-based trees, built-in/custom aggregates and a standalone pivot utility.
+- Expandable grouping and path-based trees, built-in/custom aggregates, shared aggregate formatting and a bounded client pivot matrix with controlled Rows/Columns/Values UI, weighted totals and safe CSV. Hierarchical pivot drill-down remains open.
 - CSV with RFC 4180 escaping and spreadsheet formula neutralization; basic SVG sparklines.
 - A safe formula dependency engine with A1/local references, ranges, lazy IF, aggregates, targeted invalidation, cycle diagnostics and resource limits.
 - A bounded fixed-sheet formula model with explicit Formula/Literal cell editing, raw-expression history, atomic final-sheet validation and computed sort/filter/group/export values.
@@ -164,3 +164,5 @@ Use [themes and appearance](docs/themes.md) for shared light, dark and system pr
 See [row grouping and totals](docs/GROUPING.md) for the optional drag/native group panel, filtered subtotals/grand totals, aggregate sorting and bounded simultaneous server branches. The playground includes separate Grouping and Server grouping labs.
 
 Try the [participant showcase](https://mr-rafiq.github.io/opengrid/showcase/) for 22 fictional data columns, searchable Columns/Filters sidebar, grouping and selectable Minimal/Material styling in Light, Dark or System appearance. See [showcase usage and limits](docs/SHOWCASE.md).
+
+Its Records/Pivot switch connects a live source to the read-only matrix and responsive Pivot fields panel. See [client pivot tables](docs/CLIENT_PIVOT.md) for composition, limits and remaining partial scope.

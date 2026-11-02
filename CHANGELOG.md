@@ -2,6 +2,16 @@
 
 Created by Mohamed Rafiq.
 
+## 0.6.0 - 2026-11-02
+
+This source milestone adds a bounded client pivot matrix and functional React configuration. Created by Mohamed Rafiq. No npm publication.
+
+- Rows/Columns/Values field zones with native pointer dragging, select/Add, reordering/removal, aggregation choices and totals switches.
+- Source-derived sum/average/minimum/maximum/count, weighted totals, typed stable category identities, raw numeric/BigInt sorting and shared aggregate formatting.
+- Read-only derived React model follows source filters/edits while preserving its stable-ID layout. Invalid source/configuration hides stale output; explicit size limits reject excessive matrices.
+- Participant showcase Records/Pivot switch, responsive themed desktop panel/mobile drawer and genuine formula-neutralized Pivot CSV with totals.
+- Flat multi-key result rows are supported; hierarchical pivot drill-down/subtotals, server pivot UI, post-aggregate filters and pivot charts remain open. See [client pivot contract](docs/CLIENT_PIVOT.md).
+
 ## 0.5.0 - 2026-11-02
 
 Adds explicit aggregate display formatting for grouped grids and print snapshots. Created by Mohamed Rafiq. No npm publication.
@@ -53,7 +63,7 @@ This source release adds the interactive participant showcase, a model-bound Rea
 - Owned `getColumnDefinitions()` readback keeps aggregate changes from baking current visibility, sizing or pinning into reset defaults.
 - New `GridSidePanel` API, optional `GridThemeSelect.ariaLabel` and decorative `ColumnConditionFilter.trigger`. Full AG Grid parity is not claimed; pivot configuration and remote sidebar adapters remain open.
 
-## 0.3.0 — 2026-10-31
+## 0.3.0 â€” 2026-10-31
 
 This source release adds resident grouping controls and totals, aggregate sorting, and bounded simultaneous server branches. The grid, showcase, documentation and playground share the 0.3.0 release version and light/dark/system themes. Packages remain source/local-tarball previews and have not been published to npm.
 
@@ -63,7 +73,7 @@ This source release adds resident grouping controls and totals, aggregate sortin
 - Simultaneously expanded read-only server branches with route-qualified IDs, explicit branch paging, bounded cache reservations, real refresh/retry and query fencing.
 - Source-only hierarchy page selection with totals, fully contained 44px branch actions, and a compact focused phone grouping demo.
 
-## 0.2.0 — 2026-10-31
+## 0.2.0 â€” 2026-10-31
 
 This release adds a minimal responsive interface and shared light, dark and system appearance across the React grid, showcase, documentation and playground.
 
@@ -77,6 +87,6 @@ All workspace packages now use the same release version. The packages remain sou
 
 The feature-parity goal remains ongoing; see the [feature ledger](docs/FEATURE_PARITY.md) for working subsets and limitations. Third-party and contributor notices remain in [dependency notices](THIRD_PARTY_NOTICES.md) and the [MIT license](LICENSE).
 
-## 0.1.0 — 2026-10-29
+## 0.1.0 â€” 2026-10-29
 
 Initial public React and TypeScript preview with a framework-neutral core, interactive examples and an explicit feature-parity roadmap. Subsequent development through this preview expanded the grid, exports, remote models, editing and documentation before the 0.2.0 appearance release.

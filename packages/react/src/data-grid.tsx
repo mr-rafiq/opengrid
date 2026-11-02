@@ -650,7 +650,10 @@ export function DataGrid<T>({
     pinned: pinOf(column),
   }));
   const groupDepth = computeHeaderGroups(groupedColumns, { direction }).length;
-  const headerRows = groupDepth + 2;
+  const hasColumnFilters = columns.some(
+    (column) => column.filterable !== false,
+  );
+  const headerRows = groupDepth + 1 + (hasColumnFilters ? 1 : 0);
   const headerHeight = headerRows * 38;
   const viewport = useRef<HTMLDivElement>(null);
   const [popupHost, setPopupHost] = useState<HTMLElement | null>(null);
@@ -4406,76 +4409,81 @@ export function DataGrid<T>({
                       );
                     })}
                   </div>
-                  <div
-                    role="row"
-                    aria-rowindex={groupDepth + 2}
-                    className="og-filter-row"
-                  >
-                    {selectionWidth > 0 && (
-                      <div
-                        role="gridcell"
-                        aria-colindex={1}
-                        className="og-selection og-filter-cell"
-                        style={{
-                          width: selectionWidth,
-                          minWidth: selectionWidth,
-                        }}
-                      />
-                    )}
-                    {columnEntries.map((entry) => {
-                      if (entry.kind === "spacer") return columnGap(entry);
-                      const index = entry.index,
-                        column = columns[index];
-                      return (
+                  {hasColumnFilters && (
+                    <div
+                      role="row"
+                      aria-rowindex={groupDepth + 2}
+                      className="og-filter-row"
+                    >
+                      {selectionWidth > 0 && (
                         <div
                           role="gridcell"
-                          key={column.id}
-                          aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
-                          className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
-                          ref={(element) => {
-                            if (element)
-                              columnFilterControls.current.set(
-                                column.id,
-                                element,
-                              );
-                            else columnFilterControls.current.delete(column.id);
+                          aria-colindex={1}
+                          className="og-selection og-filter-cell"
+                          style={{
+                            width: selectionWidth,
+                            minWidth: selectionWidth,
                           }}
-                          style={cellStyle(column)}
-                          onFocusCapture={(event) => {
-                            if (
-                              event.target instanceof Element &&
-                              (ownsFilterPopup(
-                                event.target,
-                                popupHost,
-                                column.id,
-                              ) ||
-                                event.target.closest(
-                                  '[role="grid"],[role="treegrid"]',
-                                ) === viewport.current)
-                            )
-                              setFocusedFilterColumnId(column.id);
-                          }}
-                          onBlurCapture={(event) => {
-                            if (
-                              event.relatedTarget instanceof Node &&
-                              !ownsFilterPopup(
-                                event.relatedTarget,
-                                popupHost,
-                                column.id,
-                              ) &&
-                              !event.currentTarget.contains(event.relatedTarget)
-                            )
-                              setFocusedFilterColumnId((current) =>
-                                current === column.id ? null : current,
-                              );
-                          }}
-                        >
-                          {column.filterable !== false &&
-                            renderColumnFilter(column)}
-                        </div>
-                      );
-                    })}
-                  </div>
+                        />
+                      )}
+                      {columnEntries.map((entry) => {
+                        if (entry.kind === "spacer") return columnGap(entry);
+                        const index = entry.index,
+                          column = columns[index];
+                        return (
+                          <div
+                            role="gridcell"
+                            key={column.id}
+                            aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
+                            className={`og-filter-cell ${pinOf(column) ? "og-pinned" : ""}`}
+                            ref={(element) => {
+                              if (element)
+                                columnFilterControls.current.set(
+                                  column.id,
+                                  element,
+                                );
+                              else
+                                columnFilterControls.current.delete(column.id);
+                            }}
+                            style={cellStyle(column)}
+                            onFocusCapture={(event) => {
+                              if (
+                                event.target instanceof Element &&
+                                (ownsFilterPopup(
+                                  event.target,
+                                  popupHost,
+                                  column.id,
+                                ) ||
+                                  event.target.closest(
+                                    '[role="grid"],[role="treegrid"]',
+                                  ) === viewport.current)
+                              )
+                                setFocusedFilterColumnId(column.id);
+                            }}
+                            onBlurCapture={(event) => {
+                              if (
+                                event.relatedTarget instanceof Node &&
+                                !ownsFilterPopup(
+                                  event.relatedTarget,
+                                  popupHost,
+                                  column.id,
+                                ) &&
+                                !event.currentTarget.contains(
+                                  event.relatedTarget,
+                                )
+                              )
+                                setFocusedFilterColumnId((current) =>
+                                  current === column.id ? null : current,
+                                );
+                            }}
+                          >
+                            {column.filterable !== false &&
+                              renderColumnFilter(column)}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </div>
               {projection.top.length > 0 && (

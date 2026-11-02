@@ -42,6 +42,7 @@ const labels = {
   "getting-started": "Getting started",
   themes: "Themes & appearance",
   grouping: "Row grouping & totals",
+  "client-pivot": "Client pivot tables",
   releases: "Release notes",
   overview: "Project overview",
   api: "API reference",
@@ -86,6 +87,7 @@ const labels = {
 };
 const order = [
   "showcase",
+  "client-pivot",
   "getting-started",
   "themes",
   "overview",

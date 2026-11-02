@@ -87,7 +87,7 @@
 .showcase-grid {
   min-width: 0;
 }
-.showcase-grid > .og-root {
+.showcase-grid .og-root {
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -97,9 +97,95 @@
   min-width: 0;
   border-inline-start: 1px solid var(--og-border);
 }
-.showcase-desktop-tools > .og-side-panel {
+.showcase-desktop-tools > :is(.og-side-panel, .og-pivot-panel) {
   position: absolute;
   inset: 0;
+}
+.showcase-view-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--og-border);
+  min-width: 0;
+}
+.showcase-view-switch {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--og-surface);
+  border-radius: 6px;
+}
+.showcase-view-bar button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 10px;
+  color: var(--og-muted);
+  font: inherit;
+  font-size: 13px;
+  border: 0;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.showcase-view-switch button[aria-pressed="true"] {
+  color: var(--og-text);
+  background: var(--og-bg);
+  box-shadow: 0 0 0 1px var(--og-border);
+}
+.showcase-view-bar button:hover:not(:disabled) {
+  background: var(--og-hover);
+  color: var(--og-text);
+}
+.showcase-view-bar button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.showcase-view-bar button:focus-visible {
+  outline: 2px solid var(--og-focus);
+  outline-offset: 2px;
+}
+.showcase-view-bar > span {
+  flex: 1;
+  color: var(--og-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.showcase-pivot-result {
+  min-width: 0;
+}
+.showcase-grid > .showcase-source-hidden {
+  display: none;
+}
+.showcase-pivot-notice {
+  min-height: 300px;
+  padding: 32px 24px;
+}
+.showcase-pivot-notice h2 {
+  font-size: 18px;
+}
+.showcase-pivot-notice p {
+  color: var(--og-muted);
+  font-size: 14px;
+}
+@media (max-width: 540px) {
+  .showcase-view-bar {
+    padding: 12px;
+    gap: 8px;
+  }
+  .showcase-view-bar > span {
+    flex-basis: 100%;
+    order: 2;
+  }
+}
+@media (pointer: coarse) {
+  .showcase-view-bar button {
+    min-height: 44px;
+  }
 }
 .showcase-status {
   display: flex;

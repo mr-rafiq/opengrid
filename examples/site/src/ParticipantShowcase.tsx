@@ -5,12 +5,18 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { createGrid } from "@opengrid/core";
+import {
+  createGrid,
+  exportClientPivotCsv,
+  type PivotConfiguration,
+} from "@opengrid/core";
 import {
   DataGrid,
   GridIcon,
   GridSidePanel,
   GridThemeSelect,
+  PivotPanel,
+  useClientPivot,
 } from "@opengrid/react";
 import { NavigationDrawer } from "../../shared/navigation-drawer";
 import {
@@ -131,6 +137,21 @@ export function ParticipantShowcase() {
   const [busy, setBusy] = useState(false);
   const [tools, setTools] = useState(false);
   const [message, setMessage] = useState("");
+  const [view, setView] = useState<"rows" | "pivot">("rows");
+  const [pivotConfiguration, setPivotConfiguration] =
+    useState<PivotConfiguration>({
+      rows: ["country"],
+      columns: ["game"],
+      values: [
+        { columnId: "balance", aggregate: "sum" },
+        { columnId: "wins", aggregate: "sum" },
+      ],
+      rowTotals: true,
+      grandTotal: true,
+    });
+  const pivot = useClientPivot(model, pivotConfiguration, {
+    enabled: view === "pivot",
+  });
   const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const recordGroupWidth = useRef<number | null>(null);
   const grouped = state.groupBy.length > 0;
@@ -302,13 +323,59 @@ export function ParticipantShowcase() {
             aria-expanded={tools}
           >
             <GridIcon name="columns" size={18} />
-            Columns & filters
+            {view === "pivot" ? "Pivot fields" : "Columns & filters"}
           </button>
+        </div>
+        <div className="showcase-view-bar" role="group" aria-label="Data view">
+          <div className="showcase-view-switch">
+            <button
+              type="button"
+              aria-pressed={view === "rows"}
+              onClick={() => setView("rows")}
+            >
+              Records
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === "pivot"}
+              onClick={() => setView("pivot")}
+            >
+              Pivot table
+            </button>
+          </div>
+          <span>
+            {view === "pivot"
+              ? "Totals use filtered source records."
+              : "Explore, edit and group individual records."}
+          </span>
+          {view === "pivot" && (
+            <button
+              type="button"
+              disabled={!pivot.report || pivot.status !== "ready"}
+              onClick={() => {
+                if (!pivot.report) return;
+                const url = URL.createObjectURL(
+                  new Blob([exportClientPivotCsv(pivot.report)], {
+                    type: "text/csv;charset=utf-8",
+                  }),
+                );
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "opengrid-pivot.csv";
+                link.click();
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+              }}
+            >
+              <GridIcon name="download" size={16} />
+              Pivot CSV
+            </button>
+          )}
         </div>
         <div className="showcase-grid-layout" aria-busy={busy}>
           <div className="showcase-grid">
             <DataGrid
               model={model}
+              className={view === "pivot" ? "showcase-source-hidden" : ""}
               ariaLabel="Participant showcase"
               toolbar={false}
               pagination={false}
@@ -320,9 +387,64 @@ export function ParticipantShowcase() {
               columnMenu={{}}
               renderCell={renderCell}
             />
+            {view === "pivot" && (
+              <div className="showcase-pivot-result">
+                {pivot.status === "error" && (
+                  <div className="showcase-pivot-notice" role="alert">
+                    <h2>Could not build this pivot</h2>
+                    <p>{pivot.error?.message}</p>
+                    <p>
+                      Choose fewer fields or use the quick filter to reduce
+                      source records.
+                    </p>
+                  </div>
+                )}
+                {pivot.status === "empty" && (
+                  <div className="showcase-pivot-notice">
+                    <h2>Choose a value to summarize</h2>
+                    <p>
+                      Add a field to Values in Pivot fields. Records and edits
+                      are kept.
+                    </p>
+                  </div>
+                )}
+                {pivot.status === "ready" && pivot.model && (
+                  <DataGrid
+                    model={pivot.model}
+                    ariaLabel="Participant pivot table"
+                    height={Math.max(
+                      280,
+                      Math.min(590, Math.floor(viewportHeight * 0.65)),
+                    )}
+                    rowHeight={rowHeight}
+                    toolbar={false}
+                    pagination={false}
+                    selectionMode="none"
+                    notes={false}
+                    pinnedBottomRowIds={pivot.pinnedBottomRowIds}
+                    columnMenu={{
+                      getItems: (_context, items) => {
+                        const supported = items.filter(
+                          (item) => item.kind !== "separator" && !item.disabled,
+                        );
+                        return supported;
+                      },
+                    }}
+                  />
+                )}
+              </div>
+            )}
           </div>
           <aside className="showcase-desktop-tools" aria-label="Grid tools">
-            <GridSidePanel model={model} />
+            {view === "pivot" ? (
+              <PivotPanel
+                model={model}
+                configuration={pivotConfiguration}
+                onConfigurationChange={setPivotConfiguration}
+              />
+            ) : (
+              <GridSidePanel model={model} />
+            )}
           </aside>
         </div>
         <div className="showcase-status">
@@ -331,7 +453,11 @@ export function ParticipantShowcase() {
               ? "Loading participants…"
               : `${size.toLocaleString("en-US")} records · 22 columns`}
           </span>
-          <span>{state.selected.length.toLocaleString("en-US")} selected</span>
+          <span>
+            {view === "pivot"
+              ? `${pivot.report?.rows.length ?? 0} result rows · ${pivot.report?.sourceRowCount.toLocaleString("en-US") ?? 0} filtered records`
+              : `${state.selected.length.toLocaleString("en-US")} selected`}
+          </span>
           <button
             onClick={() => {
               model.setState({
@@ -359,9 +485,23 @@ export function ParticipantShowcase() {
           open={tools}
           onClose={() => setTools(false)}
         >
-          <GridSidePanel model={model} />
+          {view === "pivot" ? (
+            <PivotPanel
+              model={model}
+              configuration={pivotConfiguration}
+              onConfigurationChange={setPivotConfiguration}
+            />
+          ) : (
+            <GridSidePanel model={model} />
+          )}
         </NavigationDrawer>
       </div>
+      <p className="showcase-help">
+        Pivot table offers Rows, Columns and Values, with sum, average, minimum,
+        maximum and count. Totals reaggregate source records. This bounded
+        client matrix has no hierarchical pivot drill-down; its limit is 256
+        result columns and 200,000 cells. Switch back to Records to edit data.
+      </p>
       <p className="showcase-help">
         Drag a column header into Row groups, or choose a column and Add. Use
         the sidebar for visibility, conditions and aggregate functions. Record
