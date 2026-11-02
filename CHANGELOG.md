@@ -2,6 +2,16 @@
 
 Created by Mohamed Rafiq.
 
+## 0.7.1 - 2026-11-02
+
+This source patch hardens delayed React toolbar clipboard operations. Created by Mohamed Rafiq. No npm publication.
+
+- Pending reads cannot mutate a disposed/replaced controller, fresh data under the same row IDs, a changed schema/range/view or any intervening model state.
+- Opening a cell editor, row editor or note dialog cancels pending clipboard intent without losing its draft.
+- Only the newest clipboard intent can paste; later native paste supersedes a pending toolbar read. Current failures remain retryable and successful changes still use atomic validation and one undo transaction.
+- Stale copy completion/errors are suppressed after ownership, source or selection changes. Already issued operating-system writes cannot be revoked.
+- Multi-range/rich HTML clipboard and formula-reference rewriting remain outside this patch. See [clipboard behavior](docs/API.md#cell-ranges-clipboard-and-fill).
+
 ## 0.7.0 - 2026-11-02
 
 This source milestone connects a responsive sidebar to actual server block/tree providers. Created by Mohamed Rafiq. No npm publication.

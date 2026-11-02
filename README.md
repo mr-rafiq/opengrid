@@ -133,7 +133,7 @@ Use [editable formula grids](docs/FORMULA_GRID.md) for explicit per-cell express
 
 Arrow keys move between cells. Home/End move across a row; Ctrl/Cmd+Home/End reach the first/last cell on the rendered page. Page Up/Down move by the visible area. Enter/F2 or double-click starts an edit, Escape cancels, and Enter/Tab commits. Space toggles a row. Shift-click a header for multiple sort keys. Focus a column separator and use Left/Right to resize. The column chooser provides keyboard-operable move/pin/hide controls.
 
-Shift-click or Shift+navigation extends a cell rectangle. Ctrl/Cmd+A selects visible data cells, C copies and V pastes. Ctrl/Cmd+D fills down and R fills right. Drag the range corner to repeat values; Alt-drag extends a numeric series. Multiline editors commit with Ctrl/Cmd+Enter. Clipboard permission failures are reported in the grid.
+Shift-click or Shift+navigation extends a cell rectangle. Ctrl/Cmd+A selects visible data cells, C copies and V pastes. Ctrl/Cmd+D fills down and R fills right. Drag the range corner to repeat values; Alt-drag extends a numeric series. Multiline editors commit with Ctrl/Cmd+Enter. Clipboard permission failures are reported in the grid. Delayed toolbar reads are cancelled when their grid state, target range or ownership changes; newer paste requests supersede older ones. Repeat Paste after changing the view.
 
 Ctrl/Cmd+F opens Find in the current view. Alt+N opens the focused cell's note. Alt+Enter toggles an available detail region. Optional row editing opens a modal with explicit Save/Cancel; its accepted changes share one undo entry.
 

@@ -1,5 +1,17 @@
 # Verification record
 
+## Delayed clipboard ownership (0.7.1)
+
+The 2026-11-02 local patch ports the isolated clipboard owner guard and adds proven same-ID data-replacement, range-retargeting, pre-render sort, concurrent-read, native-paste and active-editor race regressions. Toolbar operations retain controller/schema ownership, model state, selection/view and latest clipboard intent. Cell, row and note editing cancel pending intent; obsolete completion/errors do not announce into another owner. Current failures remain retryable, while core TSV validation and atomic undo remain unchanged. See the [clipboard contract](API.md#cell-ranges-clipboard-and-fill).
+
+Formatting, six-manifest/internal-version/lockfile consistency and strict TypeScript passed; the final strict check took **168.64 seconds**. All **1,935 unit tests in 119 files passed in 257.24 seconds**, including 19 async clipboard cases. All three library ESM/declaration/CSS builds and the production demo passed. A built-package ESM/declaration/SSR smoke passed with **zero clipboard access, source mutations or history entries during SSR**.
+
+All **168 single-worker Chromium grid scenarios passed in 8.1 minutes**. The four new clipboard scenarios passed again against the actual production `/opengrid/demo/` artifact in **5.5 seconds** using a deterministic delayed-read shim; the existing native system-clipboard tests also passed. Pages generation passed with **62 documentation routes**, and the complete site suite passed **59 scenarios in 2.6 minutes**, including version 0.7.1, exact creator credit, aggregate/pivot values, native grouping and responsive light/dark presets. The serial harness finished successfully at **2026-11-02T18:46:55Z**.
+
+Real browser checks retain draft/explicit commit/undo, rejection/retry, virtualized focus, exact BigInt copy, formula literals and pin-band transactions. Actual screenshot review covered the latest 320px Material-dark provider drawer and desktop Minimal-light provider panel; the production 375px Material-dark showcase drawer/footer shows the current release and creator credit. The original two-file WIP remains unchanged in its original worktree. No screenshot Library upload occurred.
+
+This is local verification, not public deployment, a general latency/memory benchmark, physical-device or manual assistive-technology certification. The clipboard family remains partial: no disjoint ranges, rich HTML or formula-reference rewriting. Any intervening model update conservatively cancels a pending toolbar read; already issued operating-system clipboard writes cannot be revoked. The [remote sidebar limitations](SERVER_SIDEBAR.md) remain unchanged. Existing large-chunk notices remain warnings.
+
 ## Provider sidebar (0.7.0)
 
 The 2026-11-02 local checkpoint adds `ServerSidePanel` with actual server block/tree query controls and application-owned visibility. Shared grouping controls accept a subscribed grouping/sorting adapter without resident rows. Both bindings retain compatible column layout; the breadcrumb chooser can mirror its schema. Provider aggregate slots use row-free formatting with the live built-in operation and no invented descendant count. The [provider sidebar contract](SERVER_SIDEBAR.md) owns the exact partial scope.

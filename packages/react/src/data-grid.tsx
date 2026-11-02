@@ -1472,7 +1472,10 @@ export function DataGrid<T>({
   });
   useLayoutEffect(() => {
     touchTaps.cancel();
-    if (editing || rowEditing || noteEditing) ranges.cancelGesture();
+    if (editing || rowEditing || noteEditing) {
+      ranges.cancelGesture();
+      ranges.cancelClipboard();
+    }
   }, [ranges.extendOnTap, editing, rowEditing, noteEditing]);
   const finder = useFind(
     model,

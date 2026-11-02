@@ -97,6 +97,8 @@ export function useCellRanges<T>({
   const message = useRef(onMessage);
   message.current = onMessage;
   const [controller, setController] = useState<CellRangeModel<T> | null>(null);
+  const controllerOwner = useRef<CellRangeModel<T> | null>(null);
+  const clipboardOperation = useRef(0);
   const [extendOnTap, setExtendOnTap] = useState(false);
   const [fillMode, setFillMode] = useState<FillMode>("copy");
   const mode = useRef(fillMode);
@@ -116,8 +118,10 @@ export function useCellRanges<T>({
       getRowIds: () => ids.current,
       getColumnIds: currentColumnIds,
     });
+    controllerOwner.current = next;
     setController(next);
     return () => {
+      if (controllerOwner.current === next) controllerOwner.current = null;
       cancelCurrent.current();
       next.dispose();
     };
@@ -575,6 +579,7 @@ export function useCellRanges<T>({
     )
       return;
     if (interactive(event.target) || !ensureRange()) return;
+    clipboardOperation.current++;
     try {
       const value = controller!.copy();
       event.clipboardData.setData("text/plain", value);
@@ -599,6 +604,7 @@ export function useCellRanges<T>({
     )
       return;
     if (interactive(event.target) || !ensureRange()) return;
+    clipboardOperation.current++;
     event.preventDefault();
     const error = controller!.paste(event.clipboardData.getData("text/plain"));
     message.current(error ?? gridMessage("range.pasted"), Boolean(error));
@@ -637,14 +643,16 @@ export function useCellRanges<T>({
   }
   async function copyToClipboard() {
     if (!ensureRange()) return;
+    const operation = captureClipboardOperation();
     try {
       if (!navigator.clipboard?.writeText) {
         message.current(gridMessage("range.copyUnavailable"), true);
         return;
       }
       await navigator.clipboard.writeText(controller!.copy());
-      message.current(gridMessage("range.copied"));
+      if (operation.fresh()) message.current(gridMessage("range.copied"));
     } catch (error) {
+      if (!operation.fresh()) return;
       message.current(
         error instanceof Error
           ? error.message
@@ -653,19 +661,48 @@ export function useCellRanges<T>({
       );
     }
   }
+  function captureClipboardOperation() {
+    const target = controller!;
+    const token = ++clipboardOperation.current;
+    const revision = model.getColumnRevision();
+    const state = model.getState();
+    const selection = target.getSnapshot();
+    const projection = JSON.stringify([ids.current, currentColumnIds()]);
+    const owned = () =>
+      clipboardOperation.current === token &&
+      controllerOwner.current === target &&
+      revision === model.getColumnRevision();
+    return {
+      target,
+      owned,
+      // Match context-menu cancellation: any intervening model update invalidates
+      // delayed intent, including data replacement with identical row IDs. The
+      // projection and range fences also cover React-only direction/page changes.
+      fresh: () =>
+        owned() &&
+        model.getState() === state &&
+        target.getSnapshot() === selection &&
+        JSON.stringify([ids.current, currentColumnIds()]) === projection,
+    };
+  }
   async function pasteFromClipboard() {
     if (!ensureRange()) return;
+    const operation = captureClipboardOperation();
+    if (!operation.owned()) return;
     try {
       if (!navigator.clipboard?.readText) {
         message.current(gridMessage("range.pasteUnavailable"), true);
         return;
       }
-      const revision = model.getColumnRevision();
       const contents = await navigator.clipboard.readText();
-      if (revision !== model.getColumnRevision()) return;
-      const error = controller!.paste(contents);
-      message.current(error ?? gridMessage("range.pasted"), Boolean(error));
+      if (!operation.fresh()) return;
+      const error = operation.target.paste(contents);
+      // A successful paste changes model state itself. Only check ownership and
+      // newer clipboard intent before reporting its atomic transaction result.
+      if (operation.owned())
+        message.current(error ?? gridMessage("range.pasted"), Boolean(error));
     } catch (error) {
+      if (!operation.fresh()) return;
       message.current(
         error instanceof Error
           ? error.message
@@ -682,6 +719,9 @@ export function useCellRanges<T>({
     setExtendOnTap,
     fillMode,
     setFillMode,
+    cancelClipboard: () => {
+      clipboardOperation.current++;
+    },
     cancelGesture: () => cancelCurrent.current(),
     isGestureActive: () => drag.current !== null,
     select,
