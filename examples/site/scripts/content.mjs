@@ -85,6 +85,7 @@ const labels = {
   "column-sizing": "Column sizing",
   "column-filters": "Typed column conditions",
   "calculated-columns": "Calculated columns",
+  "keyboard-hardening": "Keyboard & scale checks",
 };
 const order = [
   "showcase",
@@ -115,6 +116,7 @@ const order = [
   "localization",
   "rtl",
   "touch",
+  "keyboard-hardening",
   "row-layout",
   "advanced-filters",
   "filter-builder",

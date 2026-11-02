@@ -17,7 +17,7 @@ export default defineConfig({
         command: "node scripts/serve-pages.mjs --port 4174",
         cwd: "../..",
         url: "http://127.0.0.1:4174/opengrid/",
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: false,
         timeout: 30000,
       },
 });

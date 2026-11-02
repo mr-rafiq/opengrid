@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.7.2 - 2026-11-02
+
+This source patch strengthens verification of virtualized keyboard behavior. Created by Mohamed Rafiq. No npm publication.
+
+- Eight production browser scenarios cover both virtual axes, 100,000 source records in one case, theme/preset changes, forced-color focus, reduced motion, native header-menu focus return and filter input retention.
+- Functional DOM budgets and attached screenshots/JSON make the exercised scope inspectable; they do not establish throughput, memory or manual assistive-technology certification.
+- Local browser suites require exclusive ownership of their server port, preventing accidental verification of an older preview from another worktree.
+- See [keyboard and scale checks](docs/KEYBOARD_HARDENING.md) for reproduction and limits. Library behavior and the broad parity classifications are unchanged by this verification patch.
+
 ## 0.7.1 - 2026-11-02
 
 This source patch hardens delayed React toolbar clipboard operations. Created by Mohamed Rafiq. No npm publication.

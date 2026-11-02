@@ -23,6 +23,8 @@ npm run test:e2e
 
 Browser installation may need network access. Record environmental failures accurately; a check that could not run is not a passing check. CI should run from the lockfile and report unit, build and browser results separately.
 
+Local browser checks require their configured server port to be free; stop an existing preview before running them. See [keyboard and scale verification](docs/KEYBOARD_HARDENING.md) for the focused production-artifact suite, DOM budgets and evidence limits.
+
 ## Changes and tests
 
 Keep algorithms/provider stores in `packages/core`, browser interactions/editors/charts in `packages/react`, optional file generation in `packages/export`, and application-specific examples in `examples/demo`. Add regression tests for observable cross-feature behavior: sorting after edits, filtering after transactions, two-axis focus after scrolling, pinned offsets, page-bound ranges and whole-batch undo.

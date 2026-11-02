@@ -1,5 +1,17 @@
 # Verification record
 
+## Virtualized keyboard/scale checks (0.7.2)
+
+The 2026-11-02 verification patch adds eight production browser scenarios covering Minimal/Material, light/dark and 390px/1440px layouts under Chromium forced-color and reduced-motion emulation. Ctrl+End, Home and Ctrl+Home move across both virtual windows, retain a single data-cell tab stop, keep focus within the viewport and return to the actual first Record column. Header-menu Escape restores its trigger; filtering retains intentional search focus. See [keyboard and scale verification](KEYBOARD_HARDENING.md) for commands and scope.
+
+Formatting and six-manifest/internal-dependency/lockfile consistency passed. Strict TypeScript passed initially in **176.67 seconds** and again for the final artifact-writing code in **170.85 seconds**. Production generation passed with **63 documentation routes**, landing, demo and 404; all **67 single-worker site scenarios passed in 2.9 minutes**. The final focused eight scenarios passed again in **17.3 seconds** with persisted PNG/JSON files and report attachments. A negative admission check confirmed an occupied local preview port is rejected before browser execution, leaving that preview unchanged.
+
+The 100,000-record desktop case rendered **18 rows and 198 data cells** at its far end. This is a functional DOM observation, not a latency/memory benchmark. Other cases use 1,000 records. Actual screenshot review covered the final Minimal-light desktop and Material-dark phone focus rings in the emulated system palettes. Assertions check a nontransparent outline of at least two pixels, no reduced-motion transition/animation, final column ARIA identity, viewport bounds and document width.
+
+There are **no library implementation changes** after the fully validated 0.7.1 baseline `ad249019f707a3475f133429297d34ee5d06c043`; its 1,935 unit, 168 grid-browser and four production clipboard scenarios remain the baseline and were not rerun for this verification-only slice. The 0.7.2 checks exercise the changed tests/configuration, release metadata and production site. Local browser configurations now require exclusive ownership of their configured server port; an explicit `SITE_URL` remains an intentional remote target.
+
+Public deployment, repeatable general latency/memory profiling, other browser engines, physical-device and manual assistive-technology evidence remain separate and unverified here. No broad parity category is promoted by these checks. Existing large bundle notices remain warnings.
+
 ## Delayed clipboard ownership (0.7.1)
 
 The 2026-11-02 local patch ports the isolated clipboard owner guard and adds proven same-ID data-replacement, range-retargeting, pre-render sort, concurrent-read, native-paste and active-editor race regressions. Toolbar operations retain controller/schema ownership, model state, selection/view and latest clipboard intent. Cell, row and note editing cancel pending intent; obsolete completion/errors do not announce into another owner. Current failures remain retryable, while core TSV validation and atomic undo remain unchanged. See the [clipboard contract](API.md#cell-ranges-clipboard-and-fill).
@@ -8,7 +20,7 @@ Formatting, six-manifest/internal-version/lockfile consistency and strict TypeSc
 
 All **168 single-worker Chromium grid scenarios passed in 8.1 minutes**. The four new clipboard scenarios passed again against the actual production `/opengrid/demo/` artifact in **5.5 seconds** using a deterministic delayed-read shim; the existing native system-clipboard tests also passed. Pages generation passed with **62 documentation routes**, and the complete site suite passed **59 scenarios in 2.6 minutes**, including version 0.7.1, exact creator credit, aggregate/pivot values, native grouping and responsive light/dark presets. The serial harness finished successfully at **2026-11-02T18:46:55Z**.
 
-Real browser checks retain draft/explicit commit/undo, rejection/retry, virtualized focus, exact BigInt copy, formula literals and pin-band transactions. Actual screenshot review covered the latest 320px Material-dark provider drawer and desktop Minimal-light provider panel; the production 375px Material-dark showcase drawer/footer shows the current release and creator credit. The original two-file WIP remains unchanged in its original worktree. No screenshot Library upload occurred.
+Real browser checks retain draft/explicit commit/undo, rejection/retry, virtualized focus, exact BigInt copy, formula literals and pin-band transactions. Actual screenshot review covered the latest 320px Material-dark provider drawer and desktop Minimal-light provider panel; the production 375px Material-dark showcase drawer/footer shows the current release and creator credit.
 
 This is local verification, not public deployment, a general latency/memory benchmark, physical-device or manual assistive-technology certification. The clipboard family remains partial: no disjoint ranges, rich HTML or formula-reference rewriting. Any intervening model update conservatively cancels a pending toolbar read; already issued operating-system clipboard writes cannot be revoked. The [remote sidebar limitations](SERVER_SIDEBAR.md) remain unchanged. Existing large-chunk notices remain warnings.
 

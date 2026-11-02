@@ -10,7 +10,7 @@ export default defineConfig({
   webServer: {
     command: "npm run dev -w opengrid-demo -- --port 5173 --strictPort",
     url: "http://127.0.0.1:5173",
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 30000,
   },
 });
