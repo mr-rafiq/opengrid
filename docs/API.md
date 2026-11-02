@@ -431,3 +431,7 @@ Client `model.setColumns(readonlyDefinitions)` atomically replaces the schema wh
 See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `Column.groupable`, aggregate ordering and projected total nodes. `GridState.groupTotalRow` / `grandTotalRow` accept false, top or bottom; they default to disabled.
 
 `ServerTreeDataGrid` adds read-only simultaneous remote branches. `projectServerTree` provides the core projection, `ServerSideSnapshot.queryRevision` tracks query ownership, and `setActiveBlocks` / `releaseActiveBlocks` reserve bounded visible cache addresses. See [remote branch contracts](GROUPING.md#simultaneous-remote-branches).
+
+### Aggregate display
+
+`Column.aggregateFormatter(value, context)` and `formatAggregateValue(column, value, node)` provide source-row-free formatting for group/subtotal/grand-total cells and print snapshots. Callbacks return strings and receive immutable metadata, including the current aggregate operation. Defaults preserve raw display; see [grouping and aggregate formatting](GROUPING.md#formatting-aggregate-values).

@@ -371,8 +371,9 @@ export function ParticipantShowcase() {
       <p className="showcase-help">
         This client-side example uses row and column virtualization. The
         100,000-row option runs in your browser; responsiveness depends on your
-        device. Group totals currently display raw aggregate values. Explore all
-        features in the <a href="../demo/">component playground</a>.
+        device. Group amounts use currency formatting; counts stay whole
+        numbers. Explore all features in the{" "}
+        <a href="../demo/">component playground</a>.
       </p>
       <p className="og-visually-hidden" role="status" aria-live="polite">
         {message}

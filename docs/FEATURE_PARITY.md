@@ -109,3 +109,7 @@ The bounded server request scheduler and cached-refresh React retry are supporte
 ### Participant showcase and sidebar
 
 The [participant showcase](SHOWCASE.md) adds original synthetic data, a model-bound `GridSidePanel` (visibility, typed filters, grouping and built-in/custom aggregate choices), and a distinct optional Material preset. This is a working resident-client slice of tool panels; enterprise-wide tool-panel customization and pivot UI parity remain partial. It is not a claim of complete AG Grid parity.
+
+### Aggregate display formatting
+
+An explicit optional aggregate formatter now covers resident grouped cells, subtotal/grand-total cells and print snapshots, with immutable context and preserved raw values. Source-row callbacks are not invoked with fabricated rows. Participant and portfolio demos configure currency, numeric and count display. This closes that display gap within the Partial grouping family; pivot configuration, advanced aggregation display modes and remote tool-panel parity remain separate work.

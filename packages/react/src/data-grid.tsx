@@ -47,6 +47,7 @@ import {
   isFormulaError,
   resolveColumnWidths,
   getColumnWidthConstraints,
+  formatAggregateValue,
 } from "@opengrid/core";
 import { createColumnSizingController } from "./column-sizing.js";
 import type {
@@ -3128,7 +3129,11 @@ export function DataGrid<T>({
                   const display =
                     node.data && column.valueFormatter
                       ? column.valueFormatter(value, node.data)
-                      : text(value);
+                      : node.kind !== "row" &&
+                          node.aggregates &&
+                          Object.hasOwn(node.aggregates, column.id)
+                        ? formatAggregateValue(column, value, node)
+                        : text(value);
                   return (
                     <div
                       key={column.id}

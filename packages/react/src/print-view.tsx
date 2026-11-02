@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { GridModel, RowNode } from "@opengrid/core";
+import { formatAggregateValue } from "@opengrid/core";
 import { gridMessage, useGridLocale } from "./locale.js";
 import type { GridMessage } from "./locale.js";
 
@@ -137,6 +138,7 @@ export function buildGridPrintSnapshot<T>(
       gridMessage("print.cellLimit", { count: cellCount, limit: maxCells }),
     );
   const rows = nodes.map((node) => {
+    let totalValue: string | undefined;
     const cells = definitions.map((column, index) => {
       if (node.kind === "group" && index === 0)
         return `${node.label ?? node.id}${node.leafCount === undefined ? "" : ` (${node.leafCount})`}`;
@@ -146,11 +148,19 @@ export function buildGridPrintSnapshot<T>(
             ? node.aggregates[column.id]
             : undefined
           : model.getValue(node.data, column.id);
-      if (node.kind === "total" && index === 0)
-        return `${node.total === "grand" ? "Grand total" : `Total ${node.label ?? ""}`}${value === undefined ? "" : `: ${printable(value)}`}`;
-      return node.data !== undefined && column.valueFormatter
-        ? printable(column.valueFormatter(value, node.data))
-        : printable(value);
+      const display =
+        node.data !== undefined && column.valueFormatter
+          ? printable(column.valueFormatter(value, node.data))
+          : node.kind !== "row" &&
+              node.aggregates &&
+              Object.hasOwn(node.aggregates, column.id)
+            ? formatAggregateValue(column, value, node)
+            : printable(value);
+      if (node.kind === "total" && index === 0) {
+        if (value !== undefined) totalValue = display;
+        return `${node.total === "grand" ? "Grand total" : `Total ${node.label ?? ""}`}${totalValue === undefined ? "" : `: ${totalValue}`}`;
+      }
+      return display;
     });
     return Object.freeze({
       key: node.id,
@@ -161,12 +171,7 @@ export function buildGridPrintSnapshot<T>(
         ? {
             total: node.total,
             groupLabel: node.label,
-            totalValue:
-              node.aggregates &&
-              definitions[0] &&
-              Object.hasOwn(node.aggregates, definitions[0].id)
-                ? printable(node.aggregates[definitions[0].id])
-                : undefined,
+            totalValue,
           }
         : {}),
       ...(node.kind === "group"

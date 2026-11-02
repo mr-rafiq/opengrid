@@ -3,6 +3,16 @@ export type RowId = string;
 export type Pin = "left" | "right" | null;
 export type Aggregate =
   "sum" | "avg" | "min" | "max" | "count" | ((values: unknown[]) => unknown);
+/** Aggregate display context deliberately has no fabricated source row. */
+export interface AggregateFormatContext {
+  readonly columnId: string;
+  readonly rowId: RowId;
+  readonly kind: "group" | "total";
+  readonly aggregate: Aggregate | undefined;
+  readonly total?: "group" | "grand";
+  readonly groupLabel?: string;
+  readonly leafCount?: number;
+}
 export interface Column<T> {
   id: string;
   field?: keyof T & string;
@@ -25,6 +35,11 @@ export interface Column<T> {
   wrapText?: boolean;
   autoHeight?: boolean;
   valueFormatter?: (value: unknown, row: T) => string;
+  /** Display group/subtotal/grand-total values without changing aggregate math. */
+  aggregateFormatter?: (
+    value: unknown,
+    context: AggregateFormatContext,
+  ) => string;
   valueParser?: (value: unknown, row: T) => unknown;
   validate?: (value: unknown, row: T) => string | undefined;
   compare?: (a: unknown, b: unknown) => number;

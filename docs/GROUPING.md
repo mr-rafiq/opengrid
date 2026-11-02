@@ -68,3 +68,40 @@ A failed branch renders its own Retry control while successful siblings and reta
 This view is read-only: remote selection, notes, editing/writes, range/fill, automatic pivot schema, merged layouts and server-generated subtotal/grand-total responses remain open. Pagination is explicit per branch rather than automatic infinite subtree scrolling. Blocks are limited to 10,000 rows, expansion to 32 levels, projection to 128 blocks and 100,000 entries; configured cache capacity is usually the lower limit. Group keys must be unique within a route, including across blocks. Child counts describe immediate route children, not total descendant leaves. These bounds and automated Chromium evidence are not a throughput or physical-device certification.
 
 The **Server grouping lab** demonstrates two expanded teams, route paging, retained-cache failure/retry, provider sorting/filtering and RTL.
+
+## Formatting aggregate values
+
+Source `valueFormatter(value, row)` callbacks require an actual source row. Group and total rows have no representative source row; configure `aggregateFormatter(value, context)` explicitly instead. Keep this display-only callback pure. It receives frozen metadata: `columnId`, `rowId`, `kind`, the live `aggregate` operation, and optional `total`, `groupLabel` and `leafCount`. It must return a string. It never changes raw aggregate values, sorting or shared edit history.
+
+```tsx
+import type { Column } from "@opengrid/core";
+type Invoice = { amount: number };
+
+const usd = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+});
+const count = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const currency = (value: unknown) =>
+  typeof value === "number" || typeof value === "bigint"
+    ? usd.format(value)
+    : "";
+
+const amount: Column<Invoice> = {
+  id: "amount",
+  field: "amount",
+  type: "number",
+  aggregate: "sum",
+  valueFormatter: currency,
+  aggregateFormatter: (value, context) =>
+    context.aggregate === "count"
+      ? count.format(value as number | bigint)
+      : currency(value),
+};
+```
+
+Reuse a pure formatter for source and aggregate display when appropriate. Choose the currency explicitly; no source-row currency is inferred. Handle count separately from currency or percentages. Pass BigInts directly to `Intl.NumberFormat` to retain their digits. Null/undefined aggregates can render as blank; sum/count may legitimately be zero.
+
+`formatAggregateValue(column, value, node)` exposes the same behavior for custom renderers. It accepts group/total nodes, preserves raw string display when no formatter is supplied, and rejects non-string formatter results. `buildGridPrintSnapshot` uses this formatter for group and total cells, including its first-column `totalValue`; captured strings remain detached from later data/definition changes. Source-row CSV/XLSX exports keep their existing scope and formatting behavior.
+
+The leading group cell remains the group label; place aggregate values in another column to display them alongside it. Subtotal/grand-total cells can include a formatted value in the leading column.

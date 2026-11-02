@@ -100,6 +100,13 @@ const moneyFormat = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 const money = (v: unknown) => moneyFormat.format(Number(v));
+const integerFormat = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 0,
+});
+const integer = (value: unknown) =>
+  value == null
+    ? ""
+    : integerFormat.format(typeof value === "bigint" ? value : Number(value));
 const columns: Column<Holding>[] = [
   {
     id: "company",
@@ -126,6 +133,12 @@ const columns: Column<Holding>[] = [
     width: 125,
     editable: true,
     valueFormatter: money,
+    aggregateFormatter: (value, context) =>
+      context.aggregate === "count"
+        ? integer(value)
+        : value == null
+          ? ""
+          : money(value),
     validate: (v) => (Number(v) > 0 ? undefined : "Price must be positive"),
     aggregate: "avg",
   },
@@ -141,6 +154,7 @@ const columns: Column<Holding>[] = [
         ? undefined
         : "Use a whole positive number",
     aggregate: "sum",
+    aggregateFormatter: integer,
   },
   {
     id: "value",
@@ -149,6 +163,12 @@ const columns: Column<Holding>[] = [
     type: "number",
     valueGetter: (row) => row.price * row.shares,
     valueFormatter: money,
+    aggregateFormatter: (value, context) =>
+      context.aggregate === "count"
+        ? integer(value)
+        : value == null
+          ? ""
+          : money(value),
     aggregate: "sum",
   },
   {

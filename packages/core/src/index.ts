@@ -6,6 +6,7 @@ import {
   HierarchySelectionError,
 } from "./hierarchy-selection.js";
 export * from "./analytics.js";
+export * from "./aggregate-formatting.js";
 export * from "./datasource.js";
 export * from "./infinite-row-model.js";
 export * from "./formulas.js";
@@ -88,6 +89,11 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
     const widthConstraints = getColumnWidthConstraints(column);
     if (column.groupable !== undefined && typeof column.groupable !== "boolean")
       throw new TypeError("Column groupable must be a boolean");
+    if (
+      column.aggregateFormatter !== undefined &&
+      typeof column.aggregateFormatter !== "function"
+    )
+      throw new TypeError("Column aggregateFormatter must be a function");
     if (
       column.flex !== undefined &&
       (typeof column.flex !== "number" ||

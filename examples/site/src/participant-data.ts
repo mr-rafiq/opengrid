@@ -120,6 +120,22 @@ const money = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 });
+const numeric = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const integer = new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 });
+const formatNumber = (value: unknown) =>
+  value == null
+    ? ""
+    : numeric.format(typeof value === "bigint" ? value : Number(value));
+const formatInteger = (value: unknown) =>
+  value == null
+    ? ""
+    : integer.format(typeof value === "bigint" ? value : Number(value));
+const formatMoney = (value: unknown) =>
+  value == null
+    ? ""
+    : money.format(typeof value === "bigint" ? value : Number(value));
+const formatPercent = (value: unknown) =>
+  value == null ? "" : `${Number(value).toFixed(1)}%`;
 export function participantColumns(): Column<Participant>[] {
   const metric = (
     id: keyof Participant & string,
@@ -133,6 +149,11 @@ export function participantColumns(): Column<Participant>[] {
     type: "number",
     groupPath: ["Statistics"],
     aggregate,
+    valueFormatter: formatNumber,
+    aggregateFormatter: (value, context) =>
+      context.aggregate === "count"
+        ? formatInteger(value)
+        : formatNumber(value),
     groupable: false,
   });
   return [
@@ -145,6 +166,8 @@ export function participantColumns(): Column<Participant>[] {
       type: "number",
       groupable: false,
       filterable: false,
+      valueFormatter: formatInteger,
+      aggregateFormatter: formatInteger,
     },
     {
       id: "name",
@@ -193,7 +216,11 @@ export function participantColumns(): Column<Participant>[] {
       aggregate: "sum",
       groupable: false,
       groupPath: ["Performance"],
-      valueFormatter: (value) => money.format(Number(value)),
+      valueFormatter: formatMoney,
+      aggregateFormatter: (value, context) =>
+        context.aggregate === "count"
+          ? formatInteger(value)
+          : formatMoney(value),
     },
     {
       id: "rating",
@@ -204,6 +231,10 @@ export function participantColumns(): Column<Participant>[] {
       aggregate: "avg",
       groupPath: ["Performance"],
       groupable: false,
+      aggregateFormatter: (value, context) =>
+        context.aggregate === "count"
+          ? formatInteger(value)
+          : formatNumber(value),
     },
     metric("wins", "Wins"),
     metric("losses", "Losses"),
@@ -211,7 +242,11 @@ export function participantColumns(): Column<Participant>[] {
     metric("matches", "Matches"),
     {
       ...metric("winRate", "Win rate", "avg"),
-      valueFormatter: (value) => `${Number(value).toFixed(1)}%`,
+      valueFormatter: formatPercent,
+      aggregateFormatter: (value, context) =>
+        context.aggregate === "count"
+          ? formatInteger(value)
+          : formatPercent(value),
     },
     metric("score", "Score"),
     metric("kills", "Kills"),

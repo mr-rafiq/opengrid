@@ -2,6 +2,16 @@
 
 Created by Mohamed Rafiq.
 
+## 0.5.0 - 2026-11-02
+
+Adds explicit aggregate display formatting for grouped grids and print snapshots. Created by Mohamed Rafiq. No npm publication.
+
+- Optional `Column.aggregateFormatter(value, context)` formats group, subtotal and grand-total cells with immutable metadata and no fabricated source row.
+- Shared `formatAggregateValue` preserves legacy raw display when absent; aggregation, sorting, editing and raw BigInt precision remain unchanged.
+- Print snapshots capture the same display, including first-column totals, once per cell and retain frozen strings after source edits.
+- Participant and portfolio examples use consistent currency/number formatting; counts use whole numbers rather than currency or percent symbols.
+- Runtime definition updates retain the formatter, reject malformed callbacks atomically and use the current aggregation operation.
+
 ## 0.4.3 - 2026-11-02
 
 This patch unifies column controls in the grid and sidebar. Created by Mohamed Rafiq. No npm publication.
