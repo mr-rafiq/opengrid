@@ -1,7 +1,11 @@
 import { useId, useRef, useState, useSyncExternalStore } from "react";
 import type { Aggregate, Column, GridModel } from "@opengrid/core";
 import { GridIcon } from "./icons.js";
-import { RowGroupPanel } from "./group-panel.js";
+import {
+  RowGroupPanel,
+  COLUMN_DRAG_OWNER,
+  columnDragOwner,
+} from "./group-panel.js";
 import { ColumnConditionFilter } from "./column-condition-filter.js";
 
 export interface GridSidePanelLabels {
@@ -14,6 +18,10 @@ export interface GridSidePanelLabels {
   noValues: string;
   noAggregate: string;
   customAggregate: string;
+  groupColumn: string;
+  dragHint: string;
+  collapseGroup: string;
+  expandGroup: string;
 }
 const defaults: GridSidePanelLabels = {
   columns: "Columns",
@@ -25,6 +33,10 @@ const defaults: GridSidePanelLabels = {
   noValues: "Numeric columns can be aggregated here.",
   noAggregate: "None",
   customAggregate: "Custom",
+  groupColumn: "Group by {column}",
+  dragHint: "Drag into Row groups, or activate to toggle grouping.",
+  collapseGroup: "Collapse {group} columns",
+  expandGroup: "Expand {group} columns",
 };
 export interface GridSidePanelProps<T> {
   model: GridModel<T>;
@@ -56,6 +68,9 @@ export function GridSidePanel<T>({
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const [tab, setTab] = useState(0);
   const [query, setQuery] = useState("");
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const columns = model.getColumns();
   const visible = (column: Column<T>) => !column.hidden;
   const matches = columns.filter((column) =>
@@ -141,6 +156,10 @@ export function GridSidePanel<T>({
         aria-labelledby={`${id}-tab-${tab}`}
         tabIndex={0}
       >
+        <div className="og-side-heading">
+          <GridIcon name={tab === 0 ? "columns" : "filter"} size={16} />
+          <strong>{tab === 0 ? text.columns : text.filters}</strong>
+        </div>
         <label className="og-side-search">
           <GridIcon name="search" size={16} />
           <input
@@ -148,7 +167,10 @@ export function GridSidePanel<T>({
             aria-label={text.search}
             placeholder={text.search}
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setCollapsed(new Set());
+            }}
           />
         </label>
         {matches.length === 0 && (
@@ -157,48 +179,128 @@ export function GridSidePanel<T>({
         {tab === 0 ? (
           <>
             <div className="og-side-tree">
-              {[...groups].map(([group, items]) => (
-                <details open key={group}>
-                  <summary>{group}</summary>
-                  <label className="og-side-group-check">
-                    <input
-                      type="checkbox"
-                      aria-label={`${text.columns}: ${group}`}
-                      checked={items.every(visible)}
-                      ref={(node) => {
-                        if (node)
-                          node.indeterminate =
-                            items.some(visible) && !items.every(visible);
-                      }}
-                      onChange={(event) => {
-                        model.setState({
-                          columnVisibility: {
-                            ...state.columnVisibility,
-                            ...Object.fromEntries(
-                              items.map((column) => [
-                                column.id,
-                                event.target.checked,
-                              ]),
-                            ),
-                          },
-                        });
-                      }}
-                    />
-                    {group}
-                  </label>
-                  {items.map((column) => (
-                    <label key={column.id} className="og-side-column">
+              {[...groups].map(([group, items], index) => (
+                <div className="og-side-category" key={group}>
+                  <div className="og-side-category-heading">
+                    <button
+                      type="button"
+                      aria-label={(collapsed.has(group)
+                        ? text.expandGroup
+                        : text.collapseGroup
+                      ).replace("{group}", group)}
+                      aria-expanded={!collapsed.has(group)}
+                      aria-controls={`${id}-category-${index}`}
+                      onClick={() =>
+                        setCollapsed((current) => {
+                          const next = new Set(current);
+                          if (next.has(group)) next.delete(group);
+                          else next.add(group);
+                          return next;
+                        })
+                      }
+                    >
+                      <GridIcon
+                        name={
+                          collapsed.has(group) ? "chevronRight" : "chevronDown"
+                        }
+                        size={15}
+                      />
+                    </button>
+                    <label className="og-side-group-check">
                       <input
                         type="checkbox"
-                        checked={visible(column)}
-                        onChange={(event) =>
-                          model.hideColumn(column.id, !event.target.checked)
-                        }
+                        aria-label={`${text.columns}: ${group}`}
+                        checked={items.every(visible)}
+                        ref={(node) => {
+                          if (node)
+                            node.indeterminate =
+                              items.some(visible) && !items.every(visible);
+                        }}
+                        onChange={(event) => {
+                          model.setState({
+                            columnVisibility: {
+                              ...state.columnVisibility,
+                              ...Object.fromEntries(
+                                items.map((column) => [
+                                  column.id,
+                                  event.target.checked,
+                                ]),
+                              ),
+                            },
+                          });
+                        }}
                       />
-                      {column.header ?? column.id}
+                      {group}
                     </label>
-                  ))}
-                </details>
+                  </div>
+                  <div
+                    id={`${id}-category-${index}`}
+                    hidden={collapsed.has(group)}
+                  >
+                    {items.map((column) => (
+                      <div className="og-side-column-row" key={column.id}>
+                        {column.groupable !== false ? (
+                          <button
+                            type="button"
+                            className="og-side-column-drag"
+                            data-group-drag-column={column.id}
+                            draggable
+                            aria-label={text.groupColumn.replace(
+                              "{column}",
+                              column.header ?? column.id,
+                            )}
+                            aria-pressed={state.groupBy.includes(column.id)}
+                            title={text.dragHint}
+                            onDragStart={(event) => {
+                              event.stopPropagation();
+                              event.dataTransfer.effectAllowed = "move";
+                              event.dataTransfer.setData(
+                                "text/opengrid-column",
+                                column.id,
+                              );
+                              event.dataTransfer.setData(
+                                COLUMN_DRAG_OWNER,
+                                columnDragOwner(model),
+                              );
+                              event.dataTransfer.setData(
+                                "text/plain",
+                                column.header ?? column.id,
+                              );
+                            }}
+                            onClick={() =>
+                              model.setState({
+                                groupBy: state.groupBy.includes(column.id)
+                                  ? state.groupBy.filter(
+                                      (key) => key !== column.id,
+                                    )
+                                  : [...state.groupBy, column.id],
+                                expanded: [],
+                                page: 0,
+                              })
+                            }
+                          >
+                            <GridIcon name="grip" size={16} />
+                          </button>
+                        ) : (
+                          <span
+                            className="og-side-drag-spacer"
+                            aria-hidden="true"
+                          />
+                        )}
+                        <label key={column.id} className="og-side-column">
+                          <input
+                            type="checkbox"
+                            checked={visible(column)}
+                            onChange={(event) =>
+                              model.hideColumn(column.id, !event.target.checked)
+                            }
+                          />
+                          {column.header ?? column.id}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ))}
             </div>
             <RowGroupPanel

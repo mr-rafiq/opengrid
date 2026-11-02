@@ -153,7 +153,6 @@ export function participantColumns(): Column<Participant>[] {
       width: 200,
       groupPath: ["Participant"],
       editable: true,
-      groupable: false,
     },
     {
       id: "language",

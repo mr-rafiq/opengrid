@@ -121,88 +121,107 @@ export function RowGroupPanel<T>({
       <span className="og-group-panel-label" id={id}>
         {t("grouping.panel")}
       </span>
-      {grouped.length ? (
-        <ol className="og-group-chips" aria-labelledby={id}>
-          {grouped.map((column, index) => {
-            const name = column.header ?? column.id;
-            const sort = state.sorting.find(
-              (item) => item.columnId === column.id,
-            );
-            return (
-              <li
-                key={column.id}
-                className="og-group-chip"
-                draggable
-                onDragStart={(event) => {
-                  event.dataTransfer.setData("text/opengrid-column", column.id);
-                  event.dataTransfer.setData(
-                    COLUMN_DRAG_OWNER,
-                    columnDragOwner(model),
-                  );
-                }}
-                onDrop={(event) => drop(event, index)}
-              >
-                <GridIcon name="grip" size={14} />
-                <button
-                  type="button"
-                  data-group-focus={column.id}
-                  aria-label={t("grouping.sort", { column: name })}
-                  disabled={column.sortable === false}
-                  aria-pressed={Boolean(sort)}
-                  onClick={(event) =>
-                    model.setSort(
+      <div className="og-group-drop-target">
+        <GridIcon name="grip" className="og-group-drop-icon" size={18} />
+        {grouped.length ? (
+          <ol className="og-group-chips" aria-labelledby={id}>
+            {grouped.map((column, index) => {
+              const name = column.header ?? column.id;
+              const sort = state.sorting.find(
+                (item) => item.columnId === column.id,
+              );
+              return (
+                <li
+                  key={column.id}
+                  className="og-group-chip"
+                  draggable
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(
+                      "text/opengrid-column",
                       column.id,
-                      !sort ? "asc" : sort.direction === "asc" ? "desc" : null,
-                      event.shiftKey,
-                    )
-                  }
+                    );
+                    event.dataTransfer.setData(
+                      COLUMN_DRAG_OWNER,
+                      columnDragOwner(model),
+                    );
+                  }}
+                  onDrop={(event) => drop(event, index)}
                 >
-                  {name}
-                  {sort && (
-                    <GridIcon
-                      name={sort.direction === "asc" ? "arrowUp" : "arrowDown"}
-                      size={14}
-                    />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  disabled={index === 0}
-                  aria-label={t("grouping.earlier", { column: name })}
-                  onClick={() => move(column.id, index - 1)}
-                >
-                  <GridIcon name="chevronLeft" size={14} />
-                </button>
-                <button
-                  type="button"
-                  disabled={index === grouped.length - 1}
-                  aria-label={t("grouping.later", { column: name })}
-                  onClick={() => move(column.id, index + 1)}
-                >
-                  <GridIcon name="chevronRight" size={14} />
-                </button>
-                <button
-                  type="button"
-                  aria-label={t("grouping.remove", { column: name })}
-                  onClick={() =>
-                    update(
-                      state.groupBy.filter((key) => key !== column.id),
-                      grouped[Math.min(index + 1, grouped.length - 1)]?.id ===
-                        column.id
-                        ? (grouped[index - 1]?.id ?? "add")
-                        : (grouped[index + 1]?.id ?? "add"),
-                    )
-                  }
-                >
-                  <GridIcon name="close" size={14} />
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      ) : (
-        <span className="og-group-empty">{t("grouping.drop")}</span>
-      )}
+                  <GridIcon name="grip" size={14} />
+                  <button
+                    type="button"
+                    data-group-focus={column.id}
+                    aria-label={t("grouping.sort", { column: name })}
+                    disabled={column.sortable === false}
+                    aria-pressed={Boolean(sort)}
+                    onClick={(event) =>
+                      model.setSort(
+                        column.id,
+                        !sort
+                          ? "asc"
+                          : sort.direction === "asc"
+                            ? "desc"
+                            : null,
+                        event.shiftKey,
+                      )
+                    }
+                  >
+                    {name}
+                    {sort && (
+                      <GridIcon
+                        name={
+                          sort.direction === "asc" ? "arrowUp" : "arrowDown"
+                        }
+                        size={14}
+                      />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === 0}
+                    aria-label={t("grouping.earlier", { column: name })}
+                    onClick={() => move(column.id, index - 1)}
+                  >
+                    <GridIcon name="chevronLeft" size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={index === grouped.length - 1}
+                    aria-label={t("grouping.later", { column: name })}
+                    onClick={() => move(column.id, index + 1)}
+                  >
+                    <GridIcon name="chevronRight" size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={t("grouping.remove", { column: name })}
+                    onClick={() =>
+                      update(
+                        state.groupBy.filter((key) => key !== column.id),
+                        grouped[Math.min(index + 1, grouped.length - 1)]?.id ===
+                          column.id
+                          ? (grouped[index - 1]?.id ?? "add")
+                          : (grouped[index + 1]?.id ?? "add"),
+                      )
+                    }
+                  >
+                    <GridIcon name="close" size={14} />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <span className="og-group-empty og-group-append-target">
+            {t("grouping.drop")}
+          </span>
+        )}
+        {grouped.length > 0 && (
+          <span className="og-group-empty og-group-append-target og-group-append-hint">
+            {t("grouping.drop")}
+          </span>
+        )}
+      </div>
       <div className="og-group-add-controls">
         <select
           aria-label={t("grouping.choose")}

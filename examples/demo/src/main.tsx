@@ -461,6 +461,13 @@ function App() {
             <span>Examples</span>
           </a>
           <a
+            href="https://mr-rafiq.github.io/opengrid/showcase/"
+            title="Participant showcase"
+          >
+            <GridIcon name="columns" />
+            <span>Participant showcase</span>
+          </a>
+          <a
             href="https://mr-rafiq.github.io/opengrid/docs/getting-started/"
             title="Documentation"
           >
@@ -488,6 +495,10 @@ function App() {
             <GridIcon name="code" />
             Examples
           </a>
+          <a href="https://mr-rafiq.github.io/opengrid/showcase/">
+            <GridIcon name="columns" />
+            Participant showcase
+          </a>
           <a href="https://mr-rafiq.github.io/opengrid/docs/getting-started/">
             <GridIcon name="book" />
             Documentation
@@ -507,6 +518,9 @@ function App() {
             </span>
           </a>
           <div className="nav-actions">
+            <a href="https://mr-rafiq.github.io/opengrid/showcase/">
+              Participant showcase <GridIcon name="external" size={14} />
+            </a>
             <a href="https://mr-rafiq.github.io/opengrid/docs/feature-parity/">
               Feature roadmap <GridIcon name="external" size={14} />
             </a>

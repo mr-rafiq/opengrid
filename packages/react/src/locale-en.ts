@@ -601,7 +601,7 @@ export const enMessages = Object.freeze({
   "formula.modeHelp":
     "Literal stores a value. Formula evaluates an expression. Alt+M focuses the mode selector; Enter in that selector returns to the input. Tab from the input commits the cell. Changing mode preserves the draft text.",
   "grouping.panel": "Row groups",
-  "grouping.drop": "Drag columns here to group",
+  "grouping.drop": "Drag here to set row groups",
   "grouping.choose": "Column to group",
   "grouping.allAdded": "All columns added",
   "grouping.add": "Add group",

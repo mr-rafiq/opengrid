@@ -15,6 +15,45 @@ import {
   participantColumns,
 } from "../../../examples/site/src/participant-data";
 afterEach(cleanup);
+it("offers grouping grips as keyboard/touch toggles without changing visibility", () => {
+  const { model } = setup();
+  const grip = screen.getByRole("button", { name: "Group by Name" });
+  expect(grip.draggable).toBe(true);
+  fireEvent.click(grip);
+  expect(model.getState().groupBy).toEqual(["name"]);
+  expect(
+    (screen.getByRole("checkbox", { name: "Name" }) as HTMLInputElement)
+      .checked,
+  ).toBe(true);
+  expect(grip.getAttribute("aria-pressed")).toBe("true");
+  fireEvent.click(grip);
+  expect(model.getState().groupBy).toEqual([]);
+});
+it("keeps category visibility controls usable while collapsed and expands matching search results", () => {
+  setup();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Collapse Participant columns" }),
+  );
+  expect(screen.queryByRole("checkbox", { name: "Name" })).toBeNull();
+  expect(
+    screen.getByRole("checkbox", { name: "Columns: Participant" }),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("searchbox"), {
+    target: { value: "Name" },
+  });
+  expect(screen.getByRole("checkbox", { name: "Name" })).toBeTruthy();
+});
+it("does not advertise grouping grips for explicitly non-groupable columns", () => {
+  const { model } = setup();
+  act(() =>
+    model.setColumns(
+      model
+        .getColumnDefinitions()
+        .map((column) => ({ ...column, groupable: false })),
+    ),
+  );
+  expect(screen.queryByRole("button", { name: "Group by Name" })).toBeNull();
+});
 function setup() {
   const custom = (values: unknown[]) => values.length * 2;
   const model = createGrid({

@@ -2,6 +2,16 @@
 
 Created by Mohamed Rafiq.
 
+## 0.4.1 - 2026-11-02
+
+This source correction completes the sidebar-to-grouping drag path in the participant showcase. Created by Mohamed Rafiq. No npm publication.
+
+- Visible sidebar column grips support native pointer dragging to both grouping areas, plus keyboard/touch toggling without changing column visibility.
+- Clearly outlined group drop areas retain an explicit append target after groups exist; chips can still be dragged to reorder and removed through native controls.
+- Compact category disclosure and bulk visibility use separate accessible controls. Column and Values lists scroll independently while the sidebar Row Groups area stays visible.
+- Name joins the eligible grouping fields. The showcase widens its Record column on entering grouping so labels are readable, restores its prior width afterward, and retains intentional resizing.
+- The older `/demo/` playground links directly to the participant showcase with its resident sidebar. Minimal remains the default; Material and both color modes are retained.
+
 ## 0.4.0 - 2026-10-31
 
 This source release adds the interactive participant showcase, a model-bound React sidebar and an optional original Material-inspired preset. Created by Mohamed Rafiq. Packages remain source/local-tarball previews, without npm publication.

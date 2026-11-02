@@ -120,6 +120,26 @@ export function ParticipantShowcase() {
   const [tools, setTools] = useState(false);
   const [message, setMessage] = useState("");
   const pending = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const recordGroupWidth = useRef<number | null>(null);
+  const grouped = state.groupBy.length > 0;
+  useEffect(() => {
+    const record = model.getColumns().find((column) => column.id === "record");
+    if (!record) return;
+    if (
+      grouped &&
+      recordGroupWidth.current === null &&
+      !record.hidden &&
+      (record.width ?? 95) < 220
+    ) {
+      recordGroupWidth.current = record.width ?? 95;
+      model.resizeColumn("record", 220);
+    } else if (!grouped && recordGroupWidth.current !== null) {
+      const previous = recordGroupWidth.current;
+      recordGroupWidth.current = null;
+      // Keep an intentional resize made while the grouped view was open.
+      if (record.width === 220) model.resizeColumn("record", previous);
+    }
+  }, [grouped, model]);
   useEffect(() => {
     try {
       if (localStorage.getItem("opengrid-showcase-preset") === "material")
@@ -191,8 +211,8 @@ export function ParticipantShowcase() {
           <span className="section-kicker">INTERACTIVE SHOWCASE</span>
           <h1>Room to explore.</h1>
           <p>
-            Fictional participants. Real sorting, filtering, editing and
-            grouping.
+            Drag a header or sidebar grip into Row groups. Combine columns to
+            explore nested groups.
           </p>
         </div>
         <a href="../docs/showcase/">
