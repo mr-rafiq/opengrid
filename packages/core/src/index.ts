@@ -69,6 +69,7 @@ import type {
   Edit,
   Filter,
   GridModel,
+  GridEditRequest,
   GridOptions,
   GridState,
   RowNode,
@@ -198,6 +199,15 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   if (typeof readOnly !== "boolean")
     throw new TypeError("readOnly must be a boolean");
   const extension = takeGridExtension(options);
+  const onEditRequest = options.onEditRequest;
+  if (onEditRequest !== undefined && typeof onEditRequest !== "function")
+    throw new TypeError("onEditRequest must be a function");
+  if (onEditRequest && extension)
+    throw new TypeError(
+      "External edit requests cannot be combined with grid extensions",
+    );
+  let editRequestId = 0,
+    dispatchingEditRequest = false;
   let columns = prepareColumns(options.columns);
   let columnWidthDefaults = widthDefaults(columns);
   let columnRevision = 0;
@@ -811,6 +821,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
     if (readOnly) return "Grid is read only";
+    if (onEditRequest) return requestEdits(edits);
     const revision = columnRevision;
     const sourceRows = rows;
     if (extension?.beforeBatch) {
@@ -933,6 +944,86 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     rows = rows.map((row) => pending.get(idOf(row))!);
     emit();
   }
+  function requestEdits(edits: readonly Edit<T>[]): string | undefined {
+    if (dispatchingEditRequest)
+      return "An edit request is already being dispatched";
+    if (!edits.length) return;
+    const revision = columnRevision,
+      sourceRows = rows,
+      sourceState = state;
+    const prepared: GridEditRequest<T>["edits"][number][] = [];
+    dispatchingEditRequest = true;
+    try {
+      for (const edit of edits) {
+        const column = byColumn.get(edit.columnId),
+          row = getRow(edit.rowId);
+        if (!column || row == null) return "Unknown row or column";
+        if (!isCellEditable(column, row, { writeMode: "request" }))
+          return "Cell is read only";
+        let value = edit.value;
+        if (column.valueParser) value = column.valueParser(value, row);
+        else if (column.type === "number" && value !== "") {
+          value = Number(value);
+          if (!Number.isFinite(value)) return "Enter a finite number";
+        } else if (column.type === "bigint" && value !== "")
+          value = BigInt(String(value));
+        else if (column.type === "boolean") {
+          if (
+            ![true, false, "true", "false"].includes(value as boolean | string)
+          )
+            return "Enter true or false";
+          value = value === true || value === "true";
+        } else if (
+          column.type === "date" &&
+          value !== "" &&
+          !Number.isFinite(Date.parse(String(value)))
+        )
+          return "Enter a valid date";
+        const error = column.validate?.(value, row);
+        if (error) return error;
+        if (columnRevision !== revision)
+          return "Column definitions changed during editing";
+        if (rows !== sourceRows) return "Row data changed during editing";
+        if (state !== sourceState) return "Grid state changed during editing";
+        if (readOnly) return "Grid is read only";
+        prepared.push(
+          Object.freeze({
+            rowId: edit.rowId,
+            columnId: edit.columnId,
+            value,
+            row,
+            previousValue: getRawValue(row, column.id),
+          }),
+        );
+      }
+      if (columnRevision !== revision)
+        return "Column definitions changed during editing";
+      if (rows !== sourceRows) return "Row data changed during editing";
+      if (state !== sourceState) return "Grid state changed during editing";
+      if (readOnly) return "Grid is read only";
+      if (editRequestId === Number.MAX_SAFE_INTEGER)
+        return "Edit request ID limit reached";
+      const result: unknown = onEditRequest!(
+        Object.freeze({
+          id: ++editRequestId,
+          columnRevision: revision,
+          edits: Object.freeze(prepared),
+        }),
+      );
+      if (result !== undefined) {
+        if (
+          result != null &&
+          typeof (result as { then?: unknown }).then === "function"
+        )
+          void Promise.resolve(result).catch(() => {});
+        return "onEditRequest must return undefined; the host owns asynchronous completion";
+      }
+    } catch (error) {
+      return error instanceof Error ? error.message : "Edit request failed";
+    } finally {
+      dispatchingEditRequest = false;
+    }
+  }
   function getColumns() {
     const ordered = state.columnOrder.map((id) => ({
       ...requireColumn(id),
@@ -1029,6 +1120,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       state = sanitize({ ...state, page: 0 });
       emit();
     },
+    getWriteMode: () => (onEditRequest ? "request" : "local"),
     getColumns,
     getColumnDefinitions: () =>
       columns.map((column) => ({

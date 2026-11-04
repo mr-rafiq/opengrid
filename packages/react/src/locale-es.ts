@@ -174,6 +174,11 @@ export const esMessages = Object.freeze({
   "grid.previousPage": "Página anterior",
   "grid.nextPage": "Página siguiente",
   "grid.cellUpdated": "Celda actualizada",
+  "grid.editRequested":
+    "Cambio solicitado. La aplicación controla cuándo se actualizan los datos.",
+  "range.requested":
+    "Cambio de rango solicitado. La aplicación controla cuándo se actualizan los datos.",
+  "rowEdit.request": "Enviar fila",
   "grid.changeUndone": "Cambio deshecho",
   "grid.changeRedone": "Cambio rehecho",
   "grid.noHistory": "No hay cambios que restaurar",

@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.10.0 - 2026-11-04
+
+Host-owned edit requests. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Validated edit requests preserve original row/class references, bypass owned setters and leave source data and local cell undo untouched. The host owns asynchronous persistence, ordering, errors and authoritative acknowledgement.
+- Cell, row, paste and fill workflows support editable getter/fieldless columns in request mode. Row drafts report `requested`, and English/German/Spanish controls announce submission rather than a completed save.
+- Original apply/reject demo, public API/ownership documentation and regressions cover request boundaries, reentrancy, read-only behavior, schema changes and host transactions.
+- Internal original AG 31 column-state/event helpers are not a public compatibility facade. Full unchanged-consumer, group business-editing and authenticated backend/UI acceptance remain unverified; native examples do not certify replacement readiness.
+
 ## 0.9.0 - 2026-11-04
 
 German native workflows and shared panel localization. Created by Mohamed Rafiq. Source release only; no npm publication.

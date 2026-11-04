@@ -1,5 +1,7 @@
 # Staged full-row editing
 
+The default is locally committed editing. In [host-owned request mode](EXTERNAL_EDITS.md), eligible getter/fieldless drafts are keyed independently by column ID, submission leaves source data unchanged and the session reports `requested`. The local mutation, alias and final-row validation rules below describe local write mode.
+
 `createRowEditSession` stages editable raw fields for one stable row ID. Draft changes remain local until one atomic `model.batchEdit` commit. Cancellation and unchanged drafts do not mutate grid rows, history, filtering, selection or column layout.
 
 ## Quick start

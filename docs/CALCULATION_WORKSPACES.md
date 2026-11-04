@@ -28,7 +28,7 @@ The setter receives an owned data copy and must synchronously return the complet
 
 Owned copies support bounded public data graphs, arrays, Date, Map, Set, cycles and objects whose state is stored in own data properties. Own accessors and opaque native objects are rejected without invoking accessors. This is **not** an arbitrary class serializer: private fields, external resources and shared functions require a host adapter. Keep callbacks synchronous and free of external side effects; library rollback cannot undo a network request or a captured-object mutation.
 
-Asynchronous setters are rejected. Backend persistence, recalculation, server conflict handling and backend-aware undo require an application edit-request adapter; that adapter is not supplied by this release. Editable formula columns also require raw scalar fields and cannot use custom setters. Calculated columns remain read only.
+Asynchronous owned setters are rejected. The native [host-owned edit-request mode](EXTERNAL_EDITS.md) submits validated edits without changing source rows, running owned setters or recording cell undo. Backend persistence, recalculation, server conflict handling, acknowledgement and backend-aware undo still require the host application adapter. This is not an AG Grid API facade. Editable formula columns also require raw scalar fields and cannot use custom setters. Calculated columns remain read only.
 
 ## Protected views and utility columns
 
@@ -89,7 +89,7 @@ This matrix describes native capabilities and remaining integration work, not a 
 | External Smart Search                 | Predicate API exists. The lab demonstrates text plus one numeric condition, **not** a complete search language or application parser.                                                                      |
 | Multi-row/range/group selection       | Native current-view rectangle and all/filtered subtree selection. Full reference-specific group policies and multi-range behavior remain partial.                                                          |
 | Read-only screen                      | Native edit/history/reorder gate added. Server authorization and custom actions remain host-owned.                                                                                                         |
-| Backend paste batching/recalculation  | Local validated one-transaction paste exists. Async external edit requests, server acknowledgement and backend undo remain integration gaps.                                                               |
+| Backend paste batching/recalculation  | Native validated local paste and host-owned edit requests exist. Source-specific paste events/batching, server acknowledgement, business recalculation and backend undo remain integration gaps.           |
 | Clipboard headers/cut variants        | Plain-text rectangle copy/paste exists. Group/header-aware copy and transactional cut are not yet provided.                                                                                                |
 | Saved layouts/views                   | Native state snapshots; working session-only example. AG Grid state translation, schema-version migration and backend persistence remain adapters.                                                         |
 | Custom cell/header menus              | Existing native extension points; business commands need host implementations. Generated-group business menus remain partial.                                                                              |

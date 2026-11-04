@@ -144,6 +144,9 @@ export interface GridMessageParams {
   "grid.previousPage": undefined;
   "grid.nextPage": undefined;
   "grid.cellUpdated": undefined;
+  "grid.editRequested": undefined;
+  "range.requested": undefined;
+  "rowEdit.request": undefined;
   "grid.changeUndone": undefined;
   "grid.changeRedone": undefined;
   "grid.noHistory": undefined;
@@ -711,6 +714,9 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "grid.previousPage": {},
   "grid.nextPage": {},
   "grid.cellUpdated": {},
+  "grid.editRequested": {},
+  "range.requested": {},
+  "rowEdit.request": {},
   "grid.changeUndone": {},
   "grid.changeRedone": {},
   "grid.noHistory": {},

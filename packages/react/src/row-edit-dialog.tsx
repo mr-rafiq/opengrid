@@ -266,7 +266,13 @@ export function RowEditDialog<T>({
       <h3 id={titleId} style={{ marginTop: 0 }}>
         {t("rowEdit.title", { rowId })}
       </h3>
-      <p id={descriptionId}>{t("rowEdit.help")}</p>
+      <p id={descriptionId}>
+        {t(
+          model.getWriteMode?.() === "request"
+            ? "grid.editRequested"
+            : "rowEdit.help",
+        )}
+      </p>
       <div style={{ display: "grid", gap: 18 }}>
         {columns.map((column) => {
           const config = editorOptions[column.id];
@@ -406,7 +412,11 @@ export function RowEditDialog<T>({
             confirmReload
           }
         >
-          {t("rowEdit.save")}
+          {t(
+            model.getWriteMode?.() === "request"
+              ? "rowEdit.request"
+              : "rowEdit.save",
+          )}
         </button>
       </div>
     </dialog>

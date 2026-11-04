@@ -1,5 +1,17 @@
 # Verification record
 
+## Host-owned edit requests (0.10.0)
+
+The source release adds native [host-owned edit requests](EXTERNAL_EDITS.md). It does not publish an AG Grid compatibility facade or certify an unchanged authenticated application replacement.
+
+The serial local gate passed strict TypeScript in **238.85 seconds**, **2,008 unit tests in 132 files** in **321.15 seconds**, all three library ESM/declaration builds plus React CSS and the production demo in **192.31 seconds**, formatting and six-manifest/internal-version consistency. Local unit tests used one worker and a bounded 15-second per-test deadline.
+
+Pages generation passed with **65 documentation routes**. All **67 production-site scenarios passed in 2.9 minutes**, and **20 production demo/calculation/localization scenarios passed in 28.0 seconds**. Four focused guide-to-demo checks at 390/1440px in light/dark passed, including release/version credit, no document overflow and zero serious/critical scoped automated accessibility findings. Final phone/desktop production screenshots were inspected; the two-row host demo uses a compact viewport and confines horizontal scrolling to grid content.
+
+An isolated runtime check passed **21 browser scenarios in 38.3 seconds** with the consumer's installed **React and ReactDOM 18.3.1**, including a runtime-version assertion. These are OpenGrid fixture checks, not a mounted unchanged consumer. Built public ESM/SSR passed on React19.3.1 and18.3.1 with **zero edit requests, setter calls, source mutations or history writes**; React18 layout-effect server diagnostics were retained.
+
+The request tests verify preserved original class references, whole-batch preflight, synchronous host acknowledgement, no optimistic writes/history, getter/fieldless draft/range handling, read-only and reentrancy guards, host errors and explicit submission messaging. They do not establish backend ordering/conflict/retry behavior, generated-group business edits, actual consumer component/state/API parity, physical-device behavior or manual assistive-technology acceptance. The host retains those responsibilities.
+
 ## German controls and shared panel localization (0.9.0)
 
 The 2026-11-04 source release adds an original German catalog covering all **518 library-owned message keys**, alongside complete English and Spanish catalogs. Workspace and client/provider sidebar defaults follow the same provider; explicit host labels take priority and aggregate operation codes remain unchanged. The calculation lab opts into German currency formatting without replacing its model, rows or history. Application labels, business services, legacy core diagnostics and locale-aware parsing retain their documented boundaries. See [localization](LOCALIZATION.md) and the [calculation readiness matrix](CALCULATION_WORKSPACES.md).

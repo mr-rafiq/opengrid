@@ -7,7 +7,7 @@ export interface RowEditOptions {
 }
 export interface RowEditSnapshot {
   readonly rowId: string;
-  readonly status: "editing" | "committed" | "cancelled";
+  readonly status: "editing" | "committed" | "requested" | "cancelled";
   readonly values: Readonly<Record<string, unknown>>;
   readonly dirtyColumns: readonly string[];
   readonly error?: string;
@@ -38,28 +38,31 @@ export function createRowEditSession<T>(
   if (conflictPolicy !== "reject" && conflictPolicy !== "overwrite")
     throw new TypeError("Unknown row-edit conflict policy");
   const columnRevision = model.getColumnRevision();
+  const requestMode = model.getWriteMode?.() === "request";
   const initialRow = model.getRow(rowId);
   if (initialRow == null) throw new Error(`Cannot edit missing row: ${rowId}`);
   const allColumns = new Map(
     model.getColumns().map((column) => [column.id, column]),
   );
   const editable = new Map(
-    [...allColumns].filter(
-      (entry): entry is [string, Column<T> & { field: keyof T & string }] =>
-        isCellEditable(entry[1], initialRow),
+    [...allColumns].filter((entry) =>
+      isCellEditable(entry[1], initialRow, {
+        writeMode: requestMode ? "request" : "local",
+      }),
     ),
   );
   const baseline = new Map<string, unknown>(),
     draft = new Map<string, unknown>();
   const sourceKey = (column: Column<T>) =>
     JSON.stringify(
-      column.valueSetter ? ["setter", column.id] : ["field", column.field],
+      requestMode || column.valueSetter
+        ? ["column", column.id]
+        : ["field", column.field],
     );
-  const cellValue = (
-    row: T,
-    column: Column<T> & { field: keyof T & string },
-  ) =>
-    column.valueSetter ? model.getValue(row, column.id) : row[column.field];
+  const cellValue = (row: T, column: Column<T>) =>
+    requestMode || column.valueSetter
+      ? model.getValue(row, column.id)
+      : row[column.field!];
   const fieldSources = new Map<string, string>();
   for (const [id, column] of editable) {
     const value = copy(cellValue(initialRow, column));
@@ -155,14 +158,16 @@ export function createRowEditSession<T>(
         const error = model.batchEdit(edits);
         if (error) return fail(error);
       }
-      // Display committed parsed values, including concurrent changes to untouched fields.
-      const committed = model.getRow(rowId)!;
-      for (const [id, column] of editable) {
-        const value = copy(cellValue(committed, column));
-        baseline.set(id, value);
-        draft.set(id, copy(value));
+      // Requests are not acknowledgements: retain the submitted draft until the host updates data.
+      if (!requestMode) {
+        const committed = model.getRow(rowId)!;
+        for (const [id, column] of editable) {
+          const value = copy(cellValue(committed, column));
+          baseline.set(id, value);
+          draft.set(id, copy(value));
+        }
       }
-      status = "committed";
+      status = requestMode && edits.length ? "requested" : "committed";
       currentError = undefined;
       publish();
       return undefined;

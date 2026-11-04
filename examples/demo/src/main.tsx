@@ -56,6 +56,7 @@ import { SizingLab } from "./sizing-lab";
 import { ColumnDefinitionsLab } from "./column-definitions-lab";
 import { ConditionFilterLab } from "./condition-filter-lab";
 import { CalculationLab } from "./calculation-lab";
+import { ExternalEditLab } from "./external-edit-lab";
 interface Holding {
   id: string;
   company: string;
@@ -295,6 +296,7 @@ function App() {
   const [conditionFilterOpen, setConditionFilterOpen] = useState(false);
   const [columnDefinitionsOpen, setColumnDefinitionsOpen] = useState(false);
   const [calculationOpen, setCalculationOpen] = useState(false);
+  const [externalEditOpen, setExternalEditOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -809,6 +811,16 @@ function App() {
           <h2>Explore features</h2>
           <p>Open an example to try a focused workflow.</p>
         </div>
+        <section className="pivot-panel" id="external-edits">
+          <button
+            type="button"
+            aria-expanded={externalEditOpen}
+            onClick={() => setExternalEditOpen(!externalEditOpen)}
+          >
+            External edit requests lab
+          </button>
+          {externalEditOpen && <ExternalEditLab />}
+        </section>
         <section className="pivot-panel" id="calculation">
           <button
             type="button"

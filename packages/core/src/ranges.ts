@@ -313,7 +313,11 @@ export function createCellRangeModel<T>(
     return matrix.flatMap((row, y) =>
       row.map((value, x) => {
         const column = columns[left + x];
-        if (!isCellEditable(column, data.get(rowIds[top + y])))
+        if (
+          !isCellEditable(column, data.get(rowIds[top + y]), {
+            writeMode: grid.getWriteMode?.(),
+          })
+        )
           throw new Error(`Column ${column.header ?? column.id} is read only`);
         return { rowId: rowIds[top + y], columnId: column.id, value };
       }),
@@ -418,7 +422,11 @@ export function createCellRangeModel<T>(
           )
             continue;
           const column = columns[x];
-          if (!isCellEditable(column, data.get(rowIds[y])))
+          if (
+            !isCellEditable(column, data.get(rowIds[y]), {
+              writeMode: grid.getWriteMode?.(),
+            })
+          )
             return `Column ${column.header ?? column.id} is read only`;
           const dy = y - from.rowStart,
             dx = x - from.columnStart;

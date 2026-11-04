@@ -1,5 +1,7 @@
 # Whole-row editing dialog
 
+With [host-owned edit requests](EXTERNAL_EDITS.md), the primary action is **Submit row**. Successful submission closes the dialog and reports a request; it does not assert that backend data was saved. Eligible getter/fieldless columns are available in that mode, and the host supplies authoritative updates.
+
 `RowEditDialog<T>` provides an original modal workflow for atomic row editing.
 It is an explicit form with Save, Cancel and Reload actions. It does not claim
 the same inline full-row lifecycle or automatic focus-loss saving as AG Grid.

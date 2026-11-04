@@ -48,7 +48,7 @@ import {
   resolveColumnWidths,
   getColumnWidthConstraints,
   formatAggregateValue,
-  isCellEditable,
+  isCellEditable as isCoreCellEditable,
 } from "@opengrid/core";
 import { createColumnSizingController } from "./column-sizing.js";
 import type {
@@ -383,6 +383,11 @@ export function DataGrid<T>({
   onCellEdit,
 }: DataGridProps<T>) {
   const { t, locale, resolveMessage, number } = useGridLocale();
+  const requestMode = model.getWriteMode?.() === "request";
+  const isCellEditable = (column: Column<T> | undefined, row: T | undefined) =>
+    isCoreCellEditable(column, row, {
+      writeMode: requestMode ? "request" : "local",
+    });
   const formulas = suppliedFormulas ?? getFormulaGridController(model);
   if (formulas && formulas.model !== model)
     throw new TypeError("Formula controller must own the supplied grid model");
@@ -2226,7 +2231,9 @@ export function DataGrid<T>({
     editingRef.current = null;
     setEditing(null);
     setError("");
-    setAnnouncement(gridMessage("grid.cellUpdated"));
+    setAnnouncement(
+      gridMessage(requestMode ? "grid.editRequested" : "grid.cellUpdated"),
+    );
     return true;
   }
   function cancelEdit() {
@@ -4661,7 +4668,11 @@ export function DataGrid<T>({
           renderEditor={renderEditor}
           conflictPolicy={rowConflictPolicy}
           onCommit={(rowId) => {
-            setAnnouncement(gridMessage("grid.rowUpdated"));
+            setAnnouncement(
+              gridMessage(
+                requestMode ? "grid.editRequested" : "grid.rowUpdated",
+              ),
+            );
             onRowEdit?.({ rowId });
           }}
           onClose={() => {

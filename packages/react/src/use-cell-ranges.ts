@@ -109,6 +109,10 @@ export function useCellRanges<T>({
   const cancelCurrent = useRef<() => void>(() => {});
   const currentModel = useRef(model);
   currentModel.current = model;
+  const requestedMessage = (local: "range.pasted" | "range.filled") =>
+    gridMessage(
+      model.getWriteMode?.() === "request" ? "range.requested" : local,
+    );
   useLayoutEffect(() => {
     if (!enabled) {
       setController(null);
@@ -392,7 +396,7 @@ export function useCellRanges<T>({
         if (error) {
           restore(current);
           message.current(error, true);
-        } else message.current(gridMessage("range.filled"));
+        } else message.current(requestedMessage("range.filled"));
       }
     }
     function down(event: PointerEvent) {
@@ -607,12 +611,12 @@ export function useCellRanges<T>({
     clipboardOperation.current++;
     event.preventDefault();
     const error = controller!.paste(event.clipboardData.getData("text/plain"));
-    message.current(error ?? gridMessage("range.pasted"), Boolean(error));
+    message.current(error ?? requestedMessage("range.pasted"), Boolean(error));
   }
   function fill(direction: "down" | "right") {
     if (!ensureRange()) return;
     const error = controller!.fill(direction);
-    message.current(error ?? gridMessage("range.filled"), Boolean(error));
+    message.current(error ?? requestedMessage("range.filled"), Boolean(error));
   }
   function fillHandle(event: ReactPointerEvent<HTMLElement>) {
     if (!controller || !enabled || event.button !== 0) return;
@@ -700,7 +704,10 @@ export function useCellRanges<T>({
       // A successful paste changes model state itself. Only check ownership and
       // newer clipboard intent before reporting its atomic transaction result.
       if (operation.owned())
-        message.current(error ?? gridMessage("range.pasted"), Boolean(error));
+        message.current(
+          error ?? requestedMessage("range.pasted"),
+          Boolean(error),
+        );
     } catch (error) {
       if (!operation.fresh()) return;
       message.current(

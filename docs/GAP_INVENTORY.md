@@ -83,3 +83,7 @@ The provider-sidebar checkpoint connects controlled visibility, owned native dra
 The delayed-clipboard checkpoint fences pending React toolbar operations by owner/schema/state/range/view and latest intent; editor opening cancels pending reads without losing drafts. This closes the reproduced lifecycle races while multi-range, rich HTML, formula-reference rewriting and broader performance/manual accessibility evidence remain open. See [clipboard behavior](API.md#cell-ranges-clipboard-and-fill).
 
 The keyboard/scale verification checkpoint adds forced-color/reduced-motion focus round trips, native menu/input focus retention, explicit functional DOM budgets and exclusive local test-server ownership. It does not establish general performance or manual assistive-technology certification. See [keyboard and scale checks](KEYBOARD_HARDENING.md).
+
+## Host-owned request boundary
+
+Version 0.10.0 adds native [host-owned edit requests](EXTERNAL_EDITS.md), including getter/fieldless draft submission, preserved class references and explicit requested UI states. The application still owns persistence, ordering/conflicts, asynchronous validation and acknowledgement, retries and backend undo. Source-specific AG event/component/state contracts and authenticated integration remain unverified; a native submission API alone does not close those gaps.

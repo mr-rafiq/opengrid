@@ -152,6 +152,11 @@ export interface GridOptions<T> {
   externalFilter?: (row: T) => boolean;
   /** Blocks user edit/history/reorder commands; host row synchronization remains available. */
   readOnly?: boolean;
+  /** Submit validated edits to the host instead of changing source rows or cell history.
+   * The host owns persistence, errors, ordering and acknowledgement via setRows/applyTransaction.
+   * The callback must return synchronously; start asynchronous work inside it.
+   */
+  onEditRequest?: (request: GridEditRequest<T>) => undefined;
   valueCache?: boolean;
   valueCacheMaxEntries?: number;
 }
@@ -159,6 +164,14 @@ export interface Edit<T> {
   rowId: string;
   columnId: string;
   value: unknown;
+}
+/** Frozen request metadata; row/value objects are borrowed application references. */
+export interface GridEditRequest<T> {
+  readonly id: number;
+  readonly columnRevision: number;
+  readonly edits: readonly Readonly<
+    Edit<T> & { row: T; previousValue: unknown }
+  >[];
 }
 export interface Transaction<T> {
   add?: T[];
@@ -177,6 +190,8 @@ export type RowReorderStatus = Readonly<
   | { allowed: false; reason: RowReorderBlockReason; message: string }
 >;
 export interface GridModel<T> {
+  /** Missing on older/custom models means local writes. */
+  getWriteMode?(): "local" | "request";
   isReadOnly(): boolean;
   setReadOnly(value: boolean): void;
   getState(): GridState;

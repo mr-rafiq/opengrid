@@ -184,6 +184,11 @@ export const deMessages = Object.freeze({
   "grid.previousPage": "Vorherige Seite",
   "grid.nextPage": "Nächste Seite",
   "grid.cellUpdated": "Zelle aktualisiert",
+  "grid.editRequested":
+    "Änderung angefordert. Die Anwendung bestimmt, wann die Daten aktualisiert werden.",
+  "range.requested":
+    "Bereichsänderung angefordert. Die Anwendung bestimmt, wann die Daten aktualisiert werden.",
+  "rowEdit.request": "Zeile übermitteln",
   "grid.changeUndone": "Änderung rückgängig gemacht",
   "grid.changeRedone": "Änderung wiederholt",
   "grid.noHistory": "Keine Bearbeitungen zum Wiederherstellen",

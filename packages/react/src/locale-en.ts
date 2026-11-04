@@ -165,6 +165,11 @@ export const enMessages = Object.freeze({
   "grid.previousPage": "Previous page",
   "grid.nextPage": "Next page",
   "grid.cellUpdated": "Cell updated",
+  "grid.editRequested":
+    "Edit requested. The application controls when data is updated.",
+  "range.requested":
+    "Range edit requested. The application controls when data is updated.",
+  "rowEdit.request": "Submit row",
   "grid.changeUndone": "Change undone",
   "grid.changeRedone": "Change redone",
   "grid.noHistory": "No edits to restore",
