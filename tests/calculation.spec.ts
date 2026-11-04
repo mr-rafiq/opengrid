@@ -18,6 +18,34 @@ async function setup(page: Page) {
   await expect(grid).toBeVisible();
   return { article, grid, errors };
 }
+
+test("interactive amount header sorts once and opens the native menu without duplicate controls", async ({
+  page,
+}) => {
+  const { grid, errors } = await setup(page);
+  const header = grid.getByRole("columnheader", {
+    name: "Amount",
+    exact: true,
+  });
+  await grid.getByRole("button", { name: "Sort Amount", exact: true }).click();
+  await expect(header).toHaveAttribute("aria-sort", "ascending");
+  await grid.getByRole("button", { name: "Sort Amount", exact: true }).click();
+  await expect(header).toHaveAttribute("aria-sort", "descending");
+  expect(
+    await header
+      .locator(".og-sort, .og-column-menu-trigger, button button")
+      .count(),
+  ).toBe(0);
+  await grid
+    .getByRole("button", { name: "Amount column menu", exact: true })
+    .click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await menu.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(header).toBeFocused();
+  expect(errors).toEqual([]);
+});
 test("nested edits update computed amounts and header totals, undo, and protected rows reject editors", async ({
   page,
 }) => {

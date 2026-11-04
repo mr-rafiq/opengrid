@@ -2385,3 +2385,18 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+.og-custom-header {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  max-width: 100%;
+  padding: 0 10px;
+  overflow: hidden;
+}
+.og-header-cell[data-og-custom-header="true"]:focus-visible {
+  outline: 2px solid var(--og-focus);
+  outline-offset: -2px;
+}

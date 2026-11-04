@@ -151,3 +151,59 @@ it("lets a complete hierarchy renderer own its prefix without duplicate native c
     screen.getByRole("button", { name: "Collapse Materials" }),
   ).toBeTruthy();
 });
+
+it("lets an interactive header own sort/menu controls without nested buttons and keeps native keyboard and resize", async () => {
+  const model = createGrid({
+    rows: [{ id: "a", amount: 3 }],
+    getRowId: (r) => r.id,
+    columns: [
+      { id: "amount", field: "amount", header: "Amount", type: "number" },
+    ],
+  });
+  const view = render(
+    <DataGrid
+      model={model}
+      toolbar={false}
+      renderHeaderControls={({ progressSort, showColumnMenu }) => (
+        <>
+          <button type="button" onClick={() => progressSort()}>
+            Application sort
+          </button>
+          <button
+            type="button"
+            onClick={(event) => showColumnMenu(event.currentTarget)}
+          >
+            Application menu
+          </button>
+        </>
+      )}
+    />,
+  );
+  expect(
+    screen.queryByRole("button", { name: "Application sort" }),
+  ).not.toBeNull();
+  const header = screen.getByRole("columnheader", { name: "Amount" });
+  expect(header.querySelector(".og-sort")).toBeNull();
+  expect(header.querySelector(".og-column-menu-trigger")).toBeNull();
+  expect(header.querySelectorAll("button button")).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Application sort" }));
+  expect(model.getState().sorting).toEqual([
+    { columnId: "amount", direction: "asc" },
+  ]);
+  fireEvent.click(screen.getByRole("button", { name: "Application sort" }));
+  expect(model.getState().sorting[0].direction).toBe("desc");
+  fireEvent.focus(header);
+  fireEvent.keyDown(header, { key: "Enter" });
+  expect(model.getState().sorting).toEqual([]);
+  expect(header.querySelector('[role="separator"]')).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Application menu" }));
+  const menu = screen.getByRole("menu");
+  expect(menu).toBeTruthy();
+  fireEvent.keyDown(menu, { key: "Escape" });
+  expect(screen.queryByRole("menu")).toBeNull();
+  expect(
+    view.container.querySelector(
+      '.og-header-cell[data-og-custom-header="true"]',
+    ),
+  ).toBeTruthy();
+});

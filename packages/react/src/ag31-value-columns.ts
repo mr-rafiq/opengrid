@@ -30,6 +30,18 @@ type Binding<T> = {
   columns: ColumnStore<T>;
 };
 
+/** Measured legacy scalar ordering: nullish first ascending, ordinary JS scalar comparisons, case-sensitive text. */
+function scalarCompare(a: unknown, b: unknown): number {
+  if (a == null || b == null) return a == null ? (b == null ? 0 : -1) : 1;
+  // Assertions do not coerce source values; JS relational comparison also retains
+  // the measured mixed numeric/text behavior instead of normalizing all text.
+  return (a as string) > (b as string)
+    ? 1
+    : (a as string) < (b as string)
+      ? -1
+      : 0;
+}
+
 /** Internal data-column compiler; it does not compile AG components, filters or menus. */
 export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
   let binding: Binding<T> | undefined;
@@ -338,6 +350,19 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
                 .sorting.find((sort) => sort.columnId === id)?.direction ===
                 "desc",
             );
+          };
+        } else {
+          column.compareBlankValues = true;
+          column.compare = (a, b, context) => {
+            const display = currentDefinition(id).showRowGroup;
+            if (display === true || typeof display === "string") {
+              const nodes = runtime().nodes;
+              if (context.nodeA)
+                a = nodes.getRowNodeByNativeId(context.nodeA.id)?.aggData?.[id];
+              if (context.nodeB)
+                b = nodes.getRowNodeByNativeId(context.nodeB.id)?.aggData?.[id];
+            }
+            return scalarCompare(a, b);
           };
         }
         nativeColumns.push(column);

@@ -44,6 +44,51 @@ function setup(definitions?: readonly Ag31ColumnDefinition<Row>[]) {
   return { ...controller, rows, context };
 }
 afterEach(() => vi.useRealTimers());
+it("matches measured nullish, case-sensitive and mixed scalar ordering without changing native defaults", () => {
+  const rows = [
+    { id: "n12", amount: 12 },
+    { id: "n3", amount: 3 },
+    { id: "null", amount: null },
+    { id: "none" },
+    { id: "empty", amount: "" },
+    { id: "upper", amount: "Alpha" },
+    { id: "lower", amount: "alpha" },
+    { id: "z", amount: "Zebra" },
+  ];
+  const owner = createAg31ClientController({
+    rows,
+    definitions: [{ field: "amount", cellDataType: false }],
+    getRowId: (r) => r.id,
+  });
+  const ids = () => {
+    const result: string[] = [];
+    owner.api.forEachNodeAfterFilterAndSort((n) => result.push(n.id));
+    return result;
+  };
+  owner.api.applyColumnState({ state: [{ colId: "amount", sort: "asc" }] });
+  expect(ids()).toEqual([
+    "null",
+    "none",
+    "empty",
+    "n3",
+    "n12",
+    "upper",
+    "z",
+    "lower",
+  ]);
+  owner.api.applyColumnState({ state: [{ colId: "amount", sort: "desc" }] });
+  expect(ids()).toEqual([
+    "n12",
+    "n3",
+    "lower",
+    "z",
+    "upper",
+    "empty",
+    "null",
+    "none",
+  ]);
+  owner.api.destroy();
+});
 it("constructs one owned API graph before first callbacks and retains class references", () => {
   let seen: unknown;
   const c = setup([

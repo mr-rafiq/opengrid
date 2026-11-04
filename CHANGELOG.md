@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.13.0 - 2026-11-04
+
+Interactive source headers and resident React bridge development. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Native `renderHeaderControls` lets an application header own its sort and menu actions without nested or duplicate buttons, while preserving real column menus, resizing, dragging and keyboard behavior. The calculation lab includes an interactive total header.
+- Native `renderTreePrefix` lets a complete hierarchy renderer own its indentation and disclosure controls while retaining native hierarchy ARIA and keyboard expansion.
+- Internal resident adapters own stable API/ref lifetimes, original class data and node/column identities, typed formatted values, view-only refreshes, row transactions and synchronous column-local sort notifications. Their scalar comparator preserves measured legacy null/text ordering without changing native defaults.
+- Unchanged source-component fixtures exercise the bridge on React 18.3.1. The bridge remains internal and read-only; full application compatibility, saved state, filters, menus/panels, business editors, responsive pinned geometry and authenticated acceptance remain unfinished. This release does not certify replacement readiness.
+
 ## 0.12.1 - 2026-11-04
 
 Balanced group ordering and source-leaf traversal. Created by Mohamed Rafiq. Source release only; no npm publication.

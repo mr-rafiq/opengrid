@@ -19,6 +19,16 @@ export interface Ag31ColumnCellParams<T> {
   data: T | undefined;
   node: Ag31RowNode<T>;
 }
+export interface Ag31ColumnEvent<T> {
+  type: string;
+  column: Ag31LeafColumn<T>;
+  columns: Ag31LeafColumn<T>[];
+  source: string;
+  api: object;
+  columnApi?: object;
+  context?: unknown;
+}
+export type Ag31ColumnListener<T> = (event: Ag31ColumnEvent<T>) => void;
 export interface Ag31LeafColumn<T> {
   readonly colId: string;
   readonly actualWidth: number;
@@ -40,6 +50,8 @@ export interface Ag31LeafColumn<T> {
   isSortDescending(): boolean;
   isPrimary(): boolean;
   isCellEditable(node: Ag31RowNode<T>): boolean;
+  addEventListener(type: string, listener: Ag31ColumnListener<T>): void;
+  removeEventListener(type: string, listener: Ag31ColumnListener<T>): void;
 }
 export interface Ag31LeafColumnsOptions<T> {
   model: GridModel<T>;
@@ -48,6 +60,7 @@ export interface Ag31LeafColumnsOptions<T> {
   commonParams(): { api: object; columnApi?: object; context?: unknown };
   ownsNode(node: Ag31RowNode<T>): boolean;
   renderedWidth?(columnId: string): number | undefined;
+  eventSource?(): string;
 }
 type Entry<T> = {
   id: string;
@@ -55,6 +68,8 @@ type Entry<T> = {
   definition: Ag31ColumnDefinition<T>;
   column: Ag31LeafColumn<T>;
   width: number;
+  listeners: Map<string, Set<Ag31ColumnListener<T>>>;
+  localSortIndex?: { value: number | undefined };
 };
 /** Original leaf-column objects. Structural schema compilation is a separate boundary. */
 export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
@@ -161,6 +176,7 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       getSort: sort,
       getSortIndex: () => {
         if (!active) return undefined;
+        if (entry.localSortIndex) return entry.localSortIndex.value;
         assertSchema();
         const index = model
           .getState()
@@ -170,6 +186,19 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       isSortAscending: () => sort() === "asc",
       isSortDescending: () => sort() === "desc",
       isPrimary: () => true,
+      addEventListener(type, listener) {
+        if (typeof type !== "string" || !type || typeof listener !== "function")
+          throw new TypeError("A column event type and listener are required");
+        if (!active) return;
+        let listeners = entry.listeners.get(type);
+        if (!listeners) entry.listeners.set(type, (listeners = new Set()));
+        listeners.add(listener);
+      },
+      removeEventListener(type, listener) {
+        const listeners = entry.listeners.get(type);
+        listeners?.delete(listener);
+        if (!listeners?.size) entry.listeners.delete(type);
+      },
       isCellEditable(node) {
         if (
           !active ||
@@ -195,13 +224,48 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
         }
       },
     };
-    entry = { id, provided, definition, column, width: source.width! };
+    entry = {
+      id,
+      provided,
+      definition,
+      column,
+      width: source.width!,
+      listeners: new Map(),
+    };
     byId.set(id, entry);
     byObject.set(column, entry);
     byObject.set(definition, entry);
   }
   if (byId.size !== initial.length)
     throw new TypeError("Every native model column needs an owned definition");
+  let previousSorting = model.getState().sorting;
+  const unsubscribe = model.subscribe(() => {
+    const next = model.getState().sorting,
+      before = previousSorting;
+    previousSorting = next;
+    if (!active || model.getColumnRevision() !== revision) return;
+    for (const entry of byId.values()) {
+      const oldIndex = before.findIndex((sort) => sort.columnId === entry.id),
+        index = next.findIndex((sort) => sort.columnId === entry.id);
+      if (before[oldIndex]?.direction === next[index]?.direction) continue;
+      const listeners = [...(entry.listeners.get("sortChanged") ?? [])];
+      if (!listeners.length) continue;
+      const previousOverride = entry.localSortIndex;
+      entry.localSortIndex = { value: oldIndex < 0 ? undefined : oldIndex };
+      const event = {
+        ...options.commonParams(),
+        type: "sortChanged",
+        column: entry.column,
+        columns: [entry.column],
+        source: options.eventSource?.() ?? "api",
+      };
+      try {
+        for (const listener of listeners) listener(event);
+      } finally {
+        entry.localSortIndex = previousOverride;
+      }
+    }
+  });
   function getColumn(key: unknown): Ag31LeafColumn<T> | null {
     if (!active) return null;
     assertSchema();
@@ -232,7 +296,10 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       );
     },
     destroy() {
+      if (!active) return;
       active = false;
+      unsubscribe();
+      for (const entry of byId.values()) entry.listeners.clear();
     },
     isDestroyed: () => !active,
   });

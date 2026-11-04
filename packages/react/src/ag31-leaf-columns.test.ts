@@ -142,3 +142,67 @@ describe("owned AG31 leaf column contracts", () => {
     expect(() => columns.getColumns()).toThrow(/definitions changed/);
   });
 });
+
+it("notifies column sort listeners synchronously with common params and the prior sort index", () => {
+  const model = createGrid({
+    rows: [{ id: "a", amount: 1 }],
+    getRowId: (r) => r.id,
+    columns: [{ id: "amount", field: "amount" }],
+  });
+  const api = {},
+    columnApi = {},
+    context = { label: "Current" };
+  const columns = createAg31LeafColumns({
+    model,
+    definitions: [{ field: "amount" }],
+    commonParams: () => ({ api, columnApi, context }),
+    ownsNode: () => false,
+  });
+  const column = columns.getColumn("amount")!,
+    calls: unknown[] = [];
+  const listener = (event: any) =>
+    calls.push({
+      type: event.type,
+      keys: Object.keys(event).sort(),
+      same: event.column === column,
+      api: event.api === api,
+      columnApi: event.columnApi === columnApi,
+      context: event.context === context,
+      source: event.source,
+      columns: event.columns,
+      sort: column.getSort(),
+      index: column.getSortIndex(),
+    });
+  column.addEventListener("sortChanged", listener);
+  model.setSort("amount", "asc");
+  expect(calls).toEqual([
+    {
+      type: "sortChanged",
+      keys: [
+        "api",
+        "column",
+        "columnApi",
+        "columns",
+        "context",
+        "source",
+        "type",
+      ],
+      same: true,
+      api: true,
+      columnApi: true,
+      context: true,
+      source: "api",
+      columns: [column],
+      sort: "asc",
+      index: undefined,
+    },
+  ]);
+  expect(column.getSortIndex()).toBe(0);
+  column.removeEventListener("sortChanged", listener);
+  model.setSort("amount", "desc");
+  expect(calls).toHaveLength(1);
+  column.addEventListener("sortChanged", listener);
+  columns.destroy();
+  model.setSort("amount", "asc");
+  expect(calls).toHaveLength(1);
+});

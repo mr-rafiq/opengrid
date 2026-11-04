@@ -143,6 +143,12 @@ export interface GridNodeCellContext<T> {
   value: unknown;
   displayValue: string;
 }
+export interface GridHeaderControlsContext<T> {
+  column: Column<T>;
+  model: GridModel<T>;
+  progressSort(multi?: boolean): void;
+  showColumnMenu(anchor?: HTMLElement): boolean;
+}
 export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
@@ -209,6 +215,8 @@ export interface DataGridProps<T> {
     column: Column<T>;
     model: GridModel<T>;
   }) => ReactNode;
+  /** Replace native header label/sort/menu content. Return undefined to retain native controls for a column; resize, drag and keyboard header behavior remain native. */
+  renderHeaderControls?: (context: GridHeaderControlsContext<T>) => ReactNode;
   /** Replace the first data cell's hierarchy prefix, including indentation and group/detail controls. Returning null suppresses it. Row selection and grid keyboard behavior remain native. */
   renderTreePrefix?: (context: GridNodeCellContext<T>) => ReactNode;
   /** Group/total content only. Expansion uses the native prefix unless renderTreePrefix replaces it; selection remains native. */
@@ -384,6 +392,7 @@ export function DataGrid<T>({
   className = "",
   renderCell,
   renderHeader,
+  renderHeaderControls,
   renderTreePrefix,
   renderGroupCell,
   getRowClassName,
@@ -4483,11 +4492,77 @@ export function DataGrid<T>({
                         (sort) => sort.columnId === column.id,
                       );
                       const widthBounds = getColumnWidthConstraints(column);
+                      const progressSort = (multi = false) => {
+                        const current = model
+                          .getState()
+                          .sorting.find((item) => item.columnId === column.id);
+                        model.setSort(
+                          column.id,
+                          !current
+                            ? "asc"
+                            : current.direction === "asc"
+                              ? "desc"
+                              : null,
+                          multi,
+                        );
+                      };
+                      const showColumnMenu = (anchor?: HTMLElement) => {
+                        if (
+                          columnMenu === false ||
+                          editing ||
+                          rowEditing ||
+                          noteEditing
+                        )
+                          return false;
+                        const header = columnHeaderControls.current.get(
+                            column.id,
+                          ),
+                          target = anchor ?? header;
+                        if (!target?.isConnected) return false;
+                        const rect = target.getBoundingClientRect();
+                        return headerMenu.open(
+                          column,
+                          header ?? target,
+                          "button",
+                          { x: rect.left, y: rect.bottom },
+                        );
+                      };
+                      const customHeader = renderHeaderControls?.({
+                        column,
+                        model,
+                        progressSort,
+                        showColumnMenu,
+                      });
                       return (
                         <div
                           key={column.id}
                           role="columnheader"
                           data-og-size-column-id={column.id}
+                          data-og-custom-header={
+                            customHeader !== undefined ? "true" : undefined
+                          }
+                          tabIndex={customHeader !== undefined ? 0 : undefined}
+                          aria-label={
+                            customHeader !== undefined
+                              ? (column.header ?? column.id)
+                              : undefined
+                          }
+                          draggable={
+                            customHeader !== undefined &&
+                            column.movable !== false &&
+                            !column.lockPosition
+                          }
+                          onDragStart={(event) => {
+                            if (customHeader === undefined) return;
+                            event.dataTransfer.setData(
+                              "text/opengrid-column",
+                              column.id,
+                            );
+                            event.dataTransfer.setData(
+                              COLUMN_DRAG_OWNER,
+                              columnDragOwner(model),
+                            );
+                          }}
                           ref={(element) => {
                             if (element)
                               columnHeaderControls.current.set(
@@ -4544,9 +4619,9 @@ export function DataGrid<T>({
                                 .pointerType === "touch"
                             )
                               return;
-                            const anchor = columnMenuButtons.current.get(
-                              column.id,
-                            );
+                            const anchor =
+                              columnMenuButtons.current.get(column.id) ??
+                              columnHeaderControls.current.get(column.id);
                             if (
                               anchor &&
                               headerMenu.open(column, anchor, "context", {
@@ -4558,6 +4633,19 @@ export function DataGrid<T>({
                           }}
                           onKeyDown={(event) => {
                             if (
+                              customHeader !== undefined &&
+                              event.target === event.currentTarget &&
+                              !event.ctrlKey &&
+                              !event.metaKey &&
+                              !event.altKey &&
+                              (event.key === "Enter" || event.key === " ")
+                            ) {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              progressSort(event.shiftKey);
+                              return;
+                            }
+                            if (
                               event.ctrlKey ||
                               event.metaKey ||
                               event.altKey ||
@@ -4565,9 +4653,9 @@ export function DataGrid<T>({
                                 !(event.shiftKey && event.key === "F10"))
                             )
                               return;
-                            const anchor = columnMenuButtons.current.get(
-                              column.id,
-                            );
+                            const anchor =
+                              columnMenuButtons.current.get(column.id) ??
+                              columnHeaderControls.current.get(column.id);
                             if (!anchor) return;
                             const rect = anchor.getBoundingClientRect();
                             if (
@@ -4593,136 +4681,151 @@ export function DataGrid<T>({
                               );
                           }}
                         >
-                          <button
-                            type="button"
-                            className="og-sort"
-                            disabled={column.sortable === false}
-                            draggable={
-                              column.movable !== false && !column.lockPosition
-                            }
-                            onDragStart={(event) => {
-                              event.dataTransfer.setData(
-                                "text/opengrid-column",
-                                column.id,
-                              );
-                              event.dataTransfer.setData(
-                                COLUMN_DRAG_OWNER,
-                                columnDragOwner(model),
-                              );
-                            }}
-                            aria-label={
-                              renderHeader
-                                ? undefined
-                                : t("grid.sortColumn", {
-                                    column: column.header ?? column.id,
-                                  })
-                            }
-                            title={
-                              renderHeader
-                                ? t("grid.sortColumn", {
-                                    column: column.header ?? column.id,
-                                  })
-                                : undefined
-                            }
-                            onClick={(event) => {
-                              model.setSort(
-                                column.id,
-                                !sort
-                                  ? "asc"
-                                  : sort.direction === "asc"
-                                    ? "desc"
-                                    : null,
-                                event.shiftKey,
-                              );
-                            }}
-                          >
-                            <span
-                              data-og-size-text={
-                                renderHeader ? undefined : "header"
-                              }
-                            >
-                              {renderHeader
-                                ? renderHeader({ column, model })
-                                : (column.header ?? column.id)}
-                            </span>
-                            {sort && (
-                              <span
-                                className="og-sort-indicator"
-                                aria-hidden="true"
-                              >
-                                <GridIcon
-                                  name={
-                                    sort?.direction === "asc"
-                                      ? "arrowUp"
-                                      : sort?.direction === "desc"
-                                        ? "arrowDown"
-                                        : "sort"
-                                  }
-                                  size={14}
-                                />
-                                {sort && state.sorting.length > 1
-                                  ? number(state.sorting.indexOf(sort) + 1)
-                                  : ""}
-                              </span>
-                            )}
-                          </button>
-                          {columnMenu !== false && (
-                            <button
-                              type="button"
-                              className="og-column-menu-trigger"
-                              ref={(element) => {
-                                if (element)
-                                  columnMenuButtons.current.set(
-                                    column.id,
-                                    element,
-                                  );
-                                else
-                                  columnMenuButtons.current.delete(column.id);
-                              }}
-                              aria-label={t("columnMenu.open", {
-                                column: column.header ?? column.id,
-                              })}
-                              aria-haspopup="menu"
-                              aria-expanded={headerMenu.columnId === column.id}
-                              aria-keyshortcuts="Shift+F10 ContextMenu ArrowDown"
-                              disabled={Boolean(
-                                editing || rowEditing || noteEditing,
-                              )}
-                              onClick={(event) => {
-                                const rect =
-                                  event.currentTarget.getBoundingClientRect();
-                                headerMenu.open(
-                                  column,
-                                  event.currentTarget,
-                                  event.detail === 0 ? "keyboard" : "button",
-                                  { x: rect.left, y: rect.bottom },
-                                );
-                              }}
-                              onKeyDown={(event) => {
-                                if (
-                                  event.key !== "ArrowDown" ||
-                                  event.ctrlKey ||
-                                  event.metaKey ||
-                                  event.altKey
-                                )
-                                  return;
-                                const rect =
-                                  event.currentTarget.getBoundingClientRect();
-                                if (
-                                  headerMenu.open(
-                                    column,
-                                    event.currentTarget,
-                                    "keyboard",
-                                    { x: rect.left, y: rect.bottom },
-                                  )
-                                ) {
-                                  event.preventDefault();
-                                  event.stopPropagation();
+                          {customHeader !== undefined ? (
+                            <div className="og-custom-header">
+                              {customHeader}
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                type="button"
+                                className="og-sort"
+                                disabled={column.sortable === false}
+                                draggable={
+                                  column.movable !== false &&
+                                  !column.lockPosition
                                 }
-                              }}
-                            >
-                              <GridIcon name="more" size={16} />
-                            </button>
+                                onDragStart={(event) => {
+                                  event.dataTransfer.setData(
+                                    "text/opengrid-column",
+                                    column.id,
+                                  );
+                                  event.dataTransfer.setData(
+                                    COLUMN_DRAG_OWNER,
+                                    columnDragOwner(model),
+                                  );
+                                }}
+                                aria-label={
+                                  renderHeader
+                                    ? undefined
+                                    : t("grid.sortColumn", {
+                                        column: column.header ?? column.id,
+                                      })
+                                }
+                                title={
+                                  renderHeader
+                                    ? t("grid.sortColumn", {
+                                        column: column.header ?? column.id,
+                                      })
+                                    : undefined
+                                }
+                                onClick={(event) => {
+                                  model.setSort(
+                                    column.id,
+                                    !sort
+                                      ? "asc"
+                                      : sort.direction === "asc"
+                                        ? "desc"
+                                        : null,
+                                    event.shiftKey,
+                                  );
+                                }}
+                              >
+                                <span
+                                  data-og-size-text={
+                                    renderHeader ? undefined : "header"
+                                  }
+                                >
+                                  {renderHeader
+                                    ? renderHeader({ column, model })
+                                    : (column.header ?? column.id)}
+                                </span>
+                                {sort && (
+                                  <span
+                                    className="og-sort-indicator"
+                                    aria-hidden="true"
+                                  >
+                                    <GridIcon
+                                      name={
+                                        sort?.direction === "asc"
+                                          ? "arrowUp"
+                                          : sort?.direction === "desc"
+                                            ? "arrowDown"
+                                            : "sort"
+                                      }
+                                      size={14}
+                                    />
+                                    {sort && state.sorting.length > 1
+                                      ? number(state.sorting.indexOf(sort) + 1)
+                                      : ""}
+                                  </span>
+                                )}
+                              </button>
+                              {columnMenu !== false && (
+                                <button
+                                  type="button"
+                                  className="og-column-menu-trigger"
+                                  ref={(element) => {
+                                    if (element)
+                                      columnMenuButtons.current.set(
+                                        column.id,
+                                        element,
+                                      );
+                                    else
+                                      columnMenuButtons.current.delete(
+                                        column.id,
+                                      );
+                                  }}
+                                  aria-label={t("columnMenu.open", {
+                                    column: column.header ?? column.id,
+                                  })}
+                                  aria-haspopup="menu"
+                                  aria-expanded={
+                                    headerMenu.columnId === column.id
+                                  }
+                                  aria-keyshortcuts="Shift+F10 ContextMenu ArrowDown"
+                                  disabled={Boolean(
+                                    editing || rowEditing || noteEditing,
+                                  )}
+                                  onClick={(event) => {
+                                    const rect =
+                                      event.currentTarget.getBoundingClientRect();
+                                    headerMenu.open(
+                                      column,
+                                      event.currentTarget,
+                                      event.detail === 0
+                                        ? "keyboard"
+                                        : "button",
+                                      { x: rect.left, y: rect.bottom },
+                                    );
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (
+                                      event.key !== "ArrowDown" ||
+                                      event.ctrlKey ||
+                                      event.metaKey ||
+                                      event.altKey
+                                    )
+                                      return;
+                                    const rect =
+                                      event.currentTarget.getBoundingClientRect();
+                                    if (
+                                      headerMenu.open(
+                                        column,
+                                        event.currentTarget,
+                                        "keyboard",
+                                        { x: rect.left, y: rect.bottom },
+                                      )
+                                    ) {
+                                      event.preventDefault();
+                                      event.stopPropagation();
+                                    }
+                                  }}
+                                >
+                                  <GridIcon name="more" size={16} />
+                                </button>
+                              )}
+                            </>
                           )}
                           <div
                             role="separator"
