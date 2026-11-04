@@ -57,6 +57,7 @@ import { ColumnDefinitionsLab } from "./column-definitions-lab";
 import { ConditionFilterLab } from "./condition-filter-lab";
 import { CalculationLab } from "./calculation-lab";
 import { ExternalEditLab } from "./external-edit-lab";
+import { KeyedGroupsLab } from "./keyed-groups-lab";
 interface Holding {
   id: string;
   company: string;
@@ -297,6 +298,7 @@ function App() {
   const [columnDefinitionsOpen, setColumnDefinitionsOpen] = useState(false);
   const [calculationOpen, setCalculationOpen] = useState(false);
   const [externalEditOpen, setExternalEditOpen] = useState(false);
+  const [keyedGroupsOpen, setKeyedGroupsOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -811,6 +813,16 @@ function App() {
           <h2>Explore features</h2>
           <p>Open an example to try a focused workflow.</p>
         </div>
+        <section className="pivot-panel" id="keyed-groups">
+          <button
+            type="button"
+            aria-expanded={keyedGroupsOpen}
+            onClick={() => setKeyedGroupsOpen(!keyedGroupsOpen)}
+          >
+            Keyed class grouping lab
+          </button>
+          {keyedGroupsOpen && <KeyedGroupsLab />}
+        </section>
         <section className="pivot-panel" id="external-edits">
           <button
             type="button"

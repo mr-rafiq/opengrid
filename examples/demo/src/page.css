@@ -760,6 +760,12 @@ footer .creator-credit {
 .server-grid-main {
   min-width: 0;
 }
+.keyed-groups-lab > p {
+  max-width: 70ch;
+}
+.pivot-panel .keyed-groups-lab .grouping-lab-controls button {
+  min-height: 44px;
+}
 .server-grid-main .og-root {
   border: 0;
   border-radius: 0;

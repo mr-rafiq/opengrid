@@ -1,5 +1,17 @@
 # Verification record
 
+## Domain objects and client hierarchy (0.12.0)
+
+The native [domain grouping callbacks](GROUP_CALLBACKS.md) retain original class instances, explicit stable keys and generated values without fabricated rows. Frozen source/filtered/sorted forests are independent of the visible page. Provider bindings reject client-only group callbacks explicitly. Internal consumer helpers are not an exported AG Grid facade or complete application replacement.
+
+The current full serial local check passed strict TypeScript in **234.83 seconds** and **2,092 unit tests in 141 files** in **812.57 seconds**, with process exit code 0. The Windows runner emitted one worker-shutdown timeout for the existing touch-grid file and continued; the warning is retained rather than counted as an assertion failure or hidden. The separate row/group source slice had already passed **193 browser scenarios without retries** in 14.7 minutes and **four installed-React18 grouping scenarios**. The new original public class-grouping demo passed **six browser flows at 320/390/1440px in light/dark** in 17.4 seconds, including filtered currency totals, group expansion, horizontal keyboard focus, no document overflow, actual 44px control bounds and zero serious/critical scoped automated accessibility findings. Screenshot review removed unrelated toolbar controls and corrected touch-target CSS specificity.
+
+An internal source-value/callback boundary separately passed **57 focused tests in five files**, strict module checking and ESM/declaration generation. A private read-only harness imports unchanged consumer definitions and selected components without publishing them: on the installed React 18.3.1 runtime, all **320 leaf and 704 grouped raw/formatted values across 64 columns** matched the installed AG Grid 31.3.4 reference, including source-class identity and custom tree/phase sort order. Two unchanged cost-editor browser flows use real owned column wrappers and complete off-page leaf traversal. These results use synthetic records and balanced grouping; reference renderers/editors/filters were excluded from the value-only comparison. They are not the mounted full workspace, authenticated backend acceptance or target-pixel certification.
+
+All three library ESM/declaration builds, React CSS and the production demo also passed in **366.003 seconds**. Pages notice collection intentionally rejects dependency junctions that leave the installed tree; use a normal installation for production-site generation. The protection is unchanged.
+
+The [CI workflow](https://github.com/mr-rafiq/opengrid/actions/workflows/ci.yml) runs package/demo builds and the full grid suite; the [Pages workflow](https://github.com/mr-rafiq/opengrid/actions/workflows/pages.yml) additionally generates and checks the production site. Manual screen-reader/physical-device testing, unbalanced reference grouping, complete component/API/filter/panel/state translation, group business editing and real authenticated integration remain open.
+
 ## Typed editors and client view commands (0.11.0)
 
 The source release adds native [typed custom drafts](EDITORS.md) and [client view commands](GRID_VIEW.md). These are tested adapter prerequisites; no public AG Grid facade or unchanged authenticated consumer replacement is certified.

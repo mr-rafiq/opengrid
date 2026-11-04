@@ -91,6 +91,10 @@ Sorts are stable, with blank values last in both directions. Comparators can be 
 
 Row selection stores stable IDs. Unknown IDs are discarded; removed rows are cleared. The separate cell-range controller supports one rectangular range; hierarchical row-selection cascade remains absent.
 
+## Domain grouping callbacks
+
+`Column.groupKeyGetter(value, row)` supplies string grouping identity while keeping the original value. `groupValueGetter(node)` supplies generated values from real hierarchy metadata, and `compareBlankValues: true` lets a custom comparator explicitly order blanks. `getRowHierarchy?.(stage)` reads the frozen source, filtered or sorted forest independently of expansion and pagination. See [domain objects and generated groups](GROUP_CALLBACKS.md) for the original class-based example, callback ownership and provider limits. These are native APIs, not an exported AG Grid facade.
+
 ## Column state and persistence
 
 ```ts

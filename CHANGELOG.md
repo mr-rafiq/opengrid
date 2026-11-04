@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.12.0 - 2026-11-04
+
+Domain-object grouping and complete client hierarchy metadata. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Native `groupKeyGetter` merges groups by stable string keys while retaining original domain instances and source representatives. `groupValueGetter` supplies typed generated-group values without fabricated source rows, and explicit blank-comparator opt-in supports metadata-based ordering.
+- Frozen source/filtered/sorted hierarchy forests are independent of expansion, pagination and subtotal placement. Source order stays stable when filtering removes a group's first matching leaf. Rendering and HTML print captures share generated-value formatting.
+- The keyed class grouping lab demonstrates three groups from 24 distinct Department instances, European currency, filtered totals and keyboard navigation in shared light/dark themes. Controls wrap on narrow screens, have verified 44px targets and omit unrelated toolbar actions.
+- Original internal resident-row/column/value adapters preserve class references, distinct traversal stages, row-local events and measured callback contracts. They are not exported as `AgGridReact`. Complete component/filter/panel/state/editing translation and authenticated application replacement remain open. Provider bindings reject client-only group callbacks explicitly.
+
 ## 0.11.0 - 2026-11-04
 
 Typed custom editors and client view commands. Created by Mohamed Rafiq. Source release only; no npm publication.

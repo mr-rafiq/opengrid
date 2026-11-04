@@ -151,7 +151,7 @@ GitHub Actions runs these checks on push and pull requests. See [verification ev
 
 ## License and provenance
 
-[MIT](LICENSE). OpenGrid is independent of AG Grid Ltd and has no AG Grid runtime dependency. Its implementation was written from public feature documentation, without copying enterprise source or removing license controls. AG Grid and its product names belong to their respective owners. Repository name availability was checked under `mr-rafiq` only; no claim of globally unique branding or npm name availability is made. Third-party runtime and development dependencies retain their own licenses; see [notices](THIRD_PARTY_NOTICES.md).
+[MIT](LICENSE). OpenGrid is independent of AG Grid Ltd and has no AG Grid runtime dependency. Its original implementation uses public feature documentation and independently observed runtime behavior, without copying enterprise source or removing license controls. AG Grid and its product names belong to their respective owners. Repository name availability was checked under `mr-rafiq` only; no claim of globally unique branding or npm name availability is made. Third-party runtime and development dependencies retain their own licenses; see [notices](THIRD_PARTY_NOTICES.md).
 
 [Column sizing](docs/COLUMN_SIZING.md): constrained flex allocation and explicit rendered-text autosizing, cancellation reports and manual-width reset. Try the Column sizing lab in the live demo.
 
@@ -170,3 +170,5 @@ Try the [participant showcase](https://mr-rafiq.github.io/opengrid/showcase/) fo
 Its Records/Pivot switch connects a live source to the read-only matrix and responsive Pivot fields panel. See [client pivot tables](docs/CLIENT_PIVOT.md) for composition, limits and remaining partial scope.
 
 Use the [provider sidebar](docs/SERVER_SIDEBAR.md) for server block/tree grouping, aggregation and typed filters with controlled column visibility. The Server grouping lab demonstrates actual synthetic provider execution and a responsive themed sidebar; remote writes/pivot and infinite/viewport panels remain open.
+
+Use [domain grouping callbacks](docs/GROUP_CALLBACKS.md) to group original class instances by stable keys, format generated group values without fake rows and read frozen source/filtered/sorted forests. Try the Keyed class grouping lab. These native APIs do not certify AG Grid API or application replacement compatibility.
