@@ -1,4 +1,8 @@
 import type { GridHierarchyNode, GridModel } from "@opengrid/core";
+import {
+  HIERARCHY_SELECTION_LIMITS,
+  HierarchySelectionError,
+} from "@opengrid/core";
 
 /** Internal resident-client boundary, not an exported AG Grid facade. */
 export interface Ag31RowNode<T> {
@@ -103,8 +107,11 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
   let pendingAssignments: Map<Entry<T>, Partial<Entry<T>>> | undefined;
   let pendingById: Map<string, Entry<T>> | undefined;
   let pendingLeaves: Ag31RowNode<T>[] | undefined;
+  let pendingByNative: Map<string, Entry<T>> | undefined;
+  let pendingRoot: Partial<Entry<T>> | undefined;
   const current = (entry: Entry<T>): Entry<T> => {
-    const assignment = pendingAssignments?.get(entry);
+    const assignment =
+      entry === root ? pendingRoot : pendingAssignments?.get(entry);
     return assignment ? { ...entry, ...assignment } : entry;
   };
 
@@ -117,7 +124,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
     const visit = (nodes: Ag31RowNode<T>[]) => {
       for (const node of nodes) {
         if (!postorder) result.push(node);
-        visit(entries.get(node)![children] ?? []);
+        visit(current(entries.get(node)!)[children] ?? []);
         if (postorder) result.push(node);
       }
     };
@@ -305,10 +312,21 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       pendingAssignments = assignments;
       pendingById = new Map();
       pendingLeaves = [];
+      pendingRoot = { leaves: pendingLeaves };
       const state = model.getState();
+      const sourceRows = model.getRows();
+      if (
+        sourceRows.length > HIERARCHY_SELECTION_LIMITS.maxRows ||
+        state.groupBy.length > HIERARCHY_SELECTION_LIMITS.maxDepth
+      )
+        throw new HierarchySelectionError(
+          "LIMIT",
+          "hierarchy",
+          "Compatibility hierarchy source/depth budget exceeded",
+        );
       // Getters can inspect their own row node during the very first projection.
       // Stage original references before asking the model to evaluate any values.
-      for (const row of model.getRows()) {
+      for (const row of sourceRows) {
         const id = options.getRowId(row);
         if (
           typeof id !== "string" ||
@@ -332,11 +350,10 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           parent: old?.parent ?? root.node,
         });
       }
-      const source = model.getRowHierarchy!("source"),
-        filtered = model.getRowHierarchy!("filtered"),
-        sorted = model.getRowHierarchy!("sorted");
+      const source = model.getRowHierarchy!("source");
       const nextById = new Map<string, Entry<T>>(),
         nextByNative = new Map<string, Entry<T>>();
+      pendingByNative = nextByNative;
       const sourceByData = new Map<T, Entry<T>>();
       const expanded = new Set(model.getState().expanded);
       const selectedIds = new Set(model.getState().selected);
@@ -408,6 +425,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
         });
       }
       const grouped = visit(source, root);
+      pendingRoot.grouped = grouped;
       function project(
         nodes: readonly GridHierarchyNode<T>[],
         key: "filtered" | "sorted",
@@ -430,8 +448,11 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           return entry.node;
         });
       }
-      const afterFilter = project(filtered, "filtered"),
-        afterSort = project(sorted, "sorted");
+      const afterFilter = project(
+        model.getRowHierarchy!("filtered"),
+        "filtered",
+      );
+      pendingRoot.filtered = afterFilter;
       const counts = new Map<Ag31RowNode<T>, number>();
       function countFiltered(node: Ag31RowNode<T>): number {
         if (counts.has(node)) return counts.get(node)!;
@@ -455,7 +476,16 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
         const count = ids.filter((id) => selectedIds.has(id)).length;
         assignment.selectionValue =
           count === 0 ? false : count === ids.length ? true : undefined;
+        if (assignment.group)
+          assignment.sorted = [...(assignment.filtered ?? [])];
       }
+      pendingRoot.allChildrenCount = afterFilter.reduce(
+        (sum, node) => sum + countFiltered(node),
+        0,
+      );
+      pendingRoot.sorted = [...afterFilter];
+      const afterSort = project(model.getRowHierarchy!("sorted"), "sorted");
+      pendingRoot.sorted = afterSort;
       let top = 0;
       model.getRowModel().forEach((node, index) => {
         const entry = nextByNative.get(node.id);
@@ -509,6 +539,8 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       pendingAssignments = undefined;
       pendingById = undefined;
       pendingLeaves = undefined;
+      pendingByNative = undefined;
+      pendingRoot = undefined;
       syncing = false;
     }
     for (const { entry, type } of events) {
@@ -529,7 +561,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
   ) {
     sync();
     if (destroyed) return;
-    flatten(root[children] ?? [], children).forEach(callback);
+    flatten(current(root)[children] ?? [], children).forEach(callback);
   }
   return Object.freeze({
     getRowNode(id: string) {
@@ -541,6 +573,18 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           (byId.get(id)?.group ? byId.get(id)?.node : undefined)
         );
       return byId.get(id)?.node;
+    },
+    /** Internal bridge lookup; the public AG API uses compatibility IDs. */
+    getRowNodeByNativeId(id: string) {
+      sync();
+      if (destroyed) return undefined;
+      return (
+        pendingByNative?.get(id)?.node ??
+        (pendingById?.get(id)?.group === false
+          ? pendingById.get(id)?.node
+          : undefined) ??
+        byNative.get(id)?.node
+      );
     },
     getRootNode() {
       sync();

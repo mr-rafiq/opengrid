@@ -66,6 +66,99 @@ function collect(
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
 describe("resident AG31 row-node boundary", () => {
+  it("stages the complete source graph before custom group comparators and filtered traversal", () => {
+    let nodes: ReturnType<typeof createAg31RowNodes<Row>>;
+    const rows = [
+      new Row("one", "West", 3),
+      new Row("two", "East", 9),
+      new Row("three", "West", 6),
+    ];
+    const groups: string[] = [];
+    const model = createGrid({
+      rows,
+      getRowId: (row) => row.id,
+      columns: [
+        {
+          id: "team",
+          field: "team",
+          compare(a, b, context) {
+            const left = context.nodeA
+              ? nodes.getRowNodeByNativeId(context.nodeA.id)!
+              : nodes.getRowNode(context.rowA!.id)!;
+            expect(left).toBeDefined();
+            if (context.nodeA) {
+              expect(left.group).toBe(true);
+              expect(left.field).toBe("team");
+              expect(left.key).toBe(a);
+              expect(left.childrenAfterFilter!.length).toBeGreaterThan(0);
+              groups.push(left.id);
+              const all: string[] = [];
+              nodes.forEachNode((node) => all.push(node.id));
+              expect(all).toEqual([
+                "group-West",
+                "one",
+                "three",
+                "group-East",
+                "two",
+              ]);
+            } else expect(left.data).toBe(context.rowA);
+            expect(
+              nodes.getRootNode().allLeafChildren!.map((node) => node.id),
+            ).toEqual(["one", "two", "three"]);
+            return String(a).localeCompare(String(b));
+          },
+        },
+        { id: "amount", field: "amount", type: "number" },
+      ],
+      initialState: {
+        groupBy: ["team"],
+        sorting: [{ columnId: "team", direction: "asc" }],
+      },
+    });
+    nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity: (node) => ({
+        id: `group-${node.groupValue}`,
+        key: String(node.groupValue),
+        field: node.groupColumnId,
+      }),
+    });
+    expect(nodes.getRowNode("one")!.data).toBe(rows[0]);
+    expect(groups.length).toBeGreaterThan(0);
+    expect(ids(collect(nodes, "forEachNodeAfterFilterAndSort"))).toEqual([
+      "group-East",
+      "two",
+      "group-West",
+      "one",
+      "three",
+    ]);
+  });
+
+  it("enforces source size before allocating identities or evaluating the hierarchy", () => {
+    const { model, rows } = setup();
+    const hierarchy = vi.fn(model.getRowHierarchy!),
+      identity = vi.fn((row: Row) => row.id);
+    const oversized = {
+      ...model,
+      getRows: () => Array<Row>(100_001).fill(rows[0]),
+      getRowHierarchy: hierarchy,
+    };
+    const nodes = createAg31RowNodes({
+      model: oversized,
+      getRowId: identity,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity: (node) => ({ id: node.id, key: String(node.groupValue) }),
+    });
+    expect(() => nodes.getRowNode("one")).toThrow(
+      "source/depth budget exceeded",
+    );
+    expect(identity).not.toHaveBeenCalled();
+    expect(hierarchy).not.toHaveBeenCalled();
+  });
   it("bootstraps real row wrappers before value getters and stages authoritative class updates", () => {
     let nodes: ReturnType<typeof createAg31RowNodes<Row>>;
     const row = new Row("one", "East", 3),
