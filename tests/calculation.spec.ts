@@ -27,9 +27,9 @@ test("interactive amount header sorts once and opens the native menu without dup
     name: "Amount",
     exact: true,
   });
-  await grid.getByRole("button", { name: /^Sort Amount / }).click();
+  await grid.getByRole("button", { name: /^Amount / }).click();
   await expect(header).toHaveAttribute("aria-sort", "ascending");
-  await grid.getByRole("button", { name: /^Sort Amount / }).click();
+  await grid.getByRole("button", { name: /^Amount / }).click();
   await expect(header).toHaveAttribute("aria-sort", "descending");
   expect(
     await header
@@ -37,7 +37,7 @@ test("interactive amount header sorts once and opens the native menu without dup
       .count(),
   ).toBe(0);
   await grid
-    .getByRole("button", { name: "Amount column menu", exact: true })
+    .getByRole("button", { name: "Column menu for Amount", exact: true })
     .click();
   const menu = page.getByRole("menu");
   await expect(menu).toBeVisible();

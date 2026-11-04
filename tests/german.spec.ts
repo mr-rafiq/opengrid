@@ -97,6 +97,36 @@ test("German calculation currency, menus and sidebar filters keep numeric semant
   await expect(article.getByLabel("Filtered estimate total")).toContainText(
     /4\.628,00\s*€/u,
   );
+  await page.addScriptTag({
+    content: readFileSync("node_modules/axe-core/axe.min.js", "utf8"),
+  });
+  const violations = await article.evaluate(async (target) => {
+    const axe = (
+      window as unknown as {
+        axe: {
+          run(
+            element: Element,
+          ): Promise<{
+            violations: {
+              id: string;
+              impact: string;
+              nodes: { html: string; target: string[] }[];
+            }[];
+          }>;
+        };
+      }
+    ).axe;
+    return (await axe.run(target)).violations
+      .filter((item) => ["serious", "critical"].includes(item.impact))
+      .map((item) => ({
+        id: item.id,
+        nodes: item.nodes.map((node) => ({
+          html: node.html,
+          target: node.target,
+        })),
+      }));
+  });
+  expect(violations).toEqual([]);
 });
 for (const width of [320, 390])
   test(`German workspace phone controls fit ${width}px in both themes`, async ({
@@ -140,14 +170,24 @@ for (const width of [320, 390])
           window as unknown as {
             axe: {
               run: (element: Element) => Promise<{
-                violations: { id: string; impact: string }[];
+                violations: {
+                  id: string;
+                  impact: string;
+                  nodes: { html: string; target: string[] }[];
+                }[];
               }>;
             };
           }
         ).axe;
         return (await axe.run(target)).violations
           .filter((item) => ["serious", "critical"].includes(item.impact))
-          .map((item) => item.id);
+          .map((item) => ({
+            id: item.id,
+            nodes: item.nodes.map((node) => ({
+              html: node.html,
+              target: node.target,
+            })),
+          }));
       });
       expect(violations).toEqual([]);
       await drawer.screenshot({

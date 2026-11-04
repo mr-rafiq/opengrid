@@ -10,6 +10,8 @@ import { createGrid, type Column, type GridState } from "@opengrid/core";
 import {
   DataGrid,
   GridIcon,
+  useGridLocale,
+  type GridHeaderControlsContext,
   GridSidePanel,
   GridWorkspace,
   GridLocaleProvider,
@@ -29,6 +31,51 @@ const moneyFormats = {
   de: new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }),
 };
 const amount = (row: EstimateRow) => row.item.quantity * row.item.rate;
+function CalculationAmountHeader({
+  control,
+  total,
+}: {
+  control: GridHeaderControlsContext<EstimateRow>;
+  total: string;
+}) {
+  const { t } = useGridLocale();
+  const label = control.column.header ?? control.column.id;
+  const direction = control.model
+    .getState()
+    .sorting.find((sort) => sort.columnId === control.column.id)?.direction;
+  return (
+    <div className="calculation-header-controls">
+      <button
+        type="button"
+        className="calculation-header-sort"
+        aria-label={`${label} ${total}. ${t("grid.sortColumn", { column: label })}`}
+        onClick={(event) => control.progressSort(event.shiftKey)}
+      >
+        <span>
+          {label} <small className="calculation-header-total">{total}</small>
+        </span>
+        <GridIcon
+          name={
+            direction === "asc"
+              ? "arrowUp"
+              : direction === "desc"
+                ? "arrowDown"
+                : "sort"
+          }
+        />
+      </button>
+      <button
+        type="button"
+        className="calculation-header-menu"
+        aria-label={t("columnMenu.open", { column: label })}
+        aria-haspopup="menu"
+        onClick={(event) => control.showColumnMenu(event.currentTarget)}
+      >
+        <GridIcon name="more" />
+      </button>
+    </div>
+  );
+}
 const data = (): EstimateRow[] => [
   {
     id: "est-1",
@@ -390,51 +437,14 @@ export function CalculationLab() {
             notes={false}
             pagination={false}
             columnMenu
-            renderHeaderControls={({
-              column,
-              progressSort,
-              showColumnMenu,
-            }) => {
-              if (column.id !== "amount") return undefined;
-              const direction = state.sorting.find(
-                (s) => s.columnId === column.id,
-              )?.direction;
-              return (
-                <div className="calculation-header-controls">
-                  <button
-                    type="button"
-                    className="calculation-header-sort"
-                    aria-label={`Sort Amount ${money.current.format(total)}`}
-                    onClick={(event) => progressSort(event.shiftKey)}
-                  >
-                    <span>
-                      Amount
-                      <small className="calculation-header-total">
-                        {money.current.format(total)}
-                      </small>
-                    </span>
-                    <GridIcon
-                      name={
-                        direction === "asc"
-                          ? "arrowUp"
-                          : direction === "desc"
-                            ? "arrowDown"
-                            : "sort"
-                      }
-                    />
-                  </button>
-                  <button
-                    type="button"
-                    className="calculation-header-menu"
-                    aria-label="Amount column menu"
-                    aria-haspopup="menu"
-                    onClick={(event) => showColumnMenu(event.currentTarget)}
-                  >
-                    <GridIcon name="more" />
-                  </button>
-                </div>
-              );
-            }}
+            renderHeaderControls={(control) =>
+              control.column.id === "amount" ? (
+                <CalculationAmountHeader
+                  control={control}
+                  total={money.current.format(total)}
+                />
+              ) : undefined
+            }
             renderGroupCell={({ node, column, displayValue }) =>
               column.id === "description" ? (
                 <span className="calculation-section">
