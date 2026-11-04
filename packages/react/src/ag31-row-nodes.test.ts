@@ -34,6 +34,7 @@ const setup = () => {
     selection = vi.fn();
   const nodes = createAg31RowNodes({
     model,
+    getRowId: (row) => row.id,
     rowHeight: 40,
     writeCell: write,
     selectionChanged: selection,
@@ -65,6 +66,244 @@ function collect(
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
 describe("resident AG31 row-node boundary", () => {
+  it("bootstraps real row wrappers before value getters and stages authoritative class updates", () => {
+    let nodes: ReturnType<typeof createAg31RowNodes<Row>>;
+    const row = new Row("one", "East", 3),
+      reads: number[] = [];
+    const model = createGrid({
+      rows: [row],
+      getRowId: (row) => row.id,
+      columns: [
+        { id: "team", field: "team" },
+        {
+          id: "amount",
+          type: "number",
+          aggregate: "sum",
+          valueGetter: (row) => {
+            const node = nodes.getRowNode(row.id)!;
+            expect(node.group).toBe(false);
+            expect(node.data).toBe(row);
+            expect(node.data!.caption()).toBe("one");
+            expect(node.selected).toBe(true);
+            const projected: Row[] = [];
+            nodes.forEachLeafNode((node) => projected.push(node.data!));
+            expect(projected).toEqual([row]);
+            expect(projected[0]).toBe(row);
+            reads.push(node.data!.amount);
+            return node.data!.amount;
+          },
+        },
+      ],
+      initialState: { groupBy: ["team"], selected: ["one"] },
+    });
+    nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      groupIdentity: (node) => ({
+        id: `group-${node.groupValue}`,
+        key: String(node.groupValue),
+      }),
+      writeCell: () => false,
+    });
+    const one = nodes.getRowNode("one")!;
+    expect(one.data).toBe(row);
+    expect(reads).toContain(3);
+    reads.length = 0;
+    const updated = new Row("one", "East", 20);
+    model.applyTransaction({ update: [updated] });
+    expect(one.data).toBe(updated);
+    expect(reads.length).toBeGreaterThan(0);
+    expect(reads.every((value) => value === 20)).toBe(true);
+  });
+
+  it("exposes staged parent keys and levels while allocating nested group identities", () => {
+    const model = createGrid({
+      rows: [{ id: "a", team: "East", area: "North" }],
+      getRowId: (row) => row.id,
+      columns: [
+        { id: "team", field: "team" },
+        { id: "area", field: "area" },
+      ],
+      initialState: { groupBy: ["team", "area"] },
+    });
+    const observed: unknown[] = [];
+    const nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity(node, parent) {
+        observed.push({
+          depth: node.depth,
+          key: parent.key,
+          level: parent.level,
+        });
+        return {
+          id: `${parent.id}-${node.groupValue}`,
+          key: String(node.groupValue),
+          field: node.groupColumnId,
+        };
+      },
+    });
+    expect(nodes.getRowNode("a")!.parent!.parent!.key).toBe("East");
+    expect(observed).toEqual([
+      { depth: 0, key: null, level: -1 },
+      { depth: 1, key: "East", level: 0 },
+    ]);
+  });
+
+  it("rejects inconsistent source IDs without publishing provisional wrappers and recovers on a valid projection", () => {
+    const { model } = setup();
+    let invalid = true;
+    const nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => (invalid ? `wrong-${row.id}` : row.id),
+      rowHeight: 40,
+      groupIdentity: (node) => ({
+        id: `group-${node.groupValue}`,
+        key: String(node.groupValue),
+      }),
+      writeCell: () => false,
+    });
+    expect(() => nodes.getRowNode("one")).toThrow("Hierarchy identity differs");
+    invalid = false;
+    expect(nodes.getRowNode("one")!.data).toBe(model.getRow("one"));
+    expect(nodes.getRowNode("wrong-one")).toBeUndefined();
+    expect(ids(collect(nodes, "forEachLeafNode"))).toEqual([
+      "one",
+      "two",
+      "three",
+    ]);
+  });
+
+  it("rejects a model change during projection before publishing the graph", () => {
+    const { model } = setup();
+    let change = true;
+    const nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity(node) {
+        if (change) {
+          change = false;
+          model.setQuickFilter("East");
+        }
+        return { id: `group-${node.groupValue}`, key: String(node.groupValue) };
+      },
+    });
+    expect(() => nodes.getRowNode("one")).toThrow(
+      "Grid changed during row-node projection",
+    );
+    expect(nodes.getRowNode("one")!.data).toBe(model.getRow("one"));
+    expect(ids(collect(nodes, "forEachNodeAfterFilter"))).toEqual([
+      "group-East",
+      "one",
+      "three",
+    ]);
+  });
+  it("dispatches synchronous row-local expansion events without grid API injection", () => {
+    const { nodes, model } = setup(),
+      parent = nodes.getRowNode("one")!.parent!;
+    const calls: unknown[] = [];
+    const listener = (event: { type: string; node: Ag31RowNode<Row> }) =>
+      calls.push({
+        keys: Object.keys(event).sort(),
+        sameNode: event.node === parent,
+        expanded: event.node.expanded,
+      });
+    parent.addEventListener("expandedChanged", listener);
+    parent.addEventListener("expandedChanged", listener);
+    parent.setExpanded(true);
+    expect(calls).toEqual([
+      { keys: ["node", "type"], sameNode: true, expanded: true },
+    ]);
+    parent.setExpanded(true);
+    expect(calls).toHaveLength(1);
+    const native = model.getRowHierarchy!("source")[0];
+    model.toggleExpanded(native.id);
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({
+      keys: ["node", "type"],
+      sameNode: true,
+      expanded: false,
+    });
+    parent.removeEventListener("expandedChanged", listener);
+    model.toggleExpanded(native.id);
+    expect(calls).toHaveLength(2);
+  });
+
+  it("keeps direct selected properties and synchronous rowSelected events consistent with mixed source descendants", () => {
+    const { nodes, model } = setup(),
+      one = nodes.getRowNode("one")!,
+      parent = one.parent!;
+    const values: unknown[] = [];
+    parent.addEventListener("rowSelected", (event) =>
+      values.push({
+        selected: event.node.selected,
+        keys: Object.keys(event).sort(),
+        sameNode: event.node === parent,
+      }),
+    );
+    one.setSelected(true);
+    expect(one.selected).toBe(true);
+    expect(parent.selected).toBeUndefined();
+    parent.setSelected(true);
+    expect(parent.selected).toBe(true);
+    expect(values).toEqual([
+      { selected: undefined, keys: ["node", "type"], sameNode: true },
+      { selected: true, keys: ["node", "type"], sameNode: true },
+    ]);
+    model.setState({ selected: [] });
+    expect(parent.selected).toBe(false);
+    expect(values).toHaveLength(3);
+    expect(nodes.getRootNode().selected).toBe(false);
+  });
+
+  it("matches filtered child counts, sorted sibling flags and retained measured row heights", () => {
+    const { nodes, model } = setup(),
+      one = nodes.getRowNode("one")!,
+      parent = one.parent!,
+      three = nodes.getRowNode("three")!;
+    expect(parent.allChildrenCount).toBe(2);
+    expect(nodes.getRootNode().allChildrenCount).toBe(3);
+    expect(parent.rowHeight).toBe(40);
+    expect(one.rowHeight).toBeUndefined();
+    expect(one.firstChild).toBe(true);
+    expect(one.lastChild).toBe(false);
+    expect(one.childIndex).toBe(0);
+    model.setSort("amount", "desc");
+    expect(one.firstChild).toBe(false);
+    expect(one.lastChild).toBe(true);
+    expect(one.childIndex).toBe(1);
+    parent.setExpanded(true);
+    expect(one.rowHeight).toBe(40);
+    model.setFilter("amount", { op: "gt", value: 3 });
+    expect(parent.allChildrenCount).toBe(1);
+    expect(nodes.getRootNode().allChildrenCount).toBe(2);
+    expect(one.rowIndex).toBeNull();
+    expect(one.rowHeight).toBe(40);
+    expect(one.childIndex).toBe(1);
+    expect(one.lastChild).toBe(true);
+    expect(three.childIndex).toBe(0);
+    expect(three.firstChild).toBe(true);
+    expect(three.lastChild).toBe(true);
+  });
+
+  it("clears row listeners and root graph references when the registry is destroyed", () => {
+    const { nodes, model } = setup(),
+      parent = nodes.getRowNode("one")!.parent!,
+      root = nodes.getRootNode(),
+      listener = vi.fn();
+    parent.addEventListener("expandedChanged", listener);
+    nodes.destroy();
+    model.setState({ expanded: [] });
+    parent.setExpanded(true);
+    expect(listener).not.toHaveBeenCalled();
+    expect(root.childrenAfterGroup).toEqual([]);
+    expect(root.allLeafChildren).toEqual([]);
+  });
   it("matches source leaf order and group preorder with global callback indices, ignoring collapsed rows", () => {
     const { nodes } = setup();
     expect(ids(collect(nodes, "forEachLeafNode"))).toEqual([
