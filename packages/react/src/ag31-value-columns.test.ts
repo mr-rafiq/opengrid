@@ -281,3 +281,87 @@ it("separates generated custom-group comparator values from displayed groupData"
   );
   expect(model.getValue(rows[0], "tree")).toBe("Line a");
 });
+
+it("falls back to the original value when a source formatter returns null or undefined", () => {
+  for (const valueFormatter of [() => null, () => undefined]) {
+    const { schema, nodes } = setup([
+      { field: "nested.amount", valueFormatter },
+    ]);
+    expect(schema.format(nodes.getRowNode("a")!, "nested.amount")).toBe("3");
+  }
+});
+
+it("retains measured formatter result types while native display remains text", () => {
+  const { schema, nodes } = setup([
+    { field: "nested.amount" },
+    { colId: "number", valueGetter: () => 7, valueFormatter: () => 9 },
+    { colId: "zero", valueGetter: () => 7, valueFormatter: () => 0 },
+    { colId: "empty", valueGetter: () => 7, valueFormatter: () => "" },
+    { colId: "missing", valueGetter: () => undefined },
+    { colId: "array", valueGetter: () => [1, null, 2] },
+  ]);
+  const rowNode = nodes.getRowNode("a")!;
+  const read = (colKey: string, useFormatter = false) =>
+    schema.getCellValue({ rowNode, colKey, useFormatter });
+  expect(read("nested.amount")).toBe(3);
+  expect(read("nested.amount", true)).toBe("3");
+  expect(read("number", true)).toBe(9);
+  expect(schema.format(rowNode, "number")).toBe("9");
+  expect(schema.getValueFormatted(rowNode, "number")).toBe(9);
+  expect(read("zero", true)).toBe(0);
+  expect(read("empty", true)).toBe("");
+  expect(read("missing")).toBeUndefined();
+  expect(read("missing", true)).toBeNull();
+  expect(read("array", true)).toBe("1, , 2");
+  expect(read("unknown")).toBeNull();
+  expect(schema.getValueFormatted(rowNode, "nested.amount")).toBeNull();
+});
+
+it("installs measured boolean type formatting for leaf values while leaving generated groups unformatted", () => {
+  const { schema, nodes, columns, model } = setup([
+    {
+      colId: "flag",
+      cellDataType: "boolean",
+      valueGetter: (p: Ag31ValueParams<Row>) =>
+        p.node.group || p.data?.id === "a"
+          ? undefined
+          : p.data?.nested.amount! > 3,
+    },
+    {
+      field: "team",
+      keyCreator: (p: Ag31ValueParams<Row>) => (p.value as Team).code,
+      valueFormatter: (p: Ag31ValueParams<Row>) => (p.value as Team).label(),
+    },
+  ]);
+  const rowNode = nodes.getRowNode("a")!;
+  expect(
+    schema.getCellValue({ rowNode, colKey: "flag", useFormatter: true }),
+  ).toBe("");
+  expect(
+    schema.getCellValue({
+      rowNode: nodes.getRowNode("b")!,
+      colKey: "flag",
+      useFormatter: true,
+    }),
+  ).toBe("true");
+  expect(typeof columns.getColumn("flag")!.getColDef().valueFormatter).toBe(
+    "function",
+  );
+  expect(
+    Object.hasOwn(
+      columns.getColumn("flag")!.getUserProvidedColDef(),
+      "valueFormatter",
+    ),
+  ).toBe(false);
+  model.setState({ groupBy: ["team"] });
+  expect(
+    schema.getValueFormatted(nodes.getRowNode("a")!.parent!, "flag"),
+  ).toBeUndefined();
+  expect(
+    schema.getCellValue({
+      rowNode: nodes.getRowNode("a")!.parent!,
+      colKey: "flag",
+      useFormatter: true,
+    }),
+  ).toBeNull();
+});

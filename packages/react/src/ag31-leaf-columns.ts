@@ -85,6 +85,18 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
             configurable: true,
             writable: true,
           });
+    if (
+      result.cellDataType === "boolean" &&
+      result.valueFormatter === undefined
+    )
+      result.valueFormatter = (
+        params: Ag31ColumnCellParams<T> & { value?: unknown },
+      ) =>
+        params.node.group
+          ? undefined
+          : params.value == null
+            ? ""
+            : String(params.value);
     return result;
   }
   const initial = model.getColumns();

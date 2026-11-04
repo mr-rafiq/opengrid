@@ -10,6 +10,11 @@ export interface Ag31ValueParams<T> extends Ag31ColumnCellParams<T> {
   value?: unknown;
   getValue(columnKey: unknown): unknown;
 }
+export interface Ag31GetCellValueParams<T> {
+  rowNode: Ag31RowNode<T>;
+  colKey: unknown;
+  useFormatter?: boolean;
+}
 interface ValueColumnOptions<T> {
   definitions: readonly Ag31ColumnDefinition<T>[];
   defaultColDef?: Ag31ColumnDefinition<T>;
@@ -146,14 +151,26 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
       stack.pop();
     }
   }
-  function format(node: Ag31RowNode<T>, id: string, value: unknown) {
+  function valueFormatted(node: Ag31RowNode<T>, id: string, value: unknown) {
     const formatter = callback(currentDefinition(id), "valueFormatter");
-    const output = formatter ? formatter(params(node, id, value)) : value;
-    return output == null
-      ? ""
-      : !formatter && Array.isArray(output)
-        ? output.join(", ")
-        : String(output);
+    return formatter
+      ? formatter(params(node, id, value))
+      : Array.isArray(value)
+        ? value.join(", ")
+        : null;
+  }
+  function formattedCellValue(
+    node: Ag31RowNode<T>,
+    id: string,
+    value: unknown,
+  ) {
+    return (
+      valueFormatted(node, id, value) ?? (value == null ? null : String(value))
+    );
+  }
+  function format(node: Ag31RowNode<T>, id: string, value: unknown) {
+    const output = formattedCellValue(node, id, value);
+    return output == null ? "" : String(output);
   }
   function groupNode(node: GridHierarchyNode<T>) {
     const result = runtime().nodes.getRowNodeByNativeId(node.id);
@@ -369,6 +386,24 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
       };
     },
     read,
+    getCellValue: ({
+      rowNode,
+      colKey,
+      useFormatter = false,
+    }: Ag31GetCellValueParams<T>) => {
+      const column = runtime().columns.getColumn(colKey);
+      if (!column || !owns(rowNode)) return null;
+      const value = read(rowNode, column);
+      return useFormatter
+        ? formattedCellValue(rowNode, column.colId, value)
+        : value;
+    },
+    getValueFormatted: (node: Ag31RowNode<T>, key: unknown) => {
+      const column = runtime().columns.getColumn(key);
+      return column && owns(node)
+        ? valueFormatted(node, column.colId, read(node, column))
+        : null;
+    },
     format: (node: Ag31RowNode<T>, key: unknown) => {
       const column = runtime().columns.getColumn(key);
       return column && owns(node)
