@@ -3241,12 +3241,15 @@ export function DataGrid<T>({
                       key: `row-span-gap-${column.id}`,
                       width: span.width,
                     });
-                  const value = node.data
-                    ? model.getValue(node.data, column.id)
-                    : node.aggregates &&
-                        Object.hasOwn(node.aggregates, column.id)
-                      ? node.aggregates[column.id]
-                      : undefined;
+                  const value =
+                    node.kind === "group" && column.groupValueGetter
+                      ? column.groupValueGetter(node)
+                      : node.data
+                        ? model.getValue(node.data, column.id)
+                        : node.aggregates &&
+                            Object.hasOwn(node.aggregates, column.id)
+                          ? node.aggregates[column.id]
+                          : undefined;
                   const isEditing =
                     editMode === "cell" &&
                     editing?.rowId === node.id &&
@@ -3264,9 +3267,10 @@ export function DataGrid<T>({
                   const display =
                     node.data && column.valueFormatter
                       ? column.valueFormatter(value, node.data)
-                      : node.kind !== "row" &&
-                          node.aggregates &&
-                          Object.hasOwn(node.aggregates, column.id)
+                      : (node.kind === "group" && column.groupValueGetter) ||
+                          (node.kind !== "row" &&
+                            node.aggregates &&
+                            Object.hasOwn(node.aggregates, column.id))
                         ? formatAggregateValue(column, value, node)
                         : text(value);
                   return (
@@ -3592,7 +3596,7 @@ export function DataGrid<T>({
                               </>
                             ) : node.kind === "group" && index === 0 ? (
                               <>
-                                {node.label}{" "}
+                                {column.groupValueGetter ? display : node.label}{" "}
                                 <span className="og-group-count">
                                   {node.leafCount === undefined
                                     ? ""

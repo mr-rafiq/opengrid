@@ -1,5 +1,8 @@
 import { withColumnDragOwner } from "./group-panel.js";
-import { formatServerAggregate } from "./server-aggregate-formatting.js";
+import {
+  formatServerAggregate,
+  prepareProviderColumn,
+} from "./server-aggregate-formatting.js";
 import {
   useEffect,
   useLayoutEffect,
@@ -157,7 +160,7 @@ export function ServerDataGrid<T>({
   const mappedColumns = useMemo(
     () =>
       columns.map<Column<ServerRecord<T>>>((column) => ({
-        ...column,
+        ...prepareProviderColumn(column),
         field: undefined,
         editable: false,
         valueSetter: undefined,

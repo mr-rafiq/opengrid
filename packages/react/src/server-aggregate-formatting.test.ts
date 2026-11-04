@@ -1,6 +1,36 @@
 import { expect, it, vi } from "vitest";
 import type { Column, ServerNode } from "@opengrid/core";
-import { formatServerAggregate } from "./server-aggregate-formatting";
+import {
+  formatServerAggregate,
+  prepareProviderColumn,
+} from "./server-aggregate-formatting";
+
+it("rejects resident grouping callbacks before invoking them on provider wrapper records", () => {
+  const key = vi.fn(() => "x"),
+    value = vi.fn(() => 1);
+  expect(() =>
+    prepareProviderColumn<Row>({ id: "amount", groupKeyGetter: key }),
+  ).toThrow("Client grouping callbacks are unsupported");
+  expect(() =>
+    prepareProviderColumn<Row>({ id: "amount", groupValueGetter: value }),
+  ).toThrow("Client grouping callbacks are unsupported");
+  expect(key).not.toHaveBeenCalled();
+  expect(value).not.toHaveBeenCalled();
+});
+
+it("retains existing source callback identity and owns provider definition metadata", () => {
+  const getter = (row: Row) => row.amount,
+    definition: Column<Row> = {
+      id: "amount",
+      valueGetter: getter,
+      groupKeyGetter: undefined,
+    };
+  const prepared = prepareProviderColumn(definition);
+  expect(prepared).not.toBe(definition);
+  expect(prepared.valueGetter).toBe(getter);
+  expect(Object.hasOwn(prepared, "groupKeyGetter")).toBe(false);
+  expect(Object.hasOwn(definition, "groupKeyGetter")).toBe(true);
+});
 type Row = { amount: number };
 const node: Extract<ServerNode<Row>, { kind: "group" }> = {
   kind: "group",

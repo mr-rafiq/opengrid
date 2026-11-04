@@ -99,6 +99,7 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
       "lockVisible",
       "movable",
       "columnsPanel",
+      "compareBlankValues",
     ] as const)
       if (column[key] !== undefined && typeof column[key] !== "boolean")
         throw new TypeError(`Column ${key} must be a boolean`);
@@ -122,7 +123,12 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
       throw new TypeError("Column valueSetter must be a function");
     if (column.valueSetter && column.field === undefined)
       throw new TypeError("Column valueSetter requires a backing field");
-    for (const key of ["filterValueGetter", "filterValueFormatter"] as const)
+    for (const key of [
+      "filterValueGetter",
+      "filterValueFormatter",
+      "groupKeyGetter",
+      "groupValueGetter",
+    ] as const)
       if (column[key] !== undefined && typeof column[key] !== "function")
         throw new TypeError(`Column ${key} must be a function`);
     if (
@@ -523,19 +529,26 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           const column = requireColumn(sort.columnId),
             left = getValue(a.row, column.id),
             right = getValue(b.row, column.id);
+          if (column.compare && column.compareBlankValues) {
+            const order = column.compare(left, right, {
+              rowA: a.row,
+              rowB: b.row,
+            });
+            if (order) return (sort.direction === "asc" ? 1 : -1) * order;
+            continue;
+          }
           if (blank(left) || blank(right)) {
             if (blank(left) && blank(right)) continue;
             return blank(left) ? 1 : -1;
           }
-          const x = comparable(left, column.type) as string | number | bigint,
-            y = comparable(right, column.type) as string | number | bigint;
-          const order = column.compare
-            ? column.compare(left, right, { rowA: a.row, rowB: b.row })
-            : x === y
-              ? 0
-              : x < y
-                ? -1
-                : 1;
+          let order: number;
+          if (column.compare)
+            order = column.compare(left, right, { rowA: a.row, rowB: b.row });
+          else {
+            const x = comparable(left, column.type) as string | number | bigint,
+              y = comparable(right, column.type) as string | number | bigint;
+            order = x === y ? 0 : x < y ? -1 : 1;
+          }
           if (order) return (sort.direction === "asc" ? 1 : -1) * order;
         }
         return a.index - b.index;
@@ -608,7 +621,22 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       );
     takeHierarchyBudget(budget, 0, path.length);
   }
-  type GroupOrder = { first: number; children: Map<unknown, GroupOrder> };
+  function groupingKey(row: T, columnId: string, value: unknown): unknown {
+    const callback = requireColumn(columnId).groupKeyGetter;
+    if (!callback) return value;
+    const key = callback(value, row);
+    if (typeof key !== "string")
+      throw new TypeError("Grouping keys must be strings");
+    if (key.length > HIERARCHY_SELECTION_LIMITS.maxIdLength)
+      throw new RangeError("Grouping key text budget exceeded");
+    return key;
+  }
+  type GroupOrder = {
+    first: number;
+    value?: unknown;
+    row?: T;
+    children: Map<unknown, GroupOrder>;
+  };
   function sourceGroupOrder(bounded: boolean): GroupOrder {
     const root: GroupOrder = { first: -1, children: new Map() };
     const budget = bounded ? { nodes: 0, work: 0, characters: 0 } : undefined;
@@ -617,11 +645,12 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       for (const columnId of state.groupBy) {
         takeHierarchyBudget(budget, 0, 1);
         const value = getValue(row, columnId);
-        let child = parent.children.get(value);
+        const key = groupingKey(row, columnId, value);
+        let child = parent.children.get(key);
         if (!child) {
           takeHierarchyBudget(budget, 1, 0);
-          child = { first: index, children: new Map() };
-          parent.children.set(value, child);
+          child = { first: index, value, row, children: new Map() };
+          parent.children.set(key, child);
         }
         parent = child;
       }
@@ -647,25 +676,39 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     if (depth === 0 && presentation) structure = sourceGroupOrder(!!budget);
     const id = state.groupBy[depth];
-    const groups = new Map<unknown, T[]>();
+    const groupedColumn = requireColumn(id);
+    const groups = new Map<unknown, { value: unknown; rows: T[] }>();
     for (const row of groupRows) {
       const value = getValue(row, id);
-      const existing = groups.get(value) ?? [];
-      existing.push(row);
-      groups.set(value, existing);
+      const key = groupingKey(row, id, value);
+      const existing = groups.get(key) ?? { value, rows: [] };
+      existing.rows.push(row);
+      groups.set(key, existing);
     }
-    const projected = [...groups].map(([value, children], ordinal) => {
-      const structuralGroup = structure?.children.get(value);
-      const next = [...path, groupKey(value)];
+    const projected = [...groups].map(([key, entry], ordinal) => {
+      const children = entry.rows;
+      const structuralGroup = structure?.children.get(key);
+      const value = structuralGroup ? structuralGroup.value : entry.value;
+      const representative = structuralGroup?.row ?? children[0];
+      const next = [...path, groupKey(key)];
       const id = syntheticId(`group:${JSON.stringify(next)}`);
       takeHierarchyBudget(budget, 1, 0, id);
       const node: RowNode<T> = {
         id,
         kind: "group",
         depth,
-        label: blank(value) ? "(blank)" : String(value),
+        label: groupedColumn.groupKeyGetter
+          ? blank(key)
+            ? "(blank)"
+            : groupedColumn.valueFormatter
+              ? String(groupedColumn.valueFormatter(value, representative))
+              : String(key)
+          : blank(value)
+            ? "(blank)"
+            : String(value),
         groupColumnId: state.groupBy[depth],
         groupValue: value,
+        groupKey: key,
         children: group(
           children,
           depth + 1,
@@ -688,28 +731,45 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       if (presentation)
         for (const sort of state.sorting) {
           const column = requireColumn(sort.columnId);
-          if (column.id !== state.groupBy[depth] && !column.aggregate) continue;
-          const left =
-            column.id === state.groupBy[depth]
+          if (
+            column.id !== state.groupBy[depth] &&
+            !column.aggregate &&
+            !column.groupValueGetter
+          )
+            continue;
+          const left = column.groupValueGetter
+            ? column.groupValueGetter(a.node)
+            : column.id === state.groupBy[depth]
               ? a.value
               : a.node.aggregates?.[column.id];
-          const right =
-            column.id === state.groupBy[depth]
+          const right = column.groupValueGetter
+            ? column.groupValueGetter(b.node)
+            : column.id === state.groupBy[depth]
               ? b.value
               : b.node.aggregates?.[column.id];
+          if (column.compare && column.compareBlankValues) {
+            const order = column.compare(left, right, {
+              nodeA: a.node,
+              nodeB: b.node,
+            });
+            if (order) return (sort.direction === "asc" ? 1 : -1) * order;
+            continue;
+          }
           if (blank(left) || blank(right)) {
             if (blank(left) && blank(right)) continue;
             return blank(left) ? 1 : -1;
           }
-          const x = comparable(left, column.type) as string | number | bigint;
-          const y = comparable(right, column.type) as string | number | bigint;
-          const order = column.compare
-            ? column.compare(left, right, { nodeA: a.node, nodeB: b.node })
-            : x === y
-              ? 0
-              : x < y
-                ? -1
-                : 1;
+          let order: number;
+          if (column.compare)
+            order = column.compare(left, right, {
+              nodeA: a.node,
+              nodeB: b.node,
+            });
+          else {
+            const x = comparable(left, column.type) as string | number | bigint,
+              y = comparable(right, column.type) as string | number | bigint;
+            order = x === y ? 0 : x < y ? -1 : 1;
+          }
           if (order) return (sort.direction === "asc" ? 1 : -1) * order;
         }
       return a.order - b.order;

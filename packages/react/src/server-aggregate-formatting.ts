@@ -6,6 +6,24 @@ import {
   type ServerQuery,
 } from "@opengrid/core";
 const operations = ["sum", "avg", "min", "max", "count"];
+/** Provider records do not expose a complete resident client hierarchy. */
+export function prepareProviderColumn<T>(
+  column: Column<T>,
+): Omit<Column<T>, "groupKeyGetter" | "groupValueGetter"> {
+  if (
+    column.groupKeyGetter !== undefined ||
+    column.groupValueGetter !== undefined
+  )
+    throw new TypeError(
+      "Client grouping callbacks are unsupported in provider grids; use provider grouping and aggregate values",
+    );
+  const {
+    groupKeyGetter: _key,
+    groupValueGetter: _value,
+    ...definition
+  } = column;
+  return definition;
+}
 /** Only actual provider-owned aggregate cells enter the row-free formatter. */
 export function formatServerAggregate<T>(
   column: Column<T>,

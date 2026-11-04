@@ -140,22 +140,27 @@ export function buildGridPrintSnapshot<T>(
   const rows = nodes.map((node) => {
     let totalValue: string | undefined;
     const cells = definitions.map((column, index) => {
-      if (node.kind === "group" && index === 0)
+      if (node.kind === "group" && index === 0 && !column.groupValueGetter)
         return `${node.label ?? node.id}${node.leafCount === undefined ? "" : ` (${node.leafCount})`}`;
       const value =
-        node.data === undefined
-          ? node.aggregates && Object.hasOwn(node.aggregates, column.id)
-            ? node.aggregates[column.id]
-            : undefined
-          : model.getValue(node.data, column.id);
+        node.kind === "group" && column.groupValueGetter
+          ? column.groupValueGetter(node)
+          : node.data === undefined
+            ? node.aggregates && Object.hasOwn(node.aggregates, column.id)
+              ? node.aggregates[column.id]
+              : undefined
+            : model.getValue(node.data, column.id);
       const display =
         node.data !== undefined && column.valueFormatter
           ? printable(column.valueFormatter(value, node.data))
-          : node.kind !== "row" &&
-              node.aggregates &&
-              Object.hasOwn(node.aggregates, column.id)
+          : (node.kind === "group" && column.groupValueGetter) ||
+              (node.kind !== "row" &&
+                node.aggregates &&
+                Object.hasOwn(node.aggregates, column.id))
             ? formatAggregateValue(column, value, node)
             : printable(value);
+      if (node.kind === "group" && index === 0)
+        return `${display}${node.leafCount === undefined ? "" : ` (${node.leafCount})`}`;
       if (node.kind === "total" && index === 0) {
         if (value !== undefined) totalValue = display;
         return `${node.total === "grand" ? "Grand total" : `Total ${node.label ?? ""}`}${totalValue === undefined ? "" : `: ${totalValue}`}`;

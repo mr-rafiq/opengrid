@@ -37,6 +37,10 @@ export interface Column<T> {
   editable?: boolean | ((row: T) => boolean);
   type?: "text" | "number" | "boolean" | "date" | "bigint";
   valueGetter?: (row: T) => unknown;
+  /** Stable grouping identity, independent of the original display/filter/edit value. */
+  groupKeyGetter?: (value: unknown, row: T) => string;
+  /** Generated group values have hierarchy metadata, not a fabricated source row. */
+  groupValueGetter?: (node: GridHierarchyNode<T>) => unknown;
   /** Column/advanced filters and set choices use this value; display, export and aggregates retain valueGetter. */
   filterValueGetter?: (row: T) => unknown;
   filterValueFormatter?: (value: unknown, row: T) => string;
@@ -60,6 +64,8 @@ export interface Column<T> {
     b: unknown,
     context: { rowA?: T; rowB?: T; nodeA?: RowNode<T>; nodeB?: RowNode<T> },
   ) => number;
+  /** Explicitly let the custom comparator order blanks; default blank-last behavior is retained otherwise. */
+  compareBlankValues?: boolean;
   aggregate?: Aggregate;
   /** Allow this column in row grouping controls. Defaults to true. */
   groupable?: boolean;
@@ -141,6 +147,7 @@ export interface RowNode<T> {
   /** Group identity metadata; the original value is borrowed, never cloned. */
   groupColumnId?: string;
   groupValue?: unknown;
+  groupKey?: unknown;
   children?: RowNode<T>[];
   aggregates?: Record<string, unknown>;
   leafCount?: number;

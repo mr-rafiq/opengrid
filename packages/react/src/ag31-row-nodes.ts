@@ -11,6 +11,7 @@ export interface Ag31RowNode<T> {
   readonly group: boolean;
   readonly level: number;
   readonly key: string | null;
+  readonly groupData: Record<string, unknown> | undefined;
   readonly field: string | undefined;
   readonly parent: Ag31RowNode<T> | null;
   readonly rowIndex: number | null;
@@ -52,6 +53,7 @@ export interface Ag31RowNodeOptions<T> {
     id: string;
     key: string;
     field?: string;
+    groupData?: Readonly<Record<string, unknown>>;
   };
   writeCell(
     node: Ag31RowNode<T>,
@@ -69,6 +71,7 @@ type Entry<T> = {
   group: boolean;
   level: number;
   key: string | null;
+  groupData?: Record<string, unknown>;
   field?: string;
   parent: Ag31RowNode<T> | null;
   rowIndex: number | null;
@@ -164,6 +167,9 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       },
       get key() {
         return read().key;
+      },
+      get groupData() {
+        return read().groupData;
       },
       get field() {
         return read().field;
@@ -400,6 +406,14 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
             group,
             level: node.depth,
             key: identity.key,
+            groupData: group
+              ? (entry.groupData ??
+                Object.fromEntries(
+                  Object.entries(
+                    "groupData" in identity ? (identity.groupData ?? {}) : {},
+                  ),
+                ))
+              : undefined,
             field: identity.field,
             parent: parent.node,
             filtered: group ? [] : undefined,

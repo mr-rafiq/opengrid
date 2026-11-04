@@ -66,6 +66,90 @@ function collect(
 const ids = (items: { id: string }[]) => items.map((item) => item.id);
 
 describe("resident AG31 row-node boundary", () => {
+  it("retains the original group display object and host entries for same-key authoritative updates", () => {
+    class Category {
+      constructor(
+        public key: string,
+        public label: string,
+      ) {}
+      toString(): string {
+        throw new Error("Unexpected display coercion");
+      }
+    }
+    const first = new Category("X", "First"),
+      second = new Category("X", "Second");
+    const rows = [
+      { id: "a", category: first },
+      { id: "b", category: second },
+    ];
+    const model = createGrid({
+      rows,
+      getRowId: (row) => row.id,
+      columns: [
+        {
+          id: "category",
+          field: "category",
+          groupKeyGetter: (value) => (value as Category).key,
+          valueFormatter: (value) => (value as Category).label,
+        },
+      ],
+      initialState: { groupBy: ["category"] },
+    });
+    const nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity: (node) => ({
+        id: `row-group-category-${node.groupKey}`,
+        key: String(node.groupKey),
+        field: "category",
+        groupData: { tree: node.groupValue },
+      }),
+    });
+    const parent = nodes.getRowNode("a")!.parent!;
+    expect(parent.id).toBe("row-group-category-X");
+    expect(parent.allLeafChildren).toHaveLength(2);
+    expect(parent.groupData!.tree).toBe(first);
+    expect(Object.keys(parent.groupData!)).toEqual(["tree"]);
+    expect(parent.groupData!["ag-Grid-AutoColumn-category"]).toBeUndefined();
+    parent.groupData!.custom = "host-owned";
+    const updated = { id: "a", category: new Category("X", "Updated") };
+    model.applyTransaction({ update: [updated] });
+    expect(nodes.getRowNode("a")!.data).toBe(updated);
+    expect(nodes.getRowNode("a")!.parent).toBe(parent);
+    expect(parent.groupData!.tree).toBe(first);
+    expect(parent.groupData!.custom).toBe("host-owned");
+    expect(model.getRowHierarchy!("source")[0].groupValue).toBe(
+      updated.category,
+    );
+  });
+
+  it("owns display dictionaries while borrowing their values and leaves non-group data absent", () => {
+    const { model } = setup(),
+      value = { label: "Borrowed" },
+      supplied = { tree: value };
+    const nodes = createAg31RowNodes({
+      model,
+      getRowId: (row) => row.id,
+      rowHeight: 40,
+      writeCell: () => false,
+      groupIdentity: (node) => ({
+        id: node.id,
+        key: String(node.groupValue),
+        groupData: supplied,
+      }),
+    });
+    const leaf = nodes.getRowNode("one")!,
+      parent = leaf.parent!;
+    expect(leaf.groupData).toBeUndefined();
+    expect(nodes.getRootNode().groupData).toBeUndefined();
+    expect(parent.groupData).not.toBe(supplied);
+    expect(parent.groupData!.tree).toBe(value);
+    parent.groupData!.extra = true;
+    expect(Object.hasOwn(supplied, "extra")).toBe(false);
+    expect(setup().nodes.getRowNode("one")!.parent!.groupData).toEqual({});
+  });
   it("stages the complete source graph before custom group comparators and filtered traversal", () => {
     let nodes: ReturnType<typeof createAg31RowNodes<Row>>;
     const rows = [
