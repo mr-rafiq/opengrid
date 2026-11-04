@@ -209,7 +209,9 @@ export interface DataGridProps<T> {
     column: Column<T>;
     model: GridModel<T>;
   }) => ReactNode;
-  /** Group/total content only. Native expansion and selection controls remain outside this renderer. */
+  /** Replace the first data cell's hierarchy prefix, including indentation and group/detail controls. Returning null suppresses it. Row selection and grid keyboard behavior remain native. */
+  renderTreePrefix?: (context: GridNodeCellContext<T>) => ReactNode;
+  /** Group/total content only. Expansion uses the native prefix unless renderTreePrefix replaces it; selection remains native. */
   renderGroupCell?: (context: GridNodeCellContext<T>) => ReactNode;
   getRowClassName?: (node: RowNode<T>) => string;
   getCellClassName?: (context: GridNodeCellContext<T>) => string;
@@ -382,6 +384,7 @@ export function DataGrid<T>({
   className = "",
   renderCell,
   renderHeader,
+  renderTreePrefix,
   renderGroupCell,
   getRowClassName,
   getCellClassName,
@@ -913,6 +916,7 @@ export function DataGrid<T>({
       columnRevision,
       direction,
       renderCell,
+      renderTreePrefix,
       renderGroupCell,
       getCellClassName,
       getRowClassName,
@@ -3489,73 +3493,81 @@ export function DataGrid<T>({
                                 <GridIcon name="note" size={14} />
                               </button>
                             )}
-                          {index === 0 && (
-                            <span
-                              className="og-tree-prefix"
-                              style={{
-                                paddingInlineStart: presentationDepth * 16,
-                              }}
-                            >
-                              {renderDetail && node.kind === "row" && (
-                                <button
-                                  type="button"
-                                  tabIndex={-1}
-                                  className="og-expand"
-                                  aria-label={t(
-                                    rowGeometry.detailHeights[row]
-                                      ? "grid.collapseDetails"
-                                      : "grid.expandDetails",
-                                    { rowId: node.id },
-                                  )}
-                                  aria-expanded={Boolean(
-                                    rowGeometry.detailHeights[row],
-                                  )}
-                                  aria-controls={`${helpId}-detail-${encodeURIComponent(node.id)}`}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    toggleDetails(node.id);
-                                  }}
-                                >
-                                  <GridIcon
-                                    name={
+                          {index === 0 &&
+                            (renderTreePrefix ? (
+                              renderTreePrefix({
+                                node,
+                                column,
+                                value,
+                                displayValue: display,
+                              })
+                            ) : (
+                              <span
+                                className="og-tree-prefix"
+                                style={{
+                                  paddingInlineStart: presentationDepth * 16,
+                                }}
+                              >
+                                {renderDetail && node.kind === "row" && (
+                                  <button
+                                    type="button"
+                                    tabIndex={-1}
+                                    className="og-expand"
+                                    aria-label={t(
                                       rowGeometry.detailHeights[row]
-                                        ? "chevronDown"
-                                        : "chevronRight"
-                                    }
-                                    size={16}
-                                  />
-                                </button>
-                              )}
-                              {node.children?.length ? (
-                                <button
-                                  type="button"
-                                  className="og-expand"
-                                  tabIndex={-1}
-                                  aria-label={t(
-                                    state.expanded.includes(node.id)
-                                      ? "grid.collapseGroup"
-                                      : "grid.expandGroup",
-                                    { group: node.label ?? node.id },
-                                  )}
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    model.toggleExpanded(node.id);
-                                  }}
-                                >
-                                  <GridIcon
-                                    name={
-                                      state.expanded.includes(node.id)
-                                        ? "chevronDown"
-                                        : direction === "rtl"
-                                          ? "chevronLeft"
+                                        ? "grid.collapseDetails"
+                                        : "grid.expandDetails",
+                                      { rowId: node.id },
+                                    )}
+                                    aria-expanded={Boolean(
+                                      rowGeometry.detailHeights[row],
+                                    )}
+                                    aria-controls={`${helpId}-detail-${encodeURIComponent(node.id)}`}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      toggleDetails(node.id);
+                                    }}
+                                  >
+                                    <GridIcon
+                                      name={
+                                        rowGeometry.detailHeights[row]
+                                          ? "chevronDown"
                                           : "chevronRight"
-                                    }
-                                    size={16}
-                                  />
-                                </button>
-                              ) : null}
-                            </span>
-                          )}
+                                      }
+                                      size={16}
+                                    />
+                                  </button>
+                                )}
+                                {node.children?.length ? (
+                                  <button
+                                    type="button"
+                                    className="og-expand"
+                                    tabIndex={-1}
+                                    aria-label={t(
+                                      state.expanded.includes(node.id)
+                                        ? "grid.collapseGroup"
+                                        : "grid.expandGroup",
+                                      { group: node.label ?? node.id },
+                                    )}
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      model.toggleExpanded(node.id);
+                                    }}
+                                  >
+                                    <GridIcon
+                                      name={
+                                        state.expanded.includes(node.id)
+                                          ? "chevronDown"
+                                          : direction === "rtl"
+                                            ? "chevronLeft"
+                                            : "chevronRight"
+                                      }
+                                      size={16}
+                                    />
+                                  </button>
+                                ) : null}
+                              </span>
+                            ))}
                           <span
                             className="og-cell-content"
                             ref={

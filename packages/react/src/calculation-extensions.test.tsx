@@ -91,3 +91,63 @@ it("revokes an open editor and write commands when the model becomes read only",
       .getAttribute("aria-readonly"),
   ).toBe("true");
 });
+
+it("lets a complete hierarchy renderer own its prefix without duplicate native controls and retains grid keyboard expansion", () => {
+  const model = createGrid({
+    rows: [{ id: "a", category: "Materials", amount: 12 }],
+    getRowId: (row) => row.id,
+    columns: [
+      { id: "category", field: "category" },
+      { id: "amount", field: "amount" },
+    ],
+    initialState: { groupBy: ["category"] },
+  });
+  const group = model.getRowModel()[0];
+  const view = render(
+    <DataGrid
+      model={model}
+      toolbar={false}
+      renderTreePrefix={({ node }) =>
+        node.children?.length ? (
+          <button
+            type="button"
+            aria-label="Application expansion"
+            onClick={(event) => {
+              event.stopPropagation();
+              model.toggleExpanded(node.id);
+            }}
+          >
+            Open
+          </button>
+        ) : (
+          <span>Leaf prefix</span>
+        )
+      }
+    />,
+  );
+  expect(
+    screen.getByRole("button", { name: "Application expansion" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Expand Materials" })).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Application expansion" }),
+  );
+  expect(model.getState().expanded).toContain(group.id);
+  expect(screen.getByText("Leaf prefix")).toBeTruthy();
+  expect(view.container.querySelectorAll(".og-tree-prefix")).toHaveLength(0);
+  view.rerender(
+    <DataGrid model={model} toolbar={false} renderTreePrefix={() => null} />,
+  );
+  const cell = view.container.querySelector(
+    `[data-row-id='${group.id}'][data-column-id='category']`,
+  )!;
+  fireEvent.focus(cell);
+  fireEvent.keyDown(cell, { key: "ArrowLeft" });
+  expect(model.getState().expanded).not.toContain(group.id);
+  fireEvent.keyDown(cell, { key: "ArrowRight" });
+  expect(model.getState().expanded).toContain(group.id);
+  view.rerender(<DataGrid model={model} toolbar={false} />);
+  expect(
+    screen.getByRole("button", { name: "Collapse Materials" }),
+  ).toBeTruthy();
+});

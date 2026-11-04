@@ -65,7 +65,8 @@ const treeColumn = {
 `DataGrid` supports:
 
 - `renderHeader({ column, model })`: a noninteractive label inside the native sort button. Its rendered contents supply the accessible name, with the sort action available as a title; native sort, menu and resize controls remain available. Custom labels are excluded from automatic header measurement.
-- `renderGroupCell({ node, column, value, displayValue })`: content for generated group/total cells, retaining native expansion and selection controls.
+- `renderGroupCell({ node, column, value, displayValue })`: content for generated group/total cells. Expansion normally uses the native prefix; selection remains native.
+- `renderTreePrefix(context)`: replace the first data cell's hierarchy prefix, including indentation and group/detail controls. Return `null` when a complete cell renderer already draws them. Native row hierarchy ARIA, keyboard expansion and selection remain available. The host owns any replacement controls' accessible labels, focus, event propagation and sizing; stop click propagation when an action should not select or edit the containing cell.
 - `getRowClassName(node)`, `getCellClassName(context)` and `getCellTooltip(context)`: host decoration. Formula-error tooltips take precedence.
 - `statusContent`: application content appended to the native counts and pagination bar.
 
