@@ -104,9 +104,7 @@ test("German calculation currency, menus and sidebar filters keep numeric semant
     const axe = (
       window as unknown as {
         axe: {
-          run(
-            element: Element,
-          ): Promise<{
+          run(element: Element): Promise<{
             violations: {
               id: string;
               impact: string;
