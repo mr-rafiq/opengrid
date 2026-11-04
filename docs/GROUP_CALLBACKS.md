@@ -2,7 +2,7 @@
 
 OpenGrid 0.12 adds explicit grouping keys and generated-group values to the native client model. These callbacks preserve original class instances; they do not implement an AG Grid compatibility component.
 
-[Try the keyed class grouping lab](../examples/demo/index.html#keyed-groups). Open **Keyed class grouping lab**, filter the work items and sort Budget to order the filtered totals. Distinct Department objects form three groups by code. The example uses original synthetic classes, European currency and the shared light/dark theme.
+[Try the keyed class grouping lab](https://mr-rafiq.github.io/opengrid/demo/#keyed-groups). Open **Keyed class grouping lab**, filter the work items and sort Budget to order the filtered totals. Distinct Department objects form three groups by code. The example uses original synthetic classes, European currency and the shared light/dark theme.
 
 ## Separate identity from values
 
