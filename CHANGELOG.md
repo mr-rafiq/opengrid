@@ -2,6 +2,14 @@
 
 Created by Mohamed Rafiq.
 
+## 0.12.1 - 2026-11-04
+
+Balanced group ordering and source-leaf traversal. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Optional native `groupBlanksLast` gives blank keys a stable last-place fallback at each grouping level while preserving explicit comparisons, source rows and existing default order. Provider grids reject this resident-only option explicitly.
+- Internal consumer adapters preserve original source insertion order in each group's complete leaf list, independently of grouped child order, filtering and sorting. Generated custom-group comparator values remain separate from displayed group values.
+- Original regressions and private unchanged-source comparisons cover the measured contracts. This remains adapter development, not an exported compatibility component or certification of full application replacement.
+
 ## 0.12.0 - 2026-11-04
 
 Domain-object grouping and complete client hierarchy metadata. Created by Mohamed Rafiq. Source release only; no npm publication.

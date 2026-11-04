@@ -14,6 +14,10 @@ it("rejects resident grouping callbacks before invoking them on provider wrapper
   expect(() =>
     prepareProviderColumn<Row>({ id: "amount", groupValueGetter: value }),
   ).toThrow("Client grouping callbacks are unsupported");
+  for (const groupBlanksLast of [true, false])
+    expect(() =>
+      prepareProviderColumn<Row>({ id: "amount", groupBlanksLast }),
+    ).toThrow("Client grouping callbacks are unsupported");
   expect(key).not.toHaveBeenCalled();
   expect(value).not.toHaveBeenCalled();
 });

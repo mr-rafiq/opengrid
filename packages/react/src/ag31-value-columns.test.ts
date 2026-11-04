@@ -242,3 +242,42 @@ describe("source value-column compilation", () => {
     );
   });
 });
+
+it("separates generated custom-group comparator values from displayed groupData", () => {
+  const compare = vi.fn(
+    (
+      a: unknown,
+      b: unknown,
+      na: { group: boolean },
+      nb: { group: boolean },
+    ) => {
+      if (na.group && nb.group) {
+        expect(a).toBeUndefined();
+        expect(b).toBeUndefined();
+      }
+      return 0;
+    },
+  );
+  const { model, schema, nodes, rows } = setup([
+    {
+      colId: "tree",
+      showRowGroup: true,
+      valueGetter: (p: Ag31ValueParams<Row>) =>
+        p.node.group ? "SORT " + p.node.key : p.data!.label(),
+      comparator: compare,
+    },
+    {
+      field: "team",
+      rowGroup: true,
+      keyCreator: (p: Ag31ValueParams<Row>) => (p.value as Team).code,
+      valueFormatter: (p: Ag31ValueParams<Row>) => (p.value as Team).label(),
+    },
+  ]);
+  model.setState({ groupBy: ["team"] });
+  model.setSort("tree", "asc");
+  expect(compare.mock.calls.some((c) => c[2].group && c[3].group)).toBe(true);
+  expect(schema.read(nodes.getRowNode("a")!.parent!, "tree")).toBe(
+    rows[0].team,
+  );
+  expect(model.getValue(rows[0], "tree")).toBe("Line a");
+});

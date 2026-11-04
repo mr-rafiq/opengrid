@@ -35,6 +35,10 @@ const departmentColumn: Column<WorkItem> = {
 
 Keys must be strings of at most 4,096 characters. A non-string result or thrown callback rejects projection/state changes. Without this callback, existing native grouping identity remains unchanged. Choose keys that are unique within the grouped field; display captions can change independently. The representative raw value and source order come from the full source group, so filtering out its first row does not move or rename the group unexpectedly.
 
+## Choose a blank-group fallback
+
+`Column.groupBlanksLast: true` places blank grouping keys after nonblank keys when no explicit sort comparison distinguishes them. It applies independently at each grouping level, including source/filtered hierarchy reads. Equal nonblank keys retain first-source order. An explicit custom comparison can still place a blank group first. The default remains first-source group order; this option does not reorder source records or change ordinary cell blank sorting.
+
 ## Give generated groups their own values
 
 `Column.groupValueGetter(node)` receives `GridHierarchyNode<T>`, with group identity, original representative value, frozen child metadata and aggregates. Generated groups have no source `T`. The callback may return a typed class instance or `undefined`; it does not create an aggregation or alter the original rows.
@@ -52,11 +56,11 @@ The generated value participates in client display, group sorting and captured H
 
 ## Read complete hierarchy metadata
 
-`model.getRowHierarchy?.("source" | "filtered" | "sorted")` returns a bounded, frozen forest independent of expansion, pagination and subtotal placement. `source` retains all resident rows and declaration order; `filtered` prunes that source forest; `sorted` applies the current group and leaf ordering. Child arrays and aggregate dictionaries are frozen, while source rows and raw values remain borrowed application references. Never mutate them through the projection.
+`model.getRowHierarchy?.("source" | "filtered" | "sorted")` returns a bounded, frozen forest independent of expansion, pagination and subtotal placement. `source` retains all resident rows and the configured stable group order; `filtered` prunes that source forest; `sorted` applies the current group and leaf ordering. Child arrays and aggregate dictionaries are frozen, while source rows and raw values remain borrowed application references. Never mutate them through the projection.
 
 This is a client model contract. Older custom models may omit it. It does not fetch remote rows or supply AG-shaped RowNodes. Existing hierarchy selection limits bound depth, node count and work. Callbacks must be synchronous and side-effect free.
 
-Provider React bindings reject `groupKeyGetter` and `groupValueGetter`: a remote result wrapper is not a resident source row. Implement provider grouping keys, aggregate values and formatting in the provider's documented contracts instead.
+Provider React bindings reject `groupKeyGetter`, `groupValueGetter` and `groupBlanksLast`: a remote result wrapper is not a resident source row. Implement provider grouping keys, aggregate values and formatting in the provider's documented contracts instead.
 
 ## Compatibility boundaries
 

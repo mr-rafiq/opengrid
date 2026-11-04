@@ -100,6 +100,7 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
       "movable",
       "columnsPanel",
       "compareBlankValues",
+      "groupBlanksLast",
     ] as const)
       if (column[key] !== undefined && typeof column[key] !== "boolean")
         throw new TypeError(`Column ${key} must be a boolean`);
@@ -772,6 +773,11 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           }
           if (order) return (sort.direction === "asc" ? 1 : -1) * order;
         }
+      if (
+        groupedColumn.groupBlanksLast &&
+        blank(a.node.groupKey) !== blank(b.node.groupKey)
+      )
+        return blank(a.node.groupKey) ? 1 : -1;
       return a.order - b.order;
     });
     return projected.map((item) => item.node);

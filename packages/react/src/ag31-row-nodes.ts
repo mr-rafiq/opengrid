@@ -438,19 +438,23 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           const grouped = node.children
             ? visit(node.children, entry)
             : undefined;
-          const leaves = group
-            ? (grouped ?? []).flatMap((child) => {
-                const childEntry = entries.get(child)!,
-                  assignment = assignments.get(childEntry)!;
-                return assignment.group ? (assignment.leaves ?? []) : [child];
-              })
-            : undefined;
+          const leaves = group ? [] : undefined;
           Object.assign(assignment, { grouped, leaves });
           return entry.node;
         });
       }
       const grouped = visit(source, root);
       pendingRoot.grouped = grouped;
+      // Membership follows source insertion order, independently of group order.
+      // Stage this before any filter/sort callback reads its ancestor nodes.
+      for (const leaf of pendingLeaves) {
+        let parent = assignments.get(entries.get(leaf)!)!.parent;
+        while (parent && parent !== root.node) {
+          const assignment = assignments.get(entries.get(parent)!)!;
+          assignment.leaves!.push(leaf);
+          parent = assignment.parent;
+        }
+      }
       function project(
         nodes: readonly GridHierarchyNode<T>[],
         key: "filtered" | "sorted",

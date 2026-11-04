@@ -171,6 +171,9 @@ describe("explicit grouping keys", () => {
     expect(() =>
       model.setColumns([{ ...column(), groupKeyGetter: false as never }]),
     ).toThrow("groupKeyGetter must be a function");
+    expect(() =>
+      model.setColumns([{ ...column(), groupBlanksLast: "yes" as never }]),
+    ).toThrow("groupBlanksLast must be a boolean");
     expect(model.getState()).toEqual(state);
     expect(model.getColumnRevision()).toBe(revision);
     expect(listener).not.toHaveBeenCalled();
@@ -189,4 +192,54 @@ describe("explicit grouping keys", () => {
       expect(() => model.getRowHierarchy!()).toThrow(/Grouping key/);
     }
   });
+});
+
+it("can place blank group keys last as an explicit stable fallback without changing leaf order", () => {
+  const rows = [
+    { id: "a", outer: "", inner: "N" },
+    { id: "b", outer: "X", inner: "" },
+    { id: "c", outer: "X", inner: "N" },
+    { id: "d", outer: "X", inner: "M" },
+  ];
+  const model = createGrid({
+    rows,
+    getRowId: (row) => row.id,
+    columns: (["outer", "inner"] as const).map((id) => ({
+      id,
+      field: id,
+      groupBlanksLast: true,
+    })),
+    initialState: { groupBy: ["outer", "inner"] },
+  });
+  for (const stage of ["source", "filtered", "sorted"] as const) {
+    const forest = model.getRowHierarchy!(stage);
+    expect(forest.map((n) => n.groupValue)).toEqual(["X", ""]);
+    expect(forest[0].children!.map((n) => n.groupValue)).toEqual([
+      "N",
+      "M",
+      "",
+    ]);
+  }
+  expect(model.getRows()).toEqual(rows);
+  model.setFilter("inner", { op: "notEqual", value: "N" });
+  expect(
+    model.getRowHierarchy!("sorted")[0].children!.map((n) => n.groupValue),
+  ).toEqual(["M", ""]);
+  model.setFilter("inner");
+  model.setColumns(
+    model.getColumns().map((c) => ({
+      ...c,
+      compareBlankValues: true,
+      compare: (a, b) => (a === "" ? -1 : b === "" ? 1 : 0),
+    })),
+  );
+  model.setSort("outer", "asc");
+  expect(model.getRowHierarchy!("sorted").map((n) => n.groupValue)).toEqual([
+    "",
+    "X",
+  ]);
+  expect(model.getRowHierarchy!("source").map((n) => n.groupValue)).toEqual([
+    "X",
+    "",
+  ]);
 });

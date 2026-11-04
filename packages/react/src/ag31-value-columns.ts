@@ -252,6 +252,7 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
           movable: definition.suppressMovable !== true,
           columnsPanel: definition.suppressColumnsToolPanel !== true,
           groupable: definition.enableRowGroup === true,
+          groupBlanksLast: true,
           sortable: definition.sortable !== false,
           filterable: definition.filter != null && definition.filter !== false,
           type:
@@ -305,9 +306,14 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
               bNode: Ag31RowNode<T>,
               descending: boolean,
             ) => number;
+            // Custom display columns sort generated groups through the aggregate
+            // slot, not through groupData or the display value getter.
+            const customGroupDisplay =
+              currentDefinition(id).showRowGroup === true ||
+              typeof currentDefinition(id).showRowGroup === "string";
             return compare(
-              a,
-              b,
+              nodeA.group && customGroupDisplay ? nodeA.aggData?.[id] : a,
+              nodeB.group && customGroupDisplay ? nodeB.aggData?.[id] : b,
               nodeA,
               nodeB,
               store.model

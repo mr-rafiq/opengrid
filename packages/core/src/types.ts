@@ -66,6 +66,8 @@ export interface Column<T> {
   ) => number;
   /** Explicitly let the custom comparator order blanks; default blank-last behavior is retained otherwise. */
   compareBlankValues?: boolean;
+  /** Keep blank group keys last when no explicit comparator distinguishes groups. Leaf order is unchanged. */
+  groupBlanksLast?: boolean;
   aggregate?: Aggregate;
   /** Allow this column in row grouping controls. Defaults to true. */
   groupable?: boolean;

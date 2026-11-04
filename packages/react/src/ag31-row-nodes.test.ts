@@ -696,3 +696,55 @@ describe("resident AG31 row-node boundary", () => {
     expect(callback).not.toHaveBeenCalled();
   });
 });
+
+it("keeps allLeafChildren in original source order across nested interleaved groups, filtering and sorting", () => {
+  const model = createGrid({
+    rows: [
+      { id: "a", outer: "X", inner: "" },
+      { id: "b", outer: "X", inner: "N" },
+      { id: "c", outer: "Y", inner: "N" },
+      { id: "d", outer: "X", inner: "M" },
+      { id: "e", outer: "X", inner: "N" },
+    ],
+    getRowId: (row) => row.id,
+    columns: (["outer", "inner"] as const).map((id) => ({ id, field: id })),
+    initialState: { groupBy: ["outer", "inner"] },
+  });
+  const nodes = createAg31RowNodes({
+    model,
+    getRowId: (row) => row.id,
+    rowHeight: 32,
+    writeCell: () => false,
+    groupIdentity: (node) => ({
+      id: node.id,
+      key: String(node.groupValue),
+      field: node.groupColumnId,
+    }),
+  });
+  const outer = nodes.getRowNode("a")!.parent!.parent!;
+  const check = () => {
+    expect(outer.allLeafChildren!.map((n) => n.id)).toEqual([
+      "a",
+      "b",
+      "d",
+      "e",
+    ]);
+    expect(nodes.getRootNode().allLeafChildren!.map((n) => n.id)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+      "e",
+    ]);
+  };
+  check();
+  model.setSort("inner", "desc");
+  check();
+  model.setFilter("inner", { op: "notEqual", value: "N" });
+  check();
+  expect(
+    outer.childrenAfterFilter!.flatMap((n) =>
+      n.allLeafChildren!.map((c) => c.id),
+    ),
+  ).toEqual(["a", "d"]);
+});

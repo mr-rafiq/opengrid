@@ -9,10 +9,11 @@ const operations = ["sum", "avg", "min", "max", "count"];
 /** Provider records do not expose a complete resident client hierarchy. */
 export function prepareProviderColumn<T>(
   column: Column<T>,
-): Omit<Column<T>, "groupKeyGetter" | "groupValueGetter"> {
+): Omit<Column<T>, "groupKeyGetter" | "groupValueGetter" | "groupBlanksLast"> {
   if (
     column.groupKeyGetter !== undefined ||
-    column.groupValueGetter !== undefined
+    column.groupValueGetter !== undefined ||
+    column.groupBlanksLast !== undefined
   )
     throw new TypeError(
       "Client grouping callbacks are unsupported in provider grids; use provider grouping and aggregate values",
@@ -20,6 +21,7 @@ export function prepareProviderColumn<T>(
   const {
     groupKeyGetter: _key,
     groupValueGetter: _value,
+    groupBlanksLast: _blanks,
     ...definition
   } = column;
   return definition;
