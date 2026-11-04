@@ -59,8 +59,10 @@ export function KeyedGroupsLab() {
       columns: [
         {
           id: "work",
-          header: "Team / work item",
+          header: "Work items",
           width: 210,
+          minWidth: 130,
+          flex: 1,
           valueGetter: (row) => row.caption(),
           groupable: false,
           groupValueGetter: (node) =>
@@ -80,7 +82,7 @@ export function KeyedGroupsLab() {
           field: "amount",
           header: "Budget",
           width: 155,
-          minWidth: 155,
+          minWidth: 115,
           flex: 1,
           type: "number",
           aggregate: "sum",
@@ -130,7 +132,7 @@ export function KeyedGroupsLab() {
       </div>
       <DataGrid
         model={model}
-        height={310}
+        height={240}
         ariaLabel="Keyed class grouping"
         selectionMode="none"
         toolbar={false}

@@ -128,6 +128,6 @@ Native custom editors now accept typed drafts without class coercion, and a [cli
 
 ## Domain grouping and hierarchy seams (0.12.0)
 
-Native string grouping keys preserve original class-valued reads; generated-group callbacks and explicit blank comparators use real hierarchy metadata. Frozen source/filtered/sorted forests remain independent of the rendered page. The original class-grouping demo exercises filtering, totals and virtualized horizontal keyboard focus in both color modes. See [domain grouping callbacks](GROUP_CALLBACKS.md).
+Native string grouping keys preserve original class-valued reads; generated-group callbacks and explicit blank comparators use real hierarchy metadata. Frozen source/filtered/sorted forests remain independent of the rendered page. The original class-grouping demo exercises filtering, totals and keyboard cell focus in both color modes. See [domain grouping callbacks](GROUP_CALLBACKS.md).
 
 Internal row/column/value adapters have separate original regressions and private read-only source-conformance checks. They are not a public AG Grid facade or a complete application replacement. Unbalanced reference grouping, complete component/filter/panel/API/state translation, asynchronous business edits/paste, backend permissions and authenticated visual acceptance remain open. The existing broad-category partial status is unchanged.

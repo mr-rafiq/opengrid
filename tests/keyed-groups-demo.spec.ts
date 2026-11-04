@@ -23,6 +23,27 @@ for (const width of [320, 390, 1440])
         name: "Keyed class grouping",
       });
       await expect(grid).toBeVisible();
+      await expect
+        .poll(
+          async () => {
+            const frame = await grid.boundingBox(),
+              budget = await grid
+                .locator('.og-group-row [data-column-id="amount"]')
+                .first()
+                .boundingBox();
+            return (
+              !!frame &&
+              !!budget &&
+              budget.x >= frame.x &&
+              budget.x + budget.width <= frame.x + frame.width + 1
+            );
+          },
+          {
+            message:
+              "Both demo columns are initially reachable without horizontal scrolling",
+          },
+        )
+        .toBe(true);
       await expect(region.getByLabel("Matching work items")).toHaveText(
         "24 matching work items",
       );
