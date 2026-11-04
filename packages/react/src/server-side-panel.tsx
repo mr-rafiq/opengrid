@@ -101,11 +101,13 @@ export function ServerSidePanel<T>({
     };
     return withColumnDragOwner(adapter, model);
   }, [model, columns]);
-  const matches = columns.filter((column) =>
-    [...(column.groupPath ?? []), column.header ?? column.id]
-      .join(" ")
-      .toLocaleLowerCase()
-      .includes(search.trim().toLocaleLowerCase()),
+  const matches = columns.filter(
+    (column) =>
+      (tab !== 0 || column.columnsPanel !== false) &&
+      [...(column.groupPath ?? []), column.header ?? column.id]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(search.trim().toLocaleLowerCase()),
   );
   const groups = new Map<string, Column<T>[]>();
   for (const column of matches) {
@@ -128,7 +130,9 @@ export function ServerSidePanel<T>({
     change(() =>
       onColumnsChange(
         columns.map((column) =>
-          selected.has(column.id) ? { ...column, hidden: !show } : column,
+          selected.has(column.id) && !column.lockVisible
+            ? { ...column, hidden: !show }
+            : column,
         ),
       ),
     );
@@ -279,6 +283,7 @@ export function ServerSidePanel<T>({
                       <input
                         type="checkbox"
                         aria-label={`${text.columns}: ${group}`}
+                        disabled={items.every((column) => column.lockVisible)}
                         checked={items.every(visible)}
                         ref={(node) => {
                           if (node)
@@ -351,6 +356,7 @@ export function ServerSidePanel<T>({
                         <label className="og-side-column">
                           <input
                             type="checkbox"
+                            disabled={column.lockVisible}
                             checked={visible(column)}
                             onChange={(event) =>
                               visibility([column.id], event.target.checked)

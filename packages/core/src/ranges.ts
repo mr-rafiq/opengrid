@@ -1,4 +1,5 @@
 import type { Column, Edit, GridModel } from "./types.js";
+import { isCellEditable } from "./cell-editing.js";
 
 export interface CellPosition {
   readonly rowId: string;
@@ -312,7 +313,7 @@ export function createCellRangeModel<T>(
     return matrix.flatMap((row, y) =>
       row.map((value, x) => {
         const column = columns[left + x];
-        if (!column.editable || !column.field || column.valueGetter)
+        if (!isCellEditable(column, data.get(rowIds[top + y])))
           throw new Error(`Column ${column.header ?? column.id} is read only`);
         return { rowId: rowIds[top + y], columnId: column.id, value };
       }),
@@ -417,7 +418,7 @@ export function createCellRangeModel<T>(
           )
             continue;
           const column = columns[x];
-          if (!column.editable || !column.field || column.valueGetter)
+          if (!isCellEditable(column, data.get(rowIds[y])))
             return `Column ${column.header ?? column.id} is read only`;
           const dy = y - from.rowStart,
             dx = x - from.columnStart;

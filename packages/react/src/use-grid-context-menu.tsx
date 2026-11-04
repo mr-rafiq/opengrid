@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import {
   createCellRangeModel,
   serializeTsv,
+  isCellEditable,
   type CellPosition,
   type CellRange,
   type CellRangeModel,
@@ -276,7 +277,7 @@ export function useGridContextMenu<T>({
           id: "paste",
           label: gridMessage("grid.pasteLabel"),
           shortcut: "Ctrl+V",
-          disabled: !controller || !column.editable,
+          disabled: !controller || !isCellEditable(column, node.data),
           action: async (_, signal) => {
             assertFresh(signal);
             if (!navigator.clipboard?.readText)
@@ -314,7 +315,7 @@ export function useGridContextMenu<T>({
           id: "edit",
           label: gridMessage("grid.editFocusedCell"),
           shortcut: "F2",
-          disabled: !column.editable,
+          disabled: !isCellEditable(column, node.data),
           action: () => latest.current.onEdit(node, column),
         },
         {
@@ -337,6 +338,7 @@ export function useGridContextMenu<T>({
         {
           kind: "action",
           id: "undo",
+          disabled: model.isReadOnly(),
           label: gridMessage("grid.undo"),
           shortcut: "Ctrl+Z",
           action: () =>
@@ -349,6 +351,7 @@ export function useGridContextMenu<T>({
         {
           kind: "action",
           id: "redo",
+          disabled: model.isReadOnly(),
           label: gridMessage("grid.redo"),
           shortcut: "Ctrl+Y",
           action: () =>

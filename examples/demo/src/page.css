@@ -1,6 +1,81 @@
 * {
   box-sizing: border-box;
 }
+.calculation-example {
+  min-width: 0;
+}
+.calculation-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.calculation-heading h2 {
+  margin: 0;
+}
+.calculation-heading p,
+.calculation-caption {
+  color: var(--og-muted);
+  font-size: 12px;
+}
+.calculation-readonly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+}
+.calculation-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.calculation-search input {
+  flex: 1 1 220px;
+  min-width: 0;
+  min-height: 40px;
+}
+.calculation-grid {
+  font-size: 12px;
+  border-radius: 6px;
+}
+.calculation-header-total {
+  display: block;
+  color: var(--og-muted);
+  font-size: 10px;
+}
+.calculation-section {
+  font-weight: 600;
+}
+.calculation-protected .og-cell {
+  color: var(--og-muted);
+}
+.calculation-output {
+  display: block;
+  max-width: 100%;
+  overflow: auto;
+  margin-top: 10px;
+  font: 11px/1.5 monospace;
+  color: var(--og-muted);
+}
+.calculation-example .og-workspace-panel textarea {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border: 1px solid var(--og-border);
+  border-radius: 4px;
+  background: var(--og-bg);
+  color: var(--og-text);
+}
+.calculation-example .og-workspace-panel button {
+  min-height: 44px;
+  margin-bottom: 6px;
+}
 body {
   margin: 0;
   font:

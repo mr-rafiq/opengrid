@@ -287,7 +287,7 @@ export function useColumnMenu<T>({
           kind: "action",
           id: "pinLeft",
           label: gridMessage("grid.pinLeft"),
-          disabled: column.pinned === "left",
+          disabled: column.lockPinned || column.pinned === "left",
           action: (_, signal) => {
             assertFresh(signal);
             model.pinColumn(column.id, "left");
@@ -298,7 +298,7 @@ export function useColumnMenu<T>({
           kind: "action",
           id: "pinRight",
           label: gridMessage("grid.pinRight"),
-          disabled: column.pinned === "right",
+          disabled: column.lockPinned || column.pinned === "right",
           action: (_, signal) => {
             assertFresh(signal);
             model.pinColumn(column.id, "right");
@@ -309,7 +309,7 @@ export function useColumnMenu<T>({
           kind: "action",
           id: "unpin",
           label: gridMessage("columnMenu.unpin"),
-          disabled: column.pinned == null,
+          disabled: column.lockPinned || column.pinned == null,
           action: (_, signal) => {
             assertFresh(signal);
             model.pinColumn(column.id, null);
@@ -428,7 +428,7 @@ export function useColumnMenu<T>({
           kind: "action",
           id: "hide",
           label: gridMessage("columnMenu.hide", { column: label }),
-          disabled: columns.length <= 1,
+          disabled: column.lockVisible || columns.length <= 1,
           action: (_, signal) => {
             assertFresh(signal);
             model.hideColumn(column.id, true);

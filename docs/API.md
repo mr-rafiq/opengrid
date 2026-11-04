@@ -4,6 +4,8 @@ This is OpenGrid's API, not an AG Grid compatibility layer. The source of truth 
 
 ## Creating a model
 
+For row-aware editing, custom row setters, read-only mode, layout locks, separate filter values, node-aware comparators and extensible React workspace panels, see [calculation workspaces](CALCULATION_WORKSPACES.md).
+
 ```tsx
 import { createGrid, type Column } from "@opengrid/core";
 import { DataGrid } from "@opengrid/react";
@@ -46,7 +48,7 @@ export function Example() {
 }
 ```
 
-Rows and columns require nonempty unique string IDs. A field is a direct property name; dotted nested-field paths are not resolved. `valueGetter(row)` takes precedence over `field`. `valueFormatter(value, row)` controls displayed/search/export text; sort/filter comparisons use raw values. A getter-only column is read-only. `sortable` and `filterable` default to enabled; `editable` must be explicitly enabled.
+Rows and columns require nonempty unique string IDs. A field is a direct property name; dotted nested-field paths are not resolved. `valueGetter(row)` takes precedence over `field`. `valueFormatter(value, row)` controls displayed/search/export text; sorting uses raw values; filters can use a separate filterValueGetter. A getter-only column is read-only unless it supplies a synchronous valueSetter and backing field. `sortable` and `filterable` default to enabled; `editable` must be explicitly enabled, or return true for the target row.
 
 Column types are `text`, `number`, `boolean`, `date`, and `bigint`. Date comparisons use parsed timestamps; date edits validate input but do not normalize it into a new timezone or Date object. Supply a custom parser if the application needs a precise date-storage policy. BigInt values remain exact. Empty strings are permitted as blank edit values; add a validator when a value is required.
 

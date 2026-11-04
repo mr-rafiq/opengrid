@@ -2,6 +2,16 @@
 
 Created by Mohamed Rafiq.
 
+## 0.8.0 - 2026-11-04
+
+Calculation-workspace foundations with original synthetic demo data. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Synchronous per-row edit policies and getter-backed custom row setters with owned drafts, stable IDs, final candidate validation, atomic paste/fill and one-step history. Getter-backed row-session drafts remain independent when sharing a backing object.
+- Dynamic read-only edit/history/reorder gate, enforced column position/pin/visibility locks, independent Columns-panel visibility, separate filter values/choice labels and source/group comparator context.
+- React header/group rendering, cell/row decorations/tooltips, status content and an accessible extensible workspace with desktop tabs and a native mobile/tablet drawer.
+- Compact estimate lab with protected items, computed/filtered currency totals, session views and notes, text/numeric external search, responsive pin policy and light/dark styling.
+- Explicit [replacement-readiness matrix](docs/CALCULATION_WORKSPACES.md). Async backend edits, application persistence/recalculation and backend undo, generated-group business edits, AG Grid state migration, header-aware clipboard variants and a complete German catalog remain gaps. Actual application replacement and authenticated visual parity are not certified.
+
 ## 0.7.2 - 2026-11-02
 
 This source patch strengthens verification of virtualized keyboard behavior. Created by Mohamed Rafiq. No npm publication.

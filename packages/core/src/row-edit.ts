@@ -1,4 +1,5 @@
 import type { Column, GridModel } from "./types.js";
+import { isCellEditable } from "./cell-editing.js";
 import { getFormulaGridController } from "./formula-grid-registry.js";
 
 export interface RowEditOptions {
@@ -45,14 +46,23 @@ export function createRowEditSession<T>(
   const editable = new Map(
     [...allColumns].filter(
       (entry): entry is [string, Column<T> & { field: keyof T & string }] =>
-        !!entry[1].editable && !!entry[1].field && !entry[1].valueGetter,
+        isCellEditable(entry[1], initialRow),
     ),
   );
   const baseline = new Map<string, unknown>(),
     draft = new Map<string, unknown>();
+  const sourceKey = (column: Column<T>) =>
+    JSON.stringify(
+      column.valueSetter ? ["setter", column.id] : ["field", column.field],
+    );
+  const cellValue = (
+    row: T,
+    column: Column<T> & { field: keyof T & string },
+  ) =>
+    column.valueSetter ? model.getValue(row, column.id) : row[column.field];
   const fieldSources = new Map<string, string>();
   for (const [id, column] of editable) {
-    const value = copy(initialRow[column.field]);
+    const value = copy(cellValue(initialRow, column));
     baseline.set(id, value);
     draft.set(id, copy(value));
   }
@@ -112,8 +122,8 @@ export function createRowEditSession<T>(
       // Multiple column IDs can edit the same raw field. Keep their drafts coherent and
       // use the most recently edited alias's parser/validator once when committing.
       for (const [id, alias] of editable)
-        if (alias.field === column.field) draft.set(id, copy(value));
-      fieldSources.set(column.field, columnId);
+        if (sourceKey(alias) === sourceKey(column)) draft.set(id, copy(value));
+      fieldSources.set(sourceKey(column), columnId);
       if (changed || currentError !== undefined) {
         currentError = undefined;
         publish();
@@ -131,14 +141,14 @@ export function createRowEditSession<T>(
       const stagedFields = new Set<string>();
       for (const id of dirty) {
         const column = editable.get(id)!;
-        if (stagedFields.has(column.field)) continue;
-        stagedFields.add(column.field);
+        if (stagedFields.has(sourceKey(column))) continue;
+        stagedFields.add(sourceKey(column));
         if (
           conflictPolicy === "reject" &&
-          !equal(baseline.get(id), row[column.field])
+          !equal(baseline.get(id), cellValue(row, column))
         )
           return fail(`Row changed externally in column: ${id}`);
-        const source = fieldSources.get(column.field) ?? id;
+        const source = fieldSources.get(sourceKey(column)) ?? id;
         edits.push({ rowId, columnId: source, value: copy(draft.get(source)) });
       }
       if (edits.length) {
@@ -148,7 +158,7 @@ export function createRowEditSession<T>(
       // Display committed parsed values, including concurrent changes to untouched fields.
       const committed = model.getRow(rowId)!;
       for (const [id, column] of editable) {
-        const value = copy(committed[column.field]);
+        const value = copy(cellValue(committed, column));
         baseline.set(id, value);
         draft.set(id, copy(value));
       }

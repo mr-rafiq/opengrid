@@ -1,4 +1,147 @@
 @import "./themes.css";
+.og-workspace {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  gap: 12px;
+  color: var(--og-text);
+}
+.og-workspace-main {
+  flex: 1;
+  min-width: 0;
+}
+.og-workspace-rail {
+  display: flex;
+  width: 340px;
+  max-width: 100%;
+  min-width: 0;
+  border: 1px solid var(--og-border);
+  border-radius: 8px;
+  background: var(--og-bg);
+  overflow: hidden;
+}
+.og-workspace-tabs {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 90px;
+  gap: 2px;
+  padding: 6px;
+  border-inline-end: 1px solid var(--og-border);
+  max-height: 650px;
+  overflow: auto;
+}
+.og-workspace-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 4px;
+  min-height: 44px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--og-muted);
+  font: inherit;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.og-workspace-tabs button[aria-selected="true"] {
+  background: var(--og-selected);
+  color: var(--og-text);
+}
+.og-workspace-tabs button:hover {
+  background: var(--og-hover);
+}
+.og-workspace-panel {
+  flex: 1;
+  min-width: 0;
+  padding: 12px;
+  max-height: 650px;
+  overflow: auto;
+}
+.og-workspace-panel .og-side-panel {
+  border: 0;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+}
+.og-workspace-panel .og-side-tabs {
+  grid-column: 1;
+  grid-row: 1;
+  flex-direction: row;
+  border: 0;
+  border-bottom: 1px solid var(--og-border);
+}
+.og-workspace-panel .og-side-tabs button {
+  writing-mode: horizontal-tb;
+  min-height: 44px;
+}
+.og-workspace-panel .og-side-body {
+  grid-column: 1;
+  grid-row: 2;
+  padding: 12px 0 0;
+}
+.og-workspace-launcher,
+.og-workspace-drawer-heading button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  border: 1px solid var(--og-border);
+  border-radius: 6px;
+  background: var(--og-bg);
+  color: var(--og-text);
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+.og-workspace-launcher {
+  margin-bottom: 8px;
+}
+.og-workspace-drawer {
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 20px));
+  max-width: calc(100vw - 20px);
+  max-height: calc(100dvh - 20px);
+  padding: 0;
+  color: var(--og-text);
+  background: var(--og-bg);
+  border: 1px solid var(--og-border);
+  border-radius: 10px;
+  overflow: auto;
+}
+.og-workspace-drawer::backdrop {
+  background: var(--og-backdrop);
+}
+.og-workspace-drawer-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+}
+.og-workspace-drawer .og-workspace-rail {
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+}
+.og-workspace-drawer .og-workspace-tabs {
+  max-height: calc(100dvh - 100px);
+}
+.og-workspace-drawer .og-workspace-panel {
+  max-height: calc(100dvh - 100px);
+}
+.og-workspace :focus-visible {
+  outline: 2px solid var(--og-focus);
+  outline-offset: 2px;
+}
+.og-status-content {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
 .og-multi-filter {
   min-width: 0;
   width: 100%;
@@ -1278,6 +1421,12 @@
   min-width: 0;
   text-align: start;
 }
+.og-group-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .og-group-chip > .og-icon {
   flex-shrink: 0;
   color: var(--og-muted);
@@ -1317,6 +1466,12 @@
 @media (max-width: 540px) {
   .og-group-panel {
     padding: 8px;
+  }
+  .og-group-panel-label {
+    flex-basis: 100%;
+  }
+  .og-group-panel .og-group-drop-target {
+    flex-basis: 100%;
   }
   .og-group-add-controls {
     width: 100%;

@@ -207,6 +207,7 @@ export function createFormulaGrid<T>(
       !column ||
       !column.field ||
       column.valueGetter ||
+      column.valueSetter ||
       column.type === "bigint" ||
       column.type === "date"
     )

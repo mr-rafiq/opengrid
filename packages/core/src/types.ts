@@ -24,11 +24,22 @@ export interface Column<T> {
   maxWidth?: number;
   hidden?: boolean;
   pinned?: Pin;
+  /** Anchor at the leading/trailing edge of the current pin band in declaration order. */
+  lockPosition?: "left" | "right";
+  lockPinned?: boolean;
+  lockVisible?: boolean;
+  movable?: boolean;
+  /** Omit from column chooser/panel; filtering remains independently available. */
+  columnsPanel?: boolean;
   sortable?: boolean;
   filterable?: boolean;
-  editable?: boolean;
+  /** Synchronous row policy. Exceptions and non-boolean results deny editing. */
+  editable?: boolean | ((row: T) => boolean);
   type?: "text" | "number" | "boolean" | "date" | "bigint";
   valueGetter?: (row: T) => unknown;
+  /** Column/advanced filters and set choices use this value; display, export and aggregates retain valueGetter. */
+  filterValueGetter?: (row: T) => unknown;
+  filterValueFormatter?: (value: unknown, row: T) => string;
   valueCache?: boolean;
   colSpan?: number | ((row: T) => number);
   spanRows?: boolean | ((previous: T, next: T) => boolean);
@@ -41,8 +52,14 @@ export interface Column<T> {
     context: AggregateFormatContext,
   ) => string;
   valueParser?: (value: unknown, row: T) => unknown;
+  /** Synchronously return a complete row from an owned mutable draft. Requires a backing field. */
+  valueSetter?: (value: unknown, row: T) => T;
   validate?: (value: unknown, row: T) => string | undefined;
-  compare?: (a: unknown, b: unknown) => number;
+  compare?: (
+    a: unknown,
+    b: unknown,
+    context: { rowA?: T; rowB?: T; nodeA?: RowNode<T>; nodeB?: RowNode<T> },
+  ) => number;
   aggregate?: Aggregate;
   /** Allow this column in row grouping controls. Defaults to true. */
   groupable?: boolean;
@@ -133,6 +150,8 @@ export interface GridOptions<T> {
   getTreePath?: (row: T) => string[];
   historyLimit?: number;
   externalFilter?: (row: T) => boolean;
+  /** Blocks user edit/history/reorder commands; host row synchronization remains available. */
+  readOnly?: boolean;
   valueCache?: boolean;
   valueCacheMaxEntries?: number;
 }
@@ -158,6 +177,8 @@ export type RowReorderStatus = Readonly<
   | { allowed: false; reason: RowReorderBlockReason; message: string }
 >;
 export interface GridModel<T> {
+  isReadOnly(): boolean;
+  setReadOnly(value: boolean): void;
   getState(): GridState;
   setState(state: Partial<GridState>): void;
   subscribe(listener: () => void): () => void;

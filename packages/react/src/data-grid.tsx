@@ -48,6 +48,7 @@ import {
   resolveColumnWidths,
   getColumnWidthConstraints,
   formatAggregateValue,
+  isCellEditable,
 } from "@opengrid/core";
 import { createColumnSizingController } from "./column-sizing.js";
 import type {
@@ -134,6 +135,12 @@ export interface CellContext<T> {
   row: T;
   column: Column<T>;
 }
+export interface GridNodeCellContext<T> {
+  node: RowNode<T>;
+  column: Column<T>;
+  value: unknown;
+  displayValue: string;
+}
 export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
@@ -194,6 +201,18 @@ export interface DataGridProps<T> {
   pagination?: boolean;
   className?: string;
   renderCell?: (context: CellContext<T>) => ReactNode;
+  /** Noninteractive label inside the native sort button; sorting/menu/resize semantics remain native. */
+  renderHeader?: (context: {
+    column: Column<T>;
+    model: GridModel<T>;
+  }) => ReactNode;
+  /** Group/total content only. Native expansion and selection controls remain outside this renderer. */
+  renderGroupCell?: (context: GridNodeCellContext<T>) => ReactNode;
+  getRowClassName?: (node: RowNode<T>) => string;
+  getCellClassName?: (context: GridNodeCellContext<T>) => string;
+  getCellTooltip?: (context: GridNodeCellContext<T>) => string | undefined;
+  /** Application-owned content appended to the native count/pagination status bar. */
+  statusContent?: ReactNode;
   onCellEdit?: (context: {
     rowId: string;
     columnId: string;
@@ -355,6 +374,12 @@ export function DataGrid<T>({
   pagination = true,
   className = "",
   renderCell,
+  renderHeader,
+  renderGroupCell,
+  getRowClassName,
+  getCellClassName,
+  getCellTooltip,
+  statusContent,
   onCellEdit,
 }: DataGridProps<T>) {
   const { t, locale, resolveMessage, number } = useGridLocale();
@@ -367,6 +392,7 @@ export function DataGrid<T>({
     model.getState,
   );
   const allColumns = model.getColumns();
+  const readOnly = model.isReadOnly();
   const columnRevision = model.getColumnRevision();
   if (typeof autoDetailHeight !== "boolean")
     throw new TypeError("autoDetailHeight must be a boolean");
@@ -800,6 +826,13 @@ export function DataGrid<T>({
   const [findOpen, setFindOpen] = useState(false);
   const findInput = useRef<HTMLInputElement>(null);
   const [noteEditing, setNoteEditing] = useState<CellPosition | null>(null);
+  useEffect(() => {
+    if (!readOnly) return;
+    editingRef.current = null;
+    setEditing(null);
+    setRowEditing(null);
+    setNoteEditing(null);
+  }, [readOnly]);
   resizeAllowed.current =
     !editing && !rowEditing && !noteEditing && !managedDrag.current;
   const defaultNotes = useMemo(() => new CellNotesStore(), []);
@@ -862,6 +895,9 @@ export function DataGrid<T>({
       columnRevision,
       direction,
       renderCell,
+      renderGroupCell,
+      getCellClassName,
+      getRowClassName,
       renderDetail,
       detailHeight,
       autoDetailHeight,
@@ -1276,14 +1312,14 @@ export function DataGrid<T>({
     model,
     state,
     setting: contextMenu,
-    policyKey: `${selectionMode}:${hierarchySelection}:${editMode}:${notes !== false}`,
-    notesOwner: notes === false ? false : notesStore,
+    policyKey: `${selectionMode}:${hierarchySelection}:${editMode}:${notes !== false}:${readOnly}`,
+    notesOwner: notes === false || readOnly ? false : notesStore,
     editing: Boolean(editing || rowEditing || noteEditing),
     controller: ranges.controller,
     rowIds: dataRowIds,
     columnIds,
     selectionMode,
-    notes: notes !== false,
+    notes: notes !== false && !readOnly,
     onEdit: (node, column) => {
       const index = projection.indexOf(node.id);
       const currentColumn = columns.find((item) => item.id === column.id);
@@ -1462,7 +1498,7 @@ export function DataGrid<T>({
       if (
         row < 0 ||
         column < 0 ||
-        !columns[column].editable ||
+        !isCellEditable(columns[column], rows[row]?.data) ||
         rows[row].kind !== "row"
       )
         return;
@@ -2101,6 +2137,7 @@ export function DataGrid<T>({
     return false;
   }
   function openNote(position?: CellPosition) {
+    if (model.isReadOnly()) return;
     const target =
       position ??
       (rows[focusRow]?.kind === "row"
@@ -2131,7 +2168,8 @@ export function DataGrid<T>({
       return;
     }
     node = rows[ownerRowAt(projection.indexOf(node.id), column.id)];
-    if (!column.editable || !node.data || node.kind !== "row") return;
+    if (!node.data || !isCellEditable(column, node.data) || node.kind !== "row")
+      return;
     const formulaEnabled = formulas?.supportsColumn(column.id);
     const input = formulaEnabled
       ? formulas!.getInput({ rowId: node.id, columnId: column.id })
@@ -2487,7 +2525,8 @@ export function DataGrid<T>({
         event.preventDefault();
         if (
           node.children?.length &&
-          (node.kind === "group" || (editMode === "cell" && !column.editable))
+          (node.kind === "group" ||
+            (editMode === "cell" && !isCellEditable(column, node.data)))
         )
           model.toggleExpanded(node.id);
         else startEdit(node, column);
@@ -2509,7 +2548,7 @@ export function DataGrid<T>({
           !event.metaKey &&
           !event.altKey &&
           editMode === "cell" &&
-          column.editable
+          isCellEditable(column, node.data)
         ) {
           event.preventDefault();
           startEdit(node, column, event.key);
@@ -2933,7 +2972,7 @@ export function DataGrid<T>({
                   : undefined
             }
             data-og-row-id={node.id}
-            className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : node.kind === "total" ? "og-total-row" : ""}`}
+            className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : node.kind === "total" ? "og-total-row" : ""} ${getRowClassName?.(node) ?? ""}`}
             style={{
               top: rowGeometry.offset(row),
               height: rowGeometry.baseHeights[row],
@@ -3147,7 +3186,10 @@ export function DataGrid<T>({
                       aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                       aria-colspan={span.span > 1 ? span.span : undefined}
                       aria-rowspan={rowSpan?.span}
-                      aria-readonly={!column.editable || node.kind !== "row"}
+                      aria-readonly={
+                        !isCellEditable(column, node.data) ||
+                        node.kind !== "row"
+                      }
                       aria-invalid={formulaError ? true : undefined}
                       aria-description={formulaError?.message}
                       aria-keyshortcuts={
@@ -3182,7 +3224,7 @@ export function DataGrid<T>({
                       data-row-id={node.id}
                       data-column-id={column.id}
                       data-formula-error={formulaError?.code}
-                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""}`}
+                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""} ${getCellClassName?.({ node, column, value, displayValue: display }) ?? ""}`}
                       style={{
                         ...cellStyle(column, span),
                         ...(rowSpan
@@ -3204,7 +3246,12 @@ export function DataGrid<T>({
                       title={
                         formulaError
                           ? `${display}: ${formulaError.message}`
-                          : display
+                          : (getCellTooltip?.({
+                              node,
+                              column,
+                              value,
+                              displayValue: display,
+                            }) ?? display)
                       }
                       onFocus={(event) => {
                         if (event.target === event.currentTarget) {
@@ -3328,6 +3375,7 @@ export function DataGrid<T>({
                                 type="button"
                                 tabIndex={-1}
                                 className="og-note-indicator"
+                                disabled={readOnly}
                                 aria-label={t("note.editLabel", {
                                   column: column.header ?? column.id,
                                   rowId: node.id,
@@ -3430,7 +3478,14 @@ export function DataGrid<T>({
                                 : undefined
                             }
                           >
-                            {node.kind === "total" && index === 0 ? (
+                            {node.kind !== "row" && renderGroupCell ? (
+                              renderGroupCell({
+                                node,
+                                column,
+                                value,
+                                displayValue: display,
+                              })
+                            ) : node.kind === "total" && index === 0 ? (
                               <>
                                 <span>
                                   {node.total === "grand"
@@ -3463,6 +3518,7 @@ export function DataGrid<T>({
                             )}
                           </span>
                           {effectiveCellSelection &&
+                            !readOnly &&
                             ranges.isEnd({
                               rowId: node.id,
                               columnId: column.id,
@@ -3562,7 +3618,7 @@ export function DataGrid<T>({
         })}
         {effectiveCellSelection && <> {t("grid.rangeHelp")}</>}
         {toolbar && <> {t("grid.findHelp")}</>}
-        {notes !== false && <> {t("grid.noteHelp")}</>}
+        {notes !== false && !readOnly && <> {t("grid.noteHelp")}</>}
         {renderDetail && <> {t("grid.detailHelp")}</>}
         {rowDragging && <> {t("grid.moveHelp")}</>}
         <> {t("grid.touchHelp")}</>
@@ -3596,8 +3652,10 @@ export function DataGrid<T>({
                   !!rowEditing ||
                   !!noteEditing ||
                   rows[focusRow]?.kind !== "row" ||
-                  !columns.find((column) => column.id === focus.columnId)
-                    ?.editable
+                  !isCellEditable(
+                    columns.find((column) => column.id === focus.columnId),
+                    rows[focusRow]?.data,
+                  )
                 }
                 onClick={() => {
                   const column = columns.find(
@@ -3659,9 +3717,8 @@ export function DataGrid<T>({
                 aria-haspopup="dialog"
                 disabled={
                   rows[focusRow]?.kind !== "row" ||
-                  !columns.some(
-                    (column) =>
-                      column.editable && column.field && !column.valueGetter,
+                  !columns.some((column) =>
+                    isCellEditable(column, rows[focusRow]?.data),
                   )
                 }
                 onClick={() => {
@@ -3689,6 +3746,7 @@ export function DataGrid<T>({
               <button
                 title={t("grid.note")}
                 type="button"
+                disabled={readOnly}
                 onClick={() => openNote()}
               >
                 <GridIcon name="note" size={16} />
@@ -3757,6 +3815,7 @@ export function DataGrid<T>({
                 <button
                   title={t("grid.paste")}
                   type="button"
+                  disabled={readOnly}
                   onClick={ranges.pasteFromClipboard}
                   aria-label={t("grid.pasteLabel")}
                 >
@@ -3766,6 +3825,7 @@ export function DataGrid<T>({
                 <button
                   title={t("grid.fillDown")}
                   type="button"
+                  disabled={readOnly}
                   onClick={() => ranges.fill("down")}
                   aria-label={t("grid.fillDownLabel")}
                 >
@@ -3779,6 +3839,7 @@ export function DataGrid<T>({
             <button
               title={t("grid.undo")}
               type="button"
+              disabled={readOnly}
               onClick={() => {
                 model.undo();
                 setAnnouncement(gridMessage("grid.undoRequested"));
@@ -3790,6 +3851,7 @@ export function DataGrid<T>({
             <button
               title={t("grid.redo")}
               type="button"
+              disabled={readOnly}
               onClick={() => {
                 model.redo();
                 setAnnouncement(gridMessage("grid.redoRequested"));
@@ -3812,83 +3874,95 @@ export function DataGrid<T>({
               </summary>
               <div className="og-chooser-panel">
                 <strong>{t("grid.arrangeView")}</strong>
-                {allColumns.map((column, index) => (
-                  <div className="og-column-option" key={column.id}>
-                    <label>
-                      <input
-                        type="checkbox"
-                        aria-label={t("grid.showColumn", {
+                {allColumns
+                  .filter((column) => column.columnsPanel !== false)
+                  .map((column, index) => (
+                    <div className="og-column-option" key={column.id}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          aria-label={t("grid.showColumn", {
+                            column: column.header ?? column.id,
+                          })}
+                          checked={visibleOf(column)}
+                          disabled={column.lockVisible}
+                          onChange={(event) =>
+                            model.hideColumn(column.id, !event.target.checked)
+                          }
+                        />
+                        {column.header ?? column.id}
+                      </label>
+                      <select
+                        aria-label={t("grid.pinColumn", {
                           column: column.header ?? column.id,
                         })}
-                        checked={visibleOf(column)}
+                        value={pinOf(column) ?? ""}
+                        disabled={column.lockPinned}
                         onChange={(event) =>
-                          model.hideColumn(column.id, !event.target.checked)
+                          model.pinColumn(
+                            column.id,
+                            event.target.value === ""
+                              ? null
+                              : (event.target.value as "left" | "right"),
+                          )
                         }
-                      />
-                      {column.header ?? column.id}
-                    </label>
-                    <select
-                      aria-label={t("grid.pinColumn", {
-                        column: column.header ?? column.id,
-                      })}
-                      value={pinOf(column) ?? ""}
-                      onChange={(event) =>
-                        model.pinColumn(
-                          column.id,
-                          event.target.value === ""
-                            ? null
-                            : (event.target.value as "left" | "right"),
-                        )
-                      }
-                    >
-                      <option value="">{t("grid.unpinned")}</option>
-                      <option value="left">{t("grid.pinLeft")}</option>
-                      <option value="right">{t("grid.pinRight")}</option>
-                    </select>
-                    <button
-                      type="button"
-                      aria-label={t("grid.moveColumnLeft", {
-                        column: column.header ?? column.id,
-                      })}
-                      onClick={() =>
-                        model.moveColumn(
-                          column.id,
-                          clamp(
-                            (state.columnOrder.indexOf(column.id) < 0
-                              ? index
-                              : state.columnOrder.indexOf(column.id)) +
-                              (direction === "rtl" ? 1 : -1),
-                            0,
-                            allColumns.length - 1,
-                          ),
-                        )
-                      }
-                    >
-                      <GridIcon name="chevronLeft" size={16} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={t("grid.moveColumnRight", {
-                        column: column.header ?? column.id,
-                      })}
-                      onClick={() =>
-                        model.moveColumn(
-                          column.id,
-                          clamp(
-                            (state.columnOrder.indexOf(column.id) < 0
-                              ? index
-                              : state.columnOrder.indexOf(column.id)) +
-                              (direction === "rtl" ? -1 : 1),
-                            0,
-                            allColumns.length - 1,
-                          ),
-                        )
-                      }
-                    >
-                      <GridIcon name="chevronRight" size={16} />
-                    </button>
-                  </div>
-                ))}
+                      >
+                        <option value="">{t("grid.unpinned")}</option>
+                        <option value="left">{t("grid.pinLeft")}</option>
+                        <option value="right">{t("grid.pinRight")}</option>
+                      </select>
+                      <button
+                        type="button"
+                        aria-label={t("grid.moveColumnLeft", {
+                          column: column.header ?? column.id,
+                        })}
+                        disabled={
+                          column.movable === false ||
+                          Boolean(column.lockPosition)
+                        }
+                        onClick={() =>
+                          model.moveColumn(
+                            column.id,
+                            clamp(
+                              (state.columnOrder.indexOf(column.id) < 0
+                                ? index
+                                : state.columnOrder.indexOf(column.id)) +
+                                (direction === "rtl" ? 1 : -1),
+                              0,
+                              allColumns.length - 1,
+                            ),
+                          )
+                        }
+                      >
+                        <GridIcon name="chevronLeft" size={16} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={t("grid.moveColumnRight", {
+                          column: column.header ?? column.id,
+                        })}
+                        disabled={
+                          column.movable === false ||
+                          Boolean(column.lockPosition)
+                        }
+                        onClick={() =>
+                          model.moveColumn(
+                            column.id,
+                            clamp(
+                              (state.columnOrder.indexOf(column.id) < 0
+                                ? index
+                                : state.columnOrder.indexOf(column.id)) +
+                                (direction === "rtl" ? -1 : 1),
+                              0,
+                              allColumns.length - 1,
+                            ),
+                          )
+                        }
+                      >
+                        <GridIcon name="chevronRight" size={16} />
+                      </button>
+                    </div>
+                  ))}
               </div>
             </details>
           </div>
@@ -4252,7 +4326,9 @@ export function DataGrid<T>({
                             type="button"
                             className="og-sort"
                             disabled={column.sortable === false}
-                            draggable
+                            draggable={
+                              column.movable !== false && !column.lockPosition
+                            }
                             onDragStart={(event) => {
                               event.dataTransfer.setData(
                                 "text/opengrid-column",
@@ -4263,9 +4339,20 @@ export function DataGrid<T>({
                                 columnDragOwner(model),
                               );
                             }}
-                            aria-label={t("grid.sortColumn", {
-                              column: column.header ?? column.id,
-                            })}
+                            aria-label={
+                              renderHeader
+                                ? undefined
+                                : t("grid.sortColumn", {
+                                    column: column.header ?? column.id,
+                                  })
+                            }
+                            title={
+                              renderHeader
+                                ? t("grid.sortColumn", {
+                                    column: column.header ?? column.id,
+                                  })
+                                : undefined
+                            }
                             onClick={(event) => {
                               model.setSort(
                                 column.id,
@@ -4278,8 +4365,14 @@ export function DataGrid<T>({
                               );
                             }}
                           >
-                            <span data-og-size-text="header">
-                              {column.header ?? column.id}
+                            <span
+                              data-og-size-text={
+                                renderHeader ? undefined : "header"
+                              }
+                            >
+                              {renderHeader
+                                ? renderHeader({ column, model })
+                                : (column.header ?? column.id)}
                             </span>
                             {sort && (
                               <span
@@ -4579,7 +4672,7 @@ export function DataGrid<T>({
       )}
       {cellMenu.render}
       {headerMenu.render}
-      {noteEditing && notes !== false && (
+      {noteEditing && notes !== false && !readOnly && (
         <CellNoteDialog
           key={noteDialogKey(notesStore, noteEditing)}
           store={notesStore}
@@ -4613,6 +4706,9 @@ export function DataGrid<T>({
             </>
           )}
         </span>
+        {statusContent && (
+          <div className="og-status-content">{statusContent}</div>
+        )}
         {pagination && (
           <div className="og-pagination">
             <label>

@@ -1,4 +1,7 @@
 export * from "./types.js";
+export { isCellEditable } from "./cell-editing.js";
+import { isCellEditable } from "./cell-editing.js";
+import { cloneEditRow } from "./edit-row-copy.js";
 export * from "./hierarchy-selection.js";
 import {
   createHierarchySelectionPlan,
@@ -88,6 +91,43 @@ function prepareColumns<T>(input: readonly Column<T>[]): Column<T>[] {
   if (!Array.isArray(input)) throw new TypeError("Columns must be an array");
   const columns = input.map((column) => {
     const widthConstraints = getColumnWidthConstraints(column);
+    for (const key of [
+      "lockPinned",
+      "lockVisible",
+      "movable",
+      "columnsPanel",
+    ] as const)
+      if (column[key] !== undefined && typeof column[key] !== "boolean")
+        throw new TypeError(`Column ${key} must be a boolean`);
+    if (
+      column.lockPosition !== undefined &&
+      column.lockPosition !== "left" &&
+      column.lockPosition !== "right"
+    )
+      throw new TypeError("Column lockPosition must be left or right");
+    if (
+      column.pinned !== undefined &&
+      column.pinned !== null &&
+      column.pinned !== "left" &&
+      column.pinned !== "right"
+    )
+      throw new TypeError("Column pinned must be left, right or null");
+    if (
+      column.valueSetter !== undefined &&
+      typeof column.valueSetter !== "function"
+    )
+      throw new TypeError("Column valueSetter must be a function");
+    if (column.valueSetter && column.field === undefined)
+      throw new TypeError("Column valueSetter requires a backing field");
+    for (const key of ["filterValueGetter", "filterValueFormatter"] as const)
+      if (column[key] !== undefined && typeof column[key] !== "function")
+        throw new TypeError(`Column ${key} must be a function`);
+    if (
+      column.editable !== undefined &&
+      typeof column.editable !== "boolean" &&
+      typeof column.editable !== "function"
+    )
+      throw new TypeError("Column editable must be a boolean or function");
     if (column.groupable !== undefined && typeof column.groupable !== "boolean")
       throw new TypeError("Column groupable must be a boolean");
     if (
@@ -154,6 +194,9 @@ function widthDefaults<T>(
 }
 
 export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
+  let readOnly = options.readOnly ?? false;
+  if (typeof readOnly !== "boolean")
+    throw new TypeError("readOnly must be a boolean");
   const extension = takeGridExtension(options);
   let columns = prepareColumns(options.columns);
   let columnWidthDefaults = widthDefaults(columns);
@@ -302,7 +345,15 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           }),
       ),
       selected: [...new Set(next.selected.filter((id) => ids.has(id)))],
-      columnOrder: order,
+      columnOrder: [
+        ...definitions
+          .filter((column) => column.lockPosition === "left")
+          .map((column) => column.id),
+        ...order.filter((id) => !index.get(id)!.lockPosition),
+        ...definitions
+          .filter((column) => column.lockPosition === "right")
+          .map((column) => column.id),
+      ],
       columnWidths: { ...next.columnWidths },
       columnVisibility: { ...next.columnVisibility },
       columnPinning: { ...next.columnPinning },
@@ -318,6 +369,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       expanded: [...new Set(next.expanded)],
     };
     for (const column of definitions) {
+      if (column.lockVisible)
+        result.columnVisibility[column.id] = column.hidden !== true;
+      if (column.lockPinned)
+        result.columnPinning[column.id] = column.pinned ?? null;
       if (Object.hasOwn(result.columnWidths, column.id))
         result.columnWidths[column.id] = clampColumnWidth(
           column,
@@ -408,7 +463,10 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     // are mutable, so predicate caches must never outlive the derived result cache.
     const predicates = new Map<string, Map<Filter, FilterPredicate>>();
     const testFilter = (row: T, id: string, filter: Filter): boolean => {
-      const value = getValue(row, id);
+      const column = requireColumn(id);
+      const value = column.filterValueGetter
+        ? column.filterValueGetter(row)
+        : getValue(row, id);
       let columnPredicates = predicates.get(id);
       if (!columnPredicates) {
         columnPredicates = new Map();
@@ -460,7 +518,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           const x = comparable(left, column.type) as string | number | bigint,
             y = comparable(right, column.type) as string | number | bigint;
           const order = column.compare
-            ? column.compare(left, right)
+            ? column.compare(left, right, { rowA: a.row, rowB: b.row })
             : x === y
               ? 0
               : x < y
@@ -605,7 +663,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           const x = comparable(left, column.type) as string | number | bigint;
           const y = comparable(right, column.type) as string | number | bigint;
           const order = column.compare
-            ? column.compare(left, right)
+            ? column.compare(left, right, { nodeA: a.node, nodeB: b.node })
             : x === y
               ? 0
               : x < y
@@ -752,7 +810,9 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     emit();
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
+    if (readOnly) return "Grid is read only";
     const revision = columnRevision;
+    const sourceRows = rows;
     if (extension?.beforeBatch) {
       try {
         const beforeError = extension.beforeBatch(edits);
@@ -768,11 +828,11 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       const column = byColumn.get(edit.columnId),
         row = pending.get(edit.rowId);
       if (!column || !row) return "Unknown row or column";
-      if (!column.editable || !column.field || column.valueGetter)
-        return "Cell is read only";
+      if (!isCellEditable(column, row)) return "Cell is read only";
       let value = edit.value;
       try {
-        if (column.valueParser) value = column.valueParser(value, row);
+        const draft = column.valueSetter ? cloneEditRow(row) : row;
+        if (column.valueParser) value = column.valueParser(value, draft);
         else if (column.type === "number" && value !== "") {
           value = Number(value);
           if (!Number.isFinite(value)) return "Enter a finite number";
@@ -793,7 +853,15 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           !Number.isFinite(Date.parse(String(value)))
         )
           return "Enter a valid date";
-        const next = { ...row, [column.field]: value };
+        const next = column.valueSetter
+          ? column.valueSetter(value, draft)
+          : { ...row, [column.field]: value };
+        if (next == null || typeof next !== "object")
+          return "A value setter must synchronously return a complete row";
+        if (typeof (next as { then?: unknown }).then === "function") {
+          void Promise.resolve(next).catch(() => {});
+          return "Async value setters are not supported; submit an external edit request";
+        }
         if (idOf(next) !== edit.rowId)
           return "Editing a row ID is not supported";
         pending.set(edit.rowId, next);
@@ -806,11 +874,20 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       }
     }
     if (!edits.length) return;
+    if (columnRevision !== revision)
+      return "Column definitions changed during editing";
+    if (rows !== sourceRows) return "Row data changed during editing";
+    if (readOnly) return "Grid is read only";
     for (const [rowId, targets] of validationTargets) {
       const finalRow = pending.get(rowId)!;
       try {
         for (const column of targets.values()) {
-          const error = column.validate?.(finalRow[column.field!], finalRow);
+          const error = column.validate?.(
+            column.valueSetter
+              ? getRawValue(finalRow, column.id)
+              : finalRow[column.field!],
+            finalRow,
+          );
           if (error) return error;
         }
         if (idOf(finalRow) !== rowId)
@@ -832,10 +909,12 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     }
     if (columnRevision !== revision)
       return "Column definitions changed during editing";
+    if (rows !== sourceRows) return "Row data changed during editing";
     const changed = [...validationTargets].some(([rowId, targets]) => {
       const before = originals.get(rowId)!,
         after = pending.get(rowId)!;
       return [...targets.values()].some((column) => {
+        if (column.valueSetter) return true;
         const left = before[column.field!],
           right = after[column.field!];
         const extensionEqual = extension?.equalValue?.(column.id, left, right);
@@ -847,6 +926,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     });
     if (columnRevision !== revision)
       return "Column definitions changed during editing";
+    if (rows !== sourceRows) return "Row data changed during editing";
+    if (readOnly) return "Grid is read only";
     if (!changed) return;
     recordHistory({ kind: "snapshot", rows });
     rows = rows.map((row) => pending.get(idOf(row))!);
@@ -855,6 +936,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   function getColumns() {
     const ordered = state.columnOrder.map((id) => ({
       ...requireColumn(id),
+      ...(readOnly ? { editable: false } : {}),
       ...(requireColumn(id).groupPath === undefined
         ? {}
         : { groupPath: [...requireColumn(id).groupPath!] }),
@@ -875,6 +957,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     ];
   }
   function getRowReorderStatus(): RowReorderStatus {
+    if (readOnly)
+      return createBuiltinRowReorderStatus("read-only", "Grid is read only");
     if (options.getTreePath)
       return createBuiltinRowReorderStatus(
         "tree-data",
@@ -908,6 +992,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   }
   state = freezeSnapshot(state);
   return {
+    isReadOnly: () => readOnly,
+    setReadOnly(value) {
+      if (typeof value !== "boolean")
+        throw new TypeError("readOnly must be a boolean");
+      if (value === readOnly) return;
+      readOnly = value;
+      emit();
+    },
     getState: () => state,
     setState,
     subscribe(listener) {
@@ -1079,7 +1171,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       setState({ columnWidths: { ...state.columnWidths, [id]: width } });
     },
     moveColumn(id, toIndex) {
-      requireColumn(id);
+      const column = requireColumn(id);
+      if (column.movable === false || column.lockPosition) return;
       const order = state.columnOrder.filter((item) => item !== id);
       order.splice(
         Math.max(0, Math.min(order.length, Math.floor(toIndex))),
@@ -1089,11 +1182,11 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       setState({ columnOrder: order });
     },
     pinColumn(id, pin) {
-      requireColumn(id);
+      if (requireColumn(id).lockPinned) return;
       setState({ columnPinning: { ...state.columnPinning, [id]: pin } });
     },
     hideColumn(id, hidden) {
-      requireColumn(id);
+      if (requireColumn(id).lockVisible) return;
       setState({
         columnVisibility: { ...state.columnVisibility, [id]: !hidden },
       });
@@ -1109,6 +1202,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       editBatch([{ rowId, columnId, value }]),
     batchEdit: editBatch,
     undo() {
+      if (readOnly) return false;
       const previous = undoStack.at(-1);
       if (!previous) return false;
       const nextRows =
@@ -1124,6 +1218,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       return true;
     },
     redo() {
+      if (readOnly) return false;
       const next = redoStack.at(-1);
       if (!next) return false;
       const nextRows =

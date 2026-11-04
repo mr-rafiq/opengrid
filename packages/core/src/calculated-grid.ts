@@ -20,6 +20,7 @@ export type CalculatedColumn<T> = Omit<
   | "valueCache"
   | "editable"
   | "valueParser"
+  | "valueSetter"
   | "validate"
   | "type"
 > & {
@@ -154,7 +155,7 @@ export function createCalculatedGrid<T>(
       );
     const unsafe = definition as unknown as Record<string, unknown>;
     if (
-      ["field", "valueGetter", "valueParser", "validate"].some(
+      ["field", "valueGetter", "valueParser", "valueSetter", "validate"].some(
         (key) => unsafe[key] !== undefined,
       ) ||
       (unsafe.editable !== undefined && unsafe.editable !== false) ||

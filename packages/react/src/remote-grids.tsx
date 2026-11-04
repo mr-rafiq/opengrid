@@ -160,6 +160,12 @@ export function ServerDataGrid<T>({
         ...column,
         field: undefined,
         editable: false,
+        valueSetter: undefined,
+        filterValueGetter: undefined,
+        filterValueFormatter: undefined,
+        compare: column.compare
+          ? (a, b) => column.compare!(a, b, {})
+          : undefined,
         // Span geometry currently belongs to the client DataGrid contract.
         colSpan: undefined,
         spanRows: undefined,

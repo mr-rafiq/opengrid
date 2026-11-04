@@ -55,6 +55,7 @@ import { FormulaGridLab } from "./formula-grid-lab";
 import { SizingLab } from "./sizing-lab";
 import { ColumnDefinitionsLab } from "./column-definitions-lab";
 import { ConditionFilterLab } from "./condition-filter-lab";
+import { CalculationLab } from "./calculation-lab";
 interface Holding {
   id: string;
   company: string;
@@ -293,6 +294,7 @@ function App() {
   const [sizingOpen, setSizingOpen] = useState(false);
   const [conditionFilterOpen, setConditionFilterOpen] = useState(false);
   const [columnDefinitionsOpen, setColumnDefinitionsOpen] = useState(false);
+  const [calculationOpen, setCalculationOpen] = useState(false);
   const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null);
   const [exportError, setExportError] = useState("");
   const activeColumns = useMemo(() => {
@@ -807,6 +809,16 @@ function App() {
           <h2>Explore features</h2>
           <p>Open an example to try a focused workflow.</p>
         </div>
+        <section className="pivot-panel" id="calculation">
+          <button
+            type="button"
+            aria-expanded={calculationOpen}
+            onClick={() => setCalculationOpen(!calculationOpen)}
+          >
+            Calculation workspace lab
+          </button>
+          {calculationOpen && <CalculationLab />}
+        </section>
         {pivotOpen && (
           <section className="pivot-panel">
             <h2>Shares by sector and region</h2>

@@ -1,5 +1,15 @@
 # Verification record
 
+## Calculation workspaces (0.8.0)
+
+The 2026-11-04 source release adds original native contracts for protected calculation screens; see the [capability and readiness matrix](CALCULATION_WORKSPACES.md). The target application was inspected read only at a fixed source snapshot. Its authenticated runtime could not be inspected, so this is not an application replacement or visual-parity certification. No target application source or business data is included or modified.
+
+The serial regression run passed formatting, six-manifest/internal-dependency/lockfile consistency, strict TypeScript (**167.28 seconds**), **1,961 unit tests in 127 files** (**270.13 seconds**), all three ESM/declaration library builds plus React CSS and the production demo, and **175 Chromium grid scenarios** (**9.1 minutes**). Pages generation passed with **64 documentation routes**; all **67 production-site scenarios passed in 3.1 minutes**. Those browser runs include the existing native pointer grouping, responsive themes, provider, clipboard, virtual focus and keyboard workflows.
+
+Final read-only control and accessible custom-header refinements were then checked with formatting/version consistency, strict TypeScript (**181.32 seconds**), all **26 focused calculation tests in eight files**, a fresh React ESM/declaration/CSS build, and a built-package SSR smoke. The smoke performed zero setter calls, source changes or history writes. All **eight calculation browser scenarios passed against source in 24.9 seconds**, then against the rebuilt production `/opengrid/demo/` artifact in **12.2 seconds**.
+
+Calculation browser coverage includes nested getter/setter edits and undo, protected rows, read-only paste/fill/history controls, computed and filtered currency totals, invalid-query retention, saved view/search restoration, persistent host panel state, 320/390/768/1440px geometry, native mobile drawer close/Escape/focus return, actual Chromium touch taps and both-color-mode workspace keyboard/automated accessibility checks. Screenshot review drove full-width phone grouping controls, readable chips, horizontal nested sidebar tabs and a responsive pin policy. A serious visible-label/accessibility-name mismatch in a custom sum header was reproduced and fixed; the final workspace checks report zero serious/critical findings. This is browser emulation and automated accessibility evidence; no physical-device or manual screen-reader certification is claimed.
+
 ## Virtualized keyboard/scale checks (0.7.2)
 
 The 2026-11-02 verification patch adds eight production browser scenarios covering Minimal/Material, light/dark and 390px/1440px layouts under Chromium forced-color and reduced-motion emulation. Ctrl+End, Home and Ctrl+Home move across both virtual windows, retain a single data-cell tab stop, keep focus within the viewport and return to the actual first Record column. Header-menu Escape restores its trigger; filtering retains intentional search focus. See [keyboard and scale verification](KEYBOARD_HARDENING.md) for commands and scope.

@@ -307,6 +307,12 @@ export function ServerTreeDataGrid<T>({
         ...column,
         field: undefined,
         editable: false,
+        valueSetter: undefined,
+        filterValueGetter: undefined,
+        filterValueFormatter: undefined,
+        compare: column.compare
+          ? (a, b) => column.compare!(a, b, {})
+          : undefined,
         groupable: false,
         colSpan: undefined,
         spanRows: undefined,

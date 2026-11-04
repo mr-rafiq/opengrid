@@ -12,6 +12,8 @@ The long-term goal covers Community and Enterprise feature families in AG Grid *
 
 ## Try the interactive example
 
+For estimating screens, see [calculation workspaces](docs/CALCULATION_WORKSPACES.md): row-dependent policies, nested value setters, locked utility columns, custom headers/status content and responsive application panels, with an explicit replacement-readiness matrix.
+
 Requires Node.js 24.14+ and npm 11+. No account or license key is needed.
 
 ```sh

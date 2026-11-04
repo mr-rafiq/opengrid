@@ -166,7 +166,9 @@ export function createSetFilterIndex<T>(
   let textLength = 0;
   for (let index = 0; index < rows.length; index++) {
     const row = ownArrayValue(rows, index, "UNSUPPORTED"),
-      raw = model.getValue(row, columnId),
+      raw = column.filterValueGetter
+        ? column.filterValueGetter(row)
+        : model.getValue(row, columnId),
       canonical = identity(raw, type, caps.maxValueLength);
     const existing = byKey.get(canonical.key);
     if (existing) {
@@ -179,8 +181,11 @@ export function createSetFilterIndex<T>(
         "LIMIT",
         "Distinct value count exceeds the set index limit",
       );
-    const label = column.valueFormatter
-      ? column.valueFormatter(raw, row)
+    const formatter =
+      column.filterValueFormatter ??
+      (column.filterValueGetter ? undefined : column.valueFormatter);
+    const label = formatter
+      ? formatter(raw, row)
       : raw === null || raw === undefined
         ? ""
         : raw instanceof Date

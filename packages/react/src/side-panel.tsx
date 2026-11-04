@@ -73,11 +73,13 @@ export function GridSidePanel<T>({
   );
   const columns = model.getColumns();
   const visible = (column: Column<T>) => !column.hidden;
-  const matches = columns.filter((column) =>
-    [...(column.groupPath ?? []), column.header ?? column.id]
-      .join(" ")
-      .toLocaleLowerCase()
-      .includes(query.trim().toLocaleLowerCase()),
+  const matches = columns.filter(
+    (column) =>
+      (tab !== 0 || column.columnsPanel !== false) &&
+      [...(column.groupPath ?? []), column.header ?? column.id]
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(query.trim().toLocaleLowerCase()),
   );
   // Group labels are Map keys, including __proto__, and never used as object properties.
   const groups = new Map<string, Column<T>[]>();
@@ -211,6 +213,7 @@ export function GridSidePanel<T>({
                         type="checkbox"
                         aria-label={`${text.columns}: ${group}`}
                         checked={items.every(visible)}
+                        disabled={items.every((column) => column.lockVisible)}
                         ref={(node) => {
                           if (node)
                             node.indeterminate =
@@ -221,10 +224,12 @@ export function GridSidePanel<T>({
                             columnVisibility: {
                               ...state.columnVisibility,
                               ...Object.fromEntries(
-                                items.map((column) => [
-                                  column.id,
-                                  event.target.checked,
-                                ]),
+                                items
+                                  .filter((column) => !column.lockVisible)
+                                  .map((column) => [
+                                    column.id,
+                                    event.target.checked,
+                                  ]),
                               ),
                             },
                           });
@@ -291,6 +296,7 @@ export function GridSidePanel<T>({
                           <input
                             type="checkbox"
                             checked={visible(column)}
+                            disabled={column.lockVisible}
                             onChange={(event) =>
                               model.hideColumn(column.id, !event.target.checked)
                             }

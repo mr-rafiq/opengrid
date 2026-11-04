@@ -39,6 +39,7 @@ export const slugify = (value) =>
     .trim()
     .replace(/[\s_]+/g, "-");
 const labels = {
+  "calculation-workspaces": "Calculation workspaces",
   "getting-started": "Getting started",
   themes: "Themes & appearance",
   grouping: "Row grouping & totals",
@@ -88,6 +89,7 @@ const labels = {
   "keyboard-hardening": "Keyboard & scale checks",
 };
 const order = [
+  "calculation-workspaces",
   "showcase",
   "client-pivot",
   "getting-started",
