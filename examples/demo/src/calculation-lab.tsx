@@ -404,7 +404,7 @@ export function CalculationLab() {
                   <button
                     type="button"
                     className="calculation-header-sort"
-                    aria-label="Sort Amount"
+                    aria-label={`Sort Amount ${money.current.format(total)}`}
                     onClick={(event) => progressSort(event.shiftKey)}
                   >
                     <span>
