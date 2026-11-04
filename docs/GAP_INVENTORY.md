@@ -87,3 +87,7 @@ The keyboard/scale verification checkpoint adds forced-color/reduced-motion focu
 ## Host-owned request boundary
 
 Version 0.10.0 adds native [host-owned edit requests](EXTERNAL_EDITS.md), including getter/fieldless draft submission, preserved class references and explicit requested UI states. The application still owns persistence, ordering/conflicts, asynchronous validation and acknowledgement, retries and backend undo. Source-specific AG event/component/state contracts and authenticated integration remain unverified; a native submission API alone does not close those gaps.
+
+## Typed editor and view seams (0.11.0)
+
+Native custom editors now accept typed drafts without class coercion, and a [client view controller](GRID_VIEW.md) exposes real focus/reveal/scroll/edit commands with virtualized ownership and lifetime checks. The original demo uses a domain-instance review choice. Native rich list options remain string-keyed. Generated-group business edits, a complete AG component/API/state adapter and authenticated application acceptance remain open; these additions do not promote those families to complete.

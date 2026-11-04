@@ -31,6 +31,10 @@ export interface CellEditorProps<T> {
   column: Column<T>;
   /** Editors preserve text; the grid model parses and validates committed values. */
   value: string;
+  /** Borrowed typed draft for custom editors; native controls retain value/onChange. */
+  rawValue?: unknown;
+  /** Stage a typed draft synchronously. Absent for native formula editors; false means stale/ineligible. */
+  onRawChange?: (value: unknown) => boolean;
   /** Optional formatted caption for controls with a closed picker launcher. */
   displayValue?: string;
   onChange: (value: string) => void;

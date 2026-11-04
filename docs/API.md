@@ -1,5 +1,8 @@
 # API guide
 
+See [client view commands](GRID_VIEW.md) for the lifecycle-safe `viewRef` controller:
+focus/reveal/scroll, cell editing, validation, cancellation and current-view limits.
+
 See [host-owned edit requests](EXTERNAL_EDITS.md) for `GridOptions.onEditRequest`, `GridEditRequest`, optional `GridModel.getWriteMode()` and the row-session `requested` status. They preserve application-owned data and asynchronous business persistence outside the local write/history pipeline.
 
 This is OpenGrid's API, not an AG Grid compatibility layer. The source of truth for complete types is [`packages/core/src/types.ts`](../packages/core/src/types.ts) and the exported client React props in [`data-grid.tsx`](../packages/react/src/data-grid.tsx), with public exports in [`index.tsx`](../packages/react/src/index.tsx). See the [parity ledger](FEATURE_PARITY.md) for supported subsets and missing systems.

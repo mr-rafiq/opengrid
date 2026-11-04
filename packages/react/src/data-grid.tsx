@@ -4,6 +4,8 @@ import {
   COLUMN_DRAG_OWNER,
 } from "./group-panel.js";
 import { GridIcon } from "./icons.js";
+import { createDataGridViewController } from "./grid-view.js";
+import type { DataGridViewController, GridViewPort } from "./grid-view.js";
 import {
   useEffect,
   useId,
@@ -145,6 +147,7 @@ export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
   sizingRef?: Ref<DataGridSizingController>;
+  viewRef?: Ref<DataGridViewController>;
   rowHeightRef?: Ref<DataGridRowHeightController>;
   autoRowHeight?: AutoRowHeightOptions;
   /** Latest applied filter for guarded popups; rendered state remains model-owned. */
@@ -226,10 +229,13 @@ interface FocusCell {
   columnId: string;
 }
 interface Editing {
+  owner: object;
   revision: number;
   rowId: string;
   columnId: string;
   draft: string;
+  rawValue: unknown;
+  rawDraft: boolean;
   formulaMode?: FormulaEditMode;
 }
 const text = (value: unknown) => (value == null ? "" : String(value));
@@ -330,6 +336,7 @@ const columnGap = (entry: Extract<ColumnWindowEntry, { kind: "spacer" }>) => (
 export function DataGrid<T>({
   model,
   sizingRef,
+  viewRef,
   rowHeightRef,
   autoRowHeight: autoRowHeightOptions,
   getColumnFilter,
@@ -809,12 +816,18 @@ export function DataGrid<T>({
     rowId: rows[0]?.id ?? "",
     columnId: columns[0]?.id ?? "",
   });
+  const viewFocus = useRef(focus);
+  const pendingViewFocus = useRef<FocusCell | null>(null);
+  useLayoutEffect(() => {
+    viewFocus.current = focus;
+  }, [focus]);
   const focusRow = Math.max(
     0,
     rows.findIndex((node) => node.id === focus.rowId),
   );
   const [editing, setEditing] = useState<Editing | null>(null);
   const editingRef = useRef<Editing | null>(null);
+  const committingEditor = useRef(false);
   const [rowEditing, setRowEditing] = useState<{
     model: GridModel<T>;
     position: CellPosition;
@@ -1632,6 +1645,9 @@ export function DataGrid<T>({
     editingRef.current = null;
     setEditing(null);
     setError("");
+    return () => {
+      editingRef.current = null;
+    };
   }, [model, editMode, formulas]);
   useEffect(() => {
     if (rowEditing || !restoreRowFocus) return;
@@ -1862,41 +1878,7 @@ export function DataGrid<T>({
     element?.focus({ preventScroll: true });
   }, [projection, focus]);
 
-  function focusAt(
-    row: number,
-    column: number,
-    extend = false,
-    anchor?: CellPosition,
-    takeFocus = true,
-  ) {
-    if (!rows.length) return;
-    extend = extend && effectiveCellSelection;
-    row = clamp(row, 0, rows.length - 1);
-    if (extend && projection.rows[row].fullWidth) {
-      const step = row >= focusRow ? 1 : -1;
-      while (row >= 0 && row < rows.length && projection.rows[row].fullWidth)
-        row += step;
-      if (row < 0 || row >= rows.length) return;
-    }
-    if (!columns.length && !projection.rows[row].fullWidth) return;
-    column = clamp(column, 0, columns.length - 1);
-    column = ownerAt(row, column)?.start ?? column;
-    row = ownerRowAt(row, columns[column]?.id ?? "");
-    if (extend && !ranges.controller?.getSnapshot().range) {
-      if (anchor) ranges.select(anchor);
-      else if (rows[focusRow]?.kind === "row")
-        ranges.select({ rowId: rows[focusRow].id, columnId: focus.columnId });
-    }
-    if (
-      rows[row].kind === "row" &&
-      !projection.rows[row].fullWidth &&
-      columns[column]
-    )
-      ranges.select(
-        { rowId: rows[row].id, columnId: columns[column].id },
-        extend,
-      );
-    if (projection.rows[row].fullWidth && !extend) ranges.clear();
+  function revealAt(row: number, column: number) {
     const container = viewport.current;
     if (container) {
       const top = rowGeometry.offset(row);
@@ -1943,8 +1925,51 @@ export function DataGrid<T>({
       }
       setScrollLeft(readInlineScroll(container));
     }
+  }
+
+  function focusAt(
+    row: number,
+    column: number,
+    extend = false,
+    anchor?: CellPosition,
+    takeFocus = true,
+  ) {
+    if (!rows.length) return;
+    extend = extend && effectiveCellSelection;
+    row = clamp(row, 0, rows.length - 1);
+    if (extend && projection.rows[row].fullWidth) {
+      const step = row >= focusRow ? 1 : -1;
+      while (row >= 0 && row < rows.length && projection.rows[row].fullWidth)
+        row += step;
+      if (row < 0 || row >= rows.length) return;
+    }
+    if (!columns.length && !projection.rows[row].fullWidth) return;
+    column = clamp(column, 0, columns.length - 1);
+    column = ownerAt(row, column)?.start ?? column;
+    row = ownerRowAt(row, columns[column]?.id ?? "");
+    if (extend && !ranges.controller?.getSnapshot().range) {
+      if (anchor) ranges.select(anchor);
+      else if (rows[focusRow]?.kind === "row")
+        ranges.select({ rowId: rows[focusRow].id, columnId: focus.columnId });
+    }
+    if (
+      rows[row].kind === "row" &&
+      !projection.rows[row].fullWidth &&
+      columns[column]
+    )
+      ranges.select(
+        { rowId: rows[row].id, columnId: columns[column].id },
+        extend,
+      );
+    if (projection.rows[row].fullWidth && !extend) ranges.clear();
+    revealAt(row, column);
     pendingFocus.current = takeFocus;
-    setFocus({ rowId: rows[row].id, columnId: columns[column]?.id ?? "" });
+    const nextFocus = {
+      rowId: rows[row].id,
+      columnId: columns[column]?.id ?? "",
+    };
+    viewFocus.current = nextFocus;
+    setFocus(nextFocus);
   }
 
   function cellStyle(column: Column<T>, span?: ColumnSpanCell): CSSProperties {
@@ -2158,6 +2183,7 @@ export function DataGrid<T>({
     }
   }
   function startEdit(node: RowNode<T>, column: Column<T>, initial?: string) {
+    if (committingEditor.current) return;
     const owner = ownerAt(projection.indexOf(node.id), columns.indexOf(column));
     if (!owner) return;
     column = columns[owner.start];
@@ -2180,7 +2206,17 @@ export function DataGrid<T>({
       ? formulas!.getInput({ rowId: node.id, columnId: column.id })
       : undefined;
     const formula = isFormulaInput(input);
+    const rawValue = formulaEnabled
+      ? input
+      : model.getValue(node.data, column.id);
+    const objectEditor =
+      !formulaEnabled &&
+      !!renderEditor &&
+      rawValue !== null &&
+      typeof rawValue === "object" &&
+      !(rawValue instanceof Date);
     const next: Editing = {
+      owner: {},
       revision: model.getColumnRevision(),
       rowId: node.id,
       columnId: column.id,
@@ -2190,7 +2226,14 @@ export function DataGrid<T>({
           ? formula
             ? input.expression
             : text(input)
-          : text(model.getValue(node.data, column.id))),
+          : renderEditor &&
+              rawValue !== null &&
+              typeof rawValue === "object" &&
+              !(rawValue instanceof Date)
+            ? ""
+            : text(rawValue)),
+      rawValue: objectEditor ? rawValue : (initial ?? rawValue),
+      rawDraft: objectEditor,
       ...(formulaEnabled
         ? {
             formulaMode:
@@ -2205,37 +2248,45 @@ export function DataGrid<T>({
     setError("");
   }
   function commitEdit() {
+    if (committingEditor.current) return false;
     const current = editingRef.current;
     if (!current) return true;
     if (current.revision !== model.getColumnRevision()) {
       cancelEdit();
       return true;
     }
-    const message =
-      current.formulaMode === "formula" && formulas
-        ? formulas.setFormula(
-            { rowId: current.rowId, columnId: current.columnId },
-            current.draft,
-          )
-        : model.editCell(current.rowId, current.columnId, current.draft);
-    onCellEdit?.({
-      rowId: current.rowId,
-      columnId: current.columnId,
-      value: current.draft,
-      error: message,
-    });
-    if (message) {
-      setError(message);
-      return false;
+    committingEditor.current = true;
+    try {
+      const submitted = current.rawDraft ? current.rawValue : current.draft;
+      const message =
+        current.formulaMode === "formula" && formulas
+          ? formulas.setFormula(
+              { rowId: current.rowId, columnId: current.columnId },
+              current.draft,
+            )
+          : model.editCell(current.rowId, current.columnId, submitted);
+      onCellEdit?.({
+        rowId: current.rowId,
+        columnId: current.columnId,
+        value: submitted,
+        error: message,
+      });
+      if (message) {
+        setError(message);
+        return false;
+      }
+      editingRef.current = null;
+      setEditing(null);
+      setError("");
+      setAnnouncement(
+        gridMessage(requestMode ? "grid.editRequested" : "grid.cellUpdated"),
+      );
+      return true;
+    } finally {
+      committingEditor.current = false;
     }
-    editingRef.current = null;
-    setEditing(null);
-    setError("");
-    setAnnouncement(
-      gridMessage(requestMode ? "grid.editRequested" : "grid.cellUpdated"),
-    );
-    return true;
   }
+
   function cancelEdit() {
     editingRef.current = null;
     setEditing(null);
@@ -2249,11 +2300,32 @@ export function DataGrid<T>({
     displayValue: string,
   ) {
     if (!editing || !node.data) return null;
+    const ownsEditor = () =>
+      !committingEditor.current &&
+      editingRef.current?.owner === editing.owner &&
+      editing.revision === model.getColumnRevision() &&
+      !model.isReadOnly() &&
+      !readOnly;
     const config = editorOptions[column.id] ?? {};
     const props: CellEditorProps<T> = {
       row: node.data,
       column,
       value: editing.draft,
+      rawValue: editing.rawValue,
+      onRawChange: editing.formulaMode
+        ? undefined
+        : (value) => {
+            if (!ownsEditor()) return false;
+            const next = {
+              ...editingRef.current!,
+              rawValue: value,
+              rawDraft: true,
+            };
+            editingRef.current = next;
+            setEditing(next);
+            setError("");
+            return true;
+          },
       displayValue,
       label: t("grid.editCell", {
         column: column.header ?? column.id,
@@ -2266,21 +2338,28 @@ export function DataGrid<T>({
       errorId,
       inlineValidation: false,
       editingContext: "cell",
-      contextKey: model,
+      contextKey: editing.owner,
       searchMode: config.searchMode,
       onChange: (value) => {
-        const next = { ...(editingRef.current ?? editing), draft: value };
+        if (!ownsEditor()) return;
+        const next = {
+          ...editingRef.current!,
+          draft: value,
+          rawValue: value,
+          rawDraft: false,
+        };
         editingRef.current = next;
         setEditing(next);
         setError("");
       },
       onCommit: () => {
+        if (!ownsEditor()) return false;
         const accepted = commitEdit();
         if (accepted) focusAt(row, index);
         return accepted;
       },
       onApplyValue: (value, context) => {
-        if (context.signal.aborted) return false;
+        if (context.signal.aborted || !ownsEditor()) return false;
         props.onChange(value);
         const accepted = commitEdit();
         if (accepted) {
@@ -2297,11 +2376,15 @@ export function DataGrid<T>({
         return accepted;
       },
       onCancel: () => {
+        if (!ownsEditor()) return;
         cancelEdit();
         focusAt(row, index);
       },
-      onBlur: commitEdit,
+      onBlur: () => {
+        if (ownsEditor()) commitEdit();
+      },
       onKeyDown: (event) => {
+        if (!ownsEditor()) return;
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopPropagation();
@@ -3603,6 +3686,171 @@ export function DataGrid<T>({
       );
     });
   }
+
+  const viewPort = useRef<{
+    owner: object;
+    current(): boolean;
+    port: GridViewPort;
+  } | null>(null);
+  const viewOwner = useMemo(() => ({}), [model]);
+  const viewController = useMemo(
+    () =>
+      createDataGridViewController(() =>
+        viewPort.current?.owner === viewOwner && viewPort.current.current()
+          ? viewPort.current.port
+          : undefined,
+      ),
+    [viewOwner],
+  );
+  useLayoutEffect(() => {
+    function positionOf(position: CellPosition) {
+      let row = projection.indexOf(position.rowId),
+        column = columns.findIndex((item) => item.id === position.columnId);
+      if (row < 0 || column < 0 || projection.rows[row].fullWidth) return null;
+      column = ownerAt(row, column)?.start ?? column;
+      row = ownerRowAt(row, columns[column].id);
+      return { row, column };
+    }
+    viewPort.current = {
+      owner: viewOwner,
+      current: () =>
+        model.getState() === state &&
+        model.getColumnRevision() === columnRevision,
+      port: {
+        getFocusedCell: () =>
+          projection.indexOf(viewFocus.current.rowId) >= 0 &&
+          columns.some((column) => column.id === viewFocus.current.columnId)
+            ? viewFocus.current
+            : null,
+        focusCell: (position, options = {}) => {
+          if (committingEditor.current) return false;
+          const target = positionOf(position);
+          if (!target) return false;
+          focusAt(
+            target.row,
+            target.column,
+            options.extendRange ?? false,
+            undefined,
+            options.takeFocus ?? true,
+          );
+          return true;
+        },
+        revealCell: (position) => {
+          const target = positionOf(position);
+          if (!target) return false;
+          revealAt(target.row, target.column);
+          return true;
+        },
+        revealRow: (rowId) => {
+          const row = projection.indexOf(rowId);
+          if (row < 0) return false;
+          revealAt(row, -1);
+          return true;
+        },
+        getScrollPosition: () =>
+          viewport.current
+            ? {
+                top: viewport.current.scrollTop,
+                left: readInlineScroll(viewport.current),
+              }
+            : null,
+        scrollTo: (position) => {
+          const container = viewport.current;
+          if (!container) return false;
+          if (position.top !== undefined)
+            container.scrollTop =
+              container.scrollHeight > 0
+                ? Math.min(
+                    position.top,
+                    Math.max(
+                      0,
+                      container.scrollHeight - container.clientHeight,
+                    ),
+                  )
+                : position.top;
+          if (position.left !== undefined)
+            writeInlineScroll(container, position.left);
+          setScrollTop(container.scrollTop);
+          setScrollLeft(readInlineScroll(container));
+          return true;
+        },
+        getEditingCell: () => {
+          const current = editingRef.current;
+          return current && current.revision === model.getColumnRevision()
+            ? { rowId: current.rowId, columnId: current.columnId }
+            : null;
+        },
+        startEditingCell: (position, options = {}) => {
+          if (
+            committingEditor.current ||
+            editMode !== "cell" ||
+            readOnly ||
+            model.isReadOnly() ||
+            rowEditing ||
+            noteEditing
+          )
+            return false;
+          const target = positionOf(position);
+          if (!target) return false;
+          const node = rows[target.row],
+            column = columns[target.column];
+          if (node.kind !== "row" || !isCellEditable(column, node.data))
+            return false;
+          const current = editingRef.current;
+          if (current?.rowId === node.id && current.columnId === column.id)
+            return true;
+          if (current && !commitEdit()) return false;
+          if (
+            model.getState() !== state ||
+            model.getColumnRevision() !== columnRevision
+          )
+            return false;
+          revealAt(target.row, target.column);
+          const editingFocus = { rowId: node.id, columnId: column.id };
+          viewFocus.current = editingFocus;
+          pendingFocus.current = false;
+          setFocus(editingFocus);
+          startEdit(node, column, options.initialText);
+          return !!editingRef.current;
+        },
+        stopEditing: (options = {}) => {
+          if (committingEditor.current) return false;
+          const current = editingRef.current;
+          if (!current) return true;
+          const position = { rowId: current.rowId, columnId: current.columnId };
+          if (options.cancel) cancelEdit();
+          else if (!commitEdit()) return false;
+          if (
+            model.getState() !== state ||
+            model.getColumnRevision() !== columnRevision
+          )
+            pendingViewFocus.current = position;
+          else {
+            const target = positionOf(position);
+            if (target) focusAt(target.row, target.column);
+          }
+          return true;
+        },
+      },
+    };
+    const pending = pendingViewFocus.current;
+    if (pending) {
+      pendingViewFocus.current = null;
+      const target = positionOf(pending);
+      if (target) focusAt(target.row, target.column);
+      else viewport.current?.focus({ preventScroll: true });
+    }
+  });
+  useLayoutEffect(
+    () => () => {
+      if (viewPort.current?.owner === viewOwner) {
+        viewPort.current = null;
+        pendingViewFocus.current = null;
+      }
+    },
+    [viewOwner],
+  );
+  useImperativeHandle(viewRef, () => viewController, [viewController]);
 
   const content = (
     <section

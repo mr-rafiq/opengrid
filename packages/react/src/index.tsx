@@ -1,4 +1,10 @@
 export * from "./data-grid.js";
+export type {
+  DataGridViewController,
+  GridViewFocusOptions,
+  GridViewEditOptions,
+  GridViewScrollPosition,
+} from "./grid-view.js";
 export * from "./grid-workspace.js";
 export * from "./use-client-pivot.js";
 export { AUTO_ROW_HEIGHT_LIMITS } from "./auto-row-heights.js";

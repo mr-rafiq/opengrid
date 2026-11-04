@@ -93,6 +93,7 @@ export function RowEditDialog<T>({
     row: null,
     error: "",
   });
+  const activeSession = useRef<RowEditSession | null>(null);
   const snapshot = useSyncExternalStore(
     info.session?.subscribe ?? emptySubscribe,
     info.session?.getSnapshot ?? readEmpty,
@@ -134,11 +135,15 @@ export function RowEditDialog<T>({
 
   useLayoutEffect(() => {
     const next = newSession(model, rowId, conflictPolicy);
+    activeSession.current = next.session;
     setInfo(next);
     closeRequested.current = false;
     setLocalError("");
     setConfirmReload(false);
-    return () => next.session?.cancel();
+    return () => {
+      next.session?.cancel();
+      if (activeSession.current === next.session) activeSession.current = null;
+    };
   }, [model, rowId, conflictPolicy, generation]);
   useLayoutEffect(() => {
     const element = dialog.current;
@@ -192,6 +197,8 @@ export function RowEditDialog<T>({
   function save(): boolean {
     if (
       !info.session ||
+      activeSession.current !== info.session ||
+      info.session.getSnapshot().status !== "editing" ||
       columns.length === 0 ||
       snapshot.status !== "editing" ||
       confirmReload
@@ -280,10 +287,28 @@ export function RowEditDialog<T>({
           const context: CellEditorProps<T> = {
             row: info.row!,
             column,
-            value: draftText(
-              snapshot.values[column.id],
-              config?.type === "date" || column.type === "date",
-            ),
+            value:
+              renderEditor &&
+              snapshot.values[column.id] !== null &&
+              typeof snapshot.values[column.id] === "object" &&
+              !(snapshot.values[column.id] instanceof Date)
+                ? ""
+                : draftText(
+                    snapshot.values[column.id],
+                    config?.type === "date" || column.type === "date",
+                  ),
+            rawValue: snapshot.values[column.id],
+            onRawChange: (value) => {
+              if (
+                !info.session ||
+                activeSession.current !== info.session ||
+                info.session.getSnapshot().status !== "editing"
+              )
+                return false;
+              const message = info.session.setValue(column.id, value);
+              setLocalError(message ?? "");
+              return !message;
+            },
             label: t("rowEdit.fieldLabel", {
               column: column.header ?? column.id,
             }),
@@ -303,24 +328,42 @@ export function RowEditDialog<T>({
             contextKey: info.session,
             searchMode: config?.searchMode,
             onChange: (value) => {
+              if (
+                !info.session ||
+                activeSession.current !== info.session ||
+                info.session.getSnapshot().status !== "editing"
+              )
+                return;
               const message = info.session?.setValue(column.id, value);
               setLocalError(message ?? "");
             },
             onCommit: save,
             onApplyValue: (value, context) => {
-              if (context.signal.aborted || !info.session) return false;
+              if (
+                context.signal.aborted ||
+                !info.session ||
+                activeSession.current !== info.session ||
+                info.session.getSnapshot().status !== "editing"
+              )
+                return false;
               const message = info.session.setValue(column.id, value);
               setLocalError(message ?? "");
               return !message;
             },
-            onCancel: close,
-            onKeyDown: (event) =>
+            onCancel: () => {
+              if (info.session && activeSession.current === info.session)
+                close();
+            },
+            onKeyDown: (event) => {
+              if (!info.session || activeSession.current !== info.session)
+                return;
               keyDown(
                 event,
                 largeText ||
                   event.currentTarget.tagName === "TEXTAREA" ||
                   event.target instanceof HTMLTextAreaElement,
-              ),
+              );
+            },
           };
           return (
             <div

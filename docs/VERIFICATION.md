@@ -1,5 +1,17 @@
 # Verification record
 
+## Typed editors and client view commands (0.11.0)
+
+The source release adds native [typed custom drafts](EDITORS.md) and [client view commands](GRID_VIEW.md). These are tested adapter prerequisites; no public AG Grid facade or unchanged authenticated consumer replacement is certified.
+
+The final serial gate passed formatting, six-manifest/internal-version consistency, strict TypeScript in **195.88 seconds**, **2,031 unit tests in 134 files** in **280.85 seconds**, and all three library ESM/declaration builds, React CSS and the production demo in **195.78 seconds**. Tests used one worker. A reproduced reentrant commit callback initially submitted two host requests; the final commit guard and regression require exactly one submission while preserving notification ordering.
+
+Pages generation passed with **66 documentation routes**. All **67 production-site scenarios passed in 3.2 minutes**, and **21 production demo/calculation/localization scenarios passed in 40.2 seconds**. Six guide-to-demo checks passed at 320/390/1440px in light/dark, including actual typed selection and host acknowledgement, reachable editor edges, version/creator credit, no document overflow, no runtime errors and zero serious/critical scoped automated accessibility findings. Final phone-dark and desktop-light editor screenshots were inspected.
+
+Original tests cover class instances with private fields, same-event typed draft and commit, validation/cancellation, stale editor callbacks, model replacement/unmount, current-view focus/reveal/scroll, merged owners and synchronous host acknowledgement. The browser fixture contains 1,000 rows and 40 metrics with pinned cells and both virtual axes. Hidden/collapsed/other-page cells, remote seeking and generated-group editing retain the documented unsupported boundaries. Browser emulation and automated accessibility checks do not establish physical-device, manual screen-reader, authenticated backend or full application compatibility.
+
+An isolated browser run passed **25 scenarios** on the consumer's installed **React and ReactDOM 18.3.1**, including the new source fixture and an explicit runtime-version assertion. Built public ESM/SSR checks passed on React19.3.1 and18.3.1 with a null unmounted view ref and **zero edit requests, setter calls, source mutations or history writes**. React18 server layout-effect diagnostics were retained. This runtime evidence exercises original OpenGrid fixtures, not the unchanged application.
+
 ## Host-owned edit requests (0.10.0)
 
 The source release adds native [host-owned edit requests](EXTERNAL_EDITS.md). It does not publish an AG Grid compatibility facade or certify an unchanged authenticated application replacement.

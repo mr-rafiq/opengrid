@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.11.0 - 2026-11-04
+
+Typed custom editors and client view commands. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Custom cell/row editors can stage class instances through `rawValue`/`onRawChange` and commit synchronously without coercion. Text drafts and native rich string options retain their existing paths. Editor ownership guards prevent obsolete callbacks from modifying another edit or a replaced/unmounted grid. Reentrant commit notifications cannot submit duplicate host requests.
+- `viewRef` exposes stable focus/reveal/scroll and cell edit/commit/cancel commands. It uses current virtualized geometry, pinned columns and merged owners; invalid/inactive targets fail explicitly. Synchronous host acknowledgement restores focus after the new view commits.
+- The host-edit demo includes a typed review-stage selector and expandable view commands. Original browser fixtures exercise 1,000 rows/40 metrics, pinned cells, both virtual axes, object selection, model replacement and unmount.
+- These native seams support consumer adapters; they do not publish an AG Grid compatibility facade, generated-group business editing, arbitrary-object native rich lists, saved AG state migration or authenticated replacement certification.
+
 ## 0.10.0 - 2026-11-04
 
 Host-owned edit requests. Created by Mohamed Rafiq. Source release only; no npm publication.

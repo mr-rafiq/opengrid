@@ -8,6 +8,50 @@ test.beforeEach(async ({ page }) => {
 });
 const articleName = "External edit requests example";
 
+test("view commands open a typed class editor and host acknowledgement updates it", async ({
+  page,
+}) => {
+  const article = page.getByRole("article", { name: articleName });
+  await article
+    .getByText("Focus and editing commands", { exact: true })
+    .click();
+  await article
+    .getByRole("button", { name: "Focus next amount", exact: true })
+    .click();
+  await expect(
+    article.locator('[data-row-id="ledger-2"][data-column-id="amount"]'),
+  ).toBeFocused();
+  await article
+    .getByRole("button", { name: "Edit review stage", exact: true })
+    .click();
+  const editor = article.getByRole("combobox", {
+    name: "Edit Review stage row ledger-1",
+    exact: true,
+  });
+  await expect(editor).toBeFocused();
+  await editor.selectOption("Review");
+  const cell = article.locator(
+    '[data-row-id="ledger-1"][data-column-id="stage"]',
+  );
+  await expect(cell).toHaveText("Draft");
+  await expect(article.getByLabel("Pending edit requests")).toHaveText(
+    "Pending requests: 1",
+  );
+  await article
+    .getByRole("button", { name: "Apply next request", exact: true })
+    .click();
+  await expect(cell).toHaveText("Review");
+  await article
+    .getByRole("textbox", { name: "Filter Review stage", exact: true })
+    .fill("Review");
+  await expect(
+    article.locator('[data-row-id="ledger-1"][data-column-id="id"]'),
+  ).toBeVisible();
+  await expect(
+    article.locator('[data-row-id="ledger-2"][data-column-id="id"]'),
+  ).toHaveCount(0);
+});
+
 test("cell requests wait for host apply and rejected requests leave source untouched", async ({
   page,
 }) => {

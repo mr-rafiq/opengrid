@@ -121,3 +121,7 @@ The provider sidebar is a bounded Partial server block/tree integration: actual 
 ## Host-owned edits (0.10.0)
 
 Native [edit requests](EXTERNAL_EDITS.md) support validated cell/row/paste/fill submission while retaining original source/class objects. The host owns acknowledgement, errors, request ordering and backend undo. This closes the native request-submission boundary; it does not promote full-row editing, server write parity, group business editing or AG API compatibility to complete. Internal column-state/event helpers are not an exported compatibility facade.
+
+## Typed editor and view seams (0.11.0)
+
+Native custom editors now accept typed drafts without class coercion, and a [client view controller](GRID_VIEW.md) exposes real focus/reveal/scroll/edit commands with virtualized ownership and lifetime checks. The original demo uses a domain-instance review choice. Native rich list options remain string-keyed. Generated-group business edits, a complete AG component/API/state adapter and authenticated application acceptance remain open; these additions do not promote those families to complete.

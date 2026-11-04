@@ -4,6 +4,27 @@ OpenGrid's React editor controls keep a string draft. The grid model parses the
 committed value, validates it, and applies an atomic edit. Native inputs do not
 convert large integers through JavaScript `Number`.
 
+Custom renderers can additionally use a typed draft: `rawValue` contains the
+original value, and `onRawChange(value)` stages a value synchronously without
+string conversion. It returns `false` for an obsolete or ineligible editor.
+Call `onCommit()` or the [view controller](GRID_VIEW.md) stop command afterwards;
+staging alone does not save. A class instance retains its identity and private
+fields in the [host-request path](EXTERNAL_EDITS.md). Local owned setters retain
+their documented copy/validation limitations.
+
+For custom non-Date object editors, the legacy text `value` starts empty unless initial text is supplied, while
+`rawValue` retains the actual object even when a printable key starts editing; closing without a change preserves it. Text
+controls continue to use `value`/`onChange`. Calling `onChange` switches the draft
+back to text. Formula editors retain their explicit string/literal contract and
+do not expose the typed change callback. Native rich choice lists still use
+string option keys; this extension does not add arbitrary-object rich choices.
+
+Cell editor context keys identify a particular edit session. Raw/text changes,
+commit, cancel, blur and apply callbacks from an old session cannot affect a
+new editor, a replaced model or an unmounted grid. Row sessions likewise reject
+obsolete callbacks. This is editor ownership, not a backend request cancellation
+or conflict protocol.
+
 `CellEditor<T>` and its related types are implemented in
 `packages/react/src/editors.tsx`. The DataGrid adapter can supply these controls
 through its editor integration. The controls can also be used directly in a
