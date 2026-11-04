@@ -72,6 +72,8 @@ import type {
   GridEditRequest,
   GridOptions,
   GridState,
+  GridHierarchyNode,
+  GridHierarchyStage,
   RowNode,
   RowReorderStatus,
   Transaction,
@@ -606,12 +608,33 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       );
     takeHierarchyBudget(budget, 0, path.length);
   }
+  type GroupOrder = { first: number; children: Map<unknown, GroupOrder> };
+  function sourceGroupOrder(bounded: boolean): GroupOrder {
+    const root: GroupOrder = { first: -1, children: new Map() };
+    const budget = bounded ? { nodes: 0, work: 0, characters: 0 } : undefined;
+    rows.forEach((row, index) => {
+      let parent = root;
+      for (const columnId of state.groupBy) {
+        takeHierarchyBudget(budget, 0, 1);
+        const value = getValue(row, columnId);
+        let child = parent.children.get(value);
+        if (!child) {
+          takeHierarchyBudget(budget, 1, 0);
+          child = { first: index, children: new Map() };
+          parent.children.set(value, child);
+        }
+        parent = child;
+      }
+    });
+    return root;
+  }
   function group(
     groupRows: T[],
     depth: number,
     path: unknown[],
     budget?: HierarchyBudget,
-    positions = new Map(rows.map((row, index) => [row, index])),
+    structure?: GroupOrder,
+    presentation = budget === undefined,
   ): RowNode<T>[] {
     takeHierarchyBudget(budget, 0, groupRows.length);
     if (depth >= state.groupBy.length) {
@@ -622,6 +645,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         return { id, kind: "row", data: row, depth };
       });
     }
+    if (depth === 0 && presentation) structure = sourceGroupOrder(!!budget);
     const id = state.groupBy[depth];
     const groups = new Map<unknown, T[]>();
     for (const row of groupRows) {
@@ -630,7 +654,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       existing.push(row);
       groups.set(value, existing);
     }
-    const projected = [...groups].map(([value, children]) => {
+    const projected = [...groups].map(([value, children], ordinal) => {
+      const structuralGroup = structure?.children.get(value);
       const next = [...path, groupKey(value)];
       const id = syntheticId(`group:${JSON.stringify(next)}`);
       takeHierarchyBudget(budget, 1, 0, id);
@@ -639,22 +664,28 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         kind: "group",
         depth,
         label: blank(value) ? "(blank)" : String(value),
-        children: group(children, depth + 1, next, budget, positions),
+        groupColumnId: state.groupBy[depth],
+        groupValue: value,
+        children: group(
+          children,
+          depth + 1,
+          next,
+          budget,
+          structuralGroup,
+          presentation,
+        ),
         leafCount: children.length,
-        aggregates: budget ? undefined : aggregates(children),
+        aggregates: presentation ? aggregates(children) : undefined,
       };
       return {
         node,
         value,
-        order: children.reduce(
-          (first, row) => Math.min(first, positions.get(row) ?? Infinity),
-          Infinity,
-        ),
+        order: structuralGroup?.first ?? ordinal,
       };
     });
     // Source structure is stable; leaf sorting alone must not reorder groups.
     projected.sort((a, b) => {
-      if (!budget)
+      if (presentation)
         for (const sort of state.sorting) {
           const column = requireColumn(sort.columnId);
           if (column.id !== state.groupBy[depth] && !column.aggregate) continue;
@@ -685,7 +716,11 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     });
     return projected.map((item) => item.node);
   }
-  function tree(filtered: T[], budget?: HierarchyBudget): RowNode<T>[] {
+  function tree(
+    filtered: T[],
+    budget?: HierarchyBudget,
+    presentation = budget === undefined,
+  ): RowNode<T>[] {
     interface Branch {
       path: string[];
       children: Map<string, Branch>;
@@ -717,7 +752,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           });
         }
         branch = branch.children.get(part)!;
-        if (!budget) branch.leaves.push(row);
+        if (presentation) branch.leaves.push(row);
         branch.data = allByPath.get(JSON.stringify(branch.path));
       }
     }
@@ -735,13 +770,79 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           depth: child.path.length - 1,
           children: child.children.size ? visit(child) : undefined,
           aggregates:
-            !budget && child.children.size
+            presentation && child.children.size
               ? aggregates(child.leaves)
               : undefined,
           leafCount: child.leaves.length,
         };
       });
     return visit(root);
+  }
+  function hierarchyForest(stage: GridHierarchyStage): RowNode<T>[] {
+    if (!["source", "filtered", "sorted"].includes(stage))
+      throw new TypeError("Unknown hierarchy projection stage");
+    if (
+      rows.length > HIERARCHY_SELECTION_LIMITS.maxRows ||
+      (!options.getTreePath &&
+        state.groupBy.length > HIERARCHY_SELECTION_LIMITS.maxDepth)
+    )
+      throw new HierarchySelectionError(
+        "LIMIT",
+        "hierarchy",
+        "Hierarchy source/depth budget exceeded",
+      );
+    if (stage === "filtered") {
+      const eligible = new Set(sortedFiltered().map(idOf));
+      const prune = (nodes: RowNode<T>[]): RowNode<T>[] =>
+        nodes.flatMap((node) => {
+          const children = node.children ? prune(node.children) : undefined;
+          const own = node.data !== undefined && eligible.has(node.id);
+          if (!own && !children?.length) return [];
+          return [
+            {
+              ...node,
+              children,
+              leafCount: children
+                ? children.reduce(
+                    (count, child) =>
+                      count +
+                      (child.children
+                        ? (child.leafCount ?? 0)
+                        : child.data !== undefined && eligible.has(child.id)
+                          ? 1
+                          : 0),
+                    own ? 1 : 0,
+                  )
+                : undefined,
+            },
+          ];
+        });
+      // Filtering prunes the source forest; it must not reorder a surviving group
+      // when its first source leaf no longer matches.
+      return prune(hierarchyForest("source"));
+    }
+    const input = stage === "sorted" ? sortedFiltered() : rows;
+    const budget: HierarchyBudget = { nodes: 0, work: 0, characters: 0 };
+    return options.getTreePath
+      ? tree(input, budget, stage === "sorted")
+      : group(input, 0, [], budget, undefined, stage === "sorted");
+  }
+  function snapshotHierarchy(
+    nodes: RowNode<T>[],
+  ): readonly GridHierarchyNode<T>[] {
+    return Object.freeze(
+      nodes.map((node) =>
+        Object.freeze({
+          ...node,
+          children: node.children
+            ? snapshotHierarchy(node.children)
+            : undefined,
+          aggregates: node.aggregates
+            ? Object.freeze({ ...node.aggregates })
+            : undefined,
+        }),
+      ),
+    );
   }
   function rowModel() {
     if (modelCache) return modelCache;
@@ -1174,23 +1275,12 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       emit();
     },
     getFilteredRows: () => [...sortedFiltered()],
+    getRowHierarchy: (stage = "sorted") =>
+      snapshotHierarchy(hierarchyForest(stage)),
     getHierarchySelectionPlan({ filtered = true } = {}) {
       if (typeof filtered !== "boolean")
         throw new TypeError("Hierarchy filtered option must be boolean");
-      if (
-        rows.length > HIERARCHY_SELECTION_LIMITS.maxRows ||
-        (!options.getTreePath &&
-          state.groupBy.length > HIERARCHY_SELECTION_LIMITS.maxDepth)
-      )
-        throw new HierarchySelectionError(
-          "LIMIT",
-          "hierarchy",
-          "Hierarchy source/depth budget exceeded",
-        );
-      const budget: HierarchyBudget = { nodes: 0, work: 0, characters: 0 };
-      const nodes = options.getTreePath
-        ? tree(rows, budget)
-        : group(rows, 0, [], budget);
+      const nodes = hierarchyForest("source");
       return createHierarchySelectionPlan(
         nodes,
         filtered ? { eligibleRowIds: sortedFiltered().map(idOf) } : undefined,

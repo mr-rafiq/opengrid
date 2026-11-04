@@ -138,10 +138,20 @@ export interface RowNode<T> {
   data?: T;
   depth: number;
   label?: string;
+  /** Group identity metadata; the original value is borrowed, never cloned. */
+  groupColumnId?: string;
+  groupValue?: unknown;
   children?: RowNode<T>[];
   aggregates?: Record<string, unknown>;
   leafCount?: number;
 }
+export type GridHierarchyStage = "source" | "filtered" | "sorted";
+export type GridHierarchyNode<T> = Readonly<
+  Omit<RowNode<T>, "children" | "aggregates">
+> & {
+  readonly children?: readonly GridHierarchyNode<T>[];
+  readonly aggregates?: Readonly<Record<string, unknown>>;
+};
 export interface GridOptions<T> {
   rows: T[];
   columns: Column<T>[];
@@ -218,6 +228,8 @@ export interface GridModel<T> {
   getValue(row: T, columnId: string): unknown;
   expireValueCache(): void;
   getFilteredRows(): T[];
+  /** Optional on older/custom models. Frozen forest, independent of expansion, pagination and totals. */
+  getRowHierarchy?(stage?: GridHierarchyStage): readonly GridHierarchyNode<T>[];
   /** Plan source subtrees independently of collapsed/page rows; filtered defaults to true. */
   getHierarchySelectionPlan(options?: {
     filtered?: boolean;
