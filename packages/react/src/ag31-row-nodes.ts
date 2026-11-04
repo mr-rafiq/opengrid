@@ -6,6 +6,8 @@ import {
 
 /** Internal resident-client boundary, not an exported AG Grid facade. */
 export interface Ag31RowNode<T> {
+  /** Narrow read-only source compatibility path; no internal AG service objects. */
+  readonly beans: { readonly gos: { readonly context: unknown } };
   readonly id: string;
   readonly data: T | undefined;
   readonly group: boolean;
@@ -43,6 +45,7 @@ export interface Ag31RowNodeEvent<T> {
 export type Ag31RowNodeListener<T> = (event: Ag31RowNodeEvent<T>) => void;
 export interface Ag31RowNodeOptions<T> {
   model: GridModel<T>;
+  context?(): unknown;
   /** Must be the same identity function used by the native model. */
   getRowId(row: T): string;
   rowHeight: number;
@@ -102,6 +105,13 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
   let dirty = true,
     syncing = false,
     destroyed = false;
+  const beans = Object.freeze({
+    gos: Object.freeze({
+      get context() {
+        return destroyed ? undefined : options.context?.();
+      },
+    }),
+  });
   let revision = 0;
   let byId = new Map<string, Entry<T>>(),
     byNative = new Map<string, Entry<T>>();
@@ -155,6 +165,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       return current(entry);
     };
     const node: Ag31RowNode<T> = {
+      beans,
       id,
       get data() {
         return read().data;

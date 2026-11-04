@@ -50,6 +50,33 @@ const setup = () => {
   });
   return { model, nodes, rows, write, selection };
 };
+
+it("exposes only the consumed context read path, tracks host context replacement and releases it on destroy", () => {
+  const model = createGrid({
+    rows: [{ id: "a" }],
+    getRowId: (row) => row.id,
+    columns: [{ id: "id", field: "id" }],
+  });
+  let context: unknown = { phases: [{ ID: 1 }] };
+  const nodes = createAg31RowNodes({
+    model,
+    getRowId: (row) => row.id,
+    rowHeight: 32,
+    context: () => context,
+    groupIdentity: (node) => ({ id: node.id, key: String(node.groupValue) }),
+    writeCell: () => false,
+  });
+  const node = nodes.getRowNode("a")!,
+    beans = node.beans;
+  expect(beans.gos.context).toBe(context);
+  context = { phases: [{ ID: 2 }] };
+  expect(node.beans).toBe(beans);
+  expect(beans.gos.context).toBe(context);
+  expect(Object.keys(beans)).toEqual(["gos"]);
+  expect(Object.keys(beans.gos)).toEqual(["context"]);
+  nodes.destroy();
+  expect(beans.gos.context).toBeUndefined();
+});
 type Store = ReturnType<typeof setup>["nodes"];
 function collect(
   nodes: Store,
