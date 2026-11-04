@@ -1,5 +1,13 @@
 # Verification record
 
+## Balanced groups and source traversal (0.12.1)
+
+The native optional `groupBlanksLast` fallback preserves existing default group order and original source rows; explicit comparisons can still distinguish blank groups. Internal consumer helpers now keep complete group leaf lists in source insertion order and separate custom-group sort inputs from displayed values. They remain internal prerequisites, not an exported compatibility component.
+
+The full serial local gate passed strict TypeScript in **195.67 seconds**, **2,095 unit tests in 141 files** in **296.42 seconds**, all three package ESM/declaration builds, CSS and the production demo in **189.27 seconds**, and **199 browser scenarios without retries** in **11.9 minutes**. Formatting and six-manifest/internal-dependency/lockfile consistency passed. This unit run emitted no worker-shutdown warning.
+
+A private read-only harness imports unchanged consumer definitions, selected components and original source classes without publishing them. On installed React 18.3.1 against AG Grid 31.3.4, three scenarios passed: 64-column values, actual Smart Search, and the actual three-level position/group/cost configuration. All **896 raw and 896 formatted reads** in the three-level scenario match, together with tree/phase order, child/filtered/sorted lists, source leaf lists, parents and counts. Two unchanged cost-editor flows and one unchanged dropdown flow also passed. Original synthetic records are used; these are not the full mounted application, authenticated service acceptance, target-image comparison or a public AG-shaped API.
+
 ## Domain objects and client hierarchy (0.12.0)
 
 The native [domain grouping callbacks](GROUP_CALLBACKS.md) retain original class instances, explicit stable keys and generated values without fabricated rows. Frozen source/filtered/sorted forests are independent of the visible page. Provider bindings reject client-only group callbacks explicitly. Internal consumer helpers are not an exported AG Grid facade or complete application replacement.
