@@ -99,7 +99,7 @@ Treat model state, row objects and callback inputs as read-only. Use `setState`,
 - Shared column-order/width/visibility/pinning synchronization across models, with independent row state and disposal.
 - Unique current-view rows in sticky top/bottom bands, with stable-ID focus/editing/ranges; custom full-width rows with declared heights and [automatically measured detail regions](docs/AUTO_DETAIL_HEIGHT.md).
 - Managed resident row moves with atomic undo, native drag handles, Alt-arrow controls and explicit eligibility guards.
-- Runtime English/Spanish built-in UI localization with typed overrides, translated stored notices and preserved grid/editor state.
+- Runtime English/Spanish/German built-in UI localization with typed overrides, translated stored notices and preserved grid/editor state.
 - Explicit LTR/RTL layout with physical pins, virtual scrolling, merged-cell geometry, mirrored navigation/resizing and view-ordered ranges/Find.
 - Native touch panning, guarded tap editing, explicit range extension and captured fill/resize gestures with cancellation.
 - Adjacent-value/custom-predicate row spans with compact indexes, offscreen owner retention, keyboard editing and hard layout boundaries.

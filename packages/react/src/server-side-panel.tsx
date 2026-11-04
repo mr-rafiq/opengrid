@@ -6,7 +6,7 @@ import type {
   ServerSideSnapshot,
 } from "@opengrid/core";
 import {
-  DEFAULT_SIDE_PANEL_LABELS,
+  useGridSidePanelLabels,
   type GridSidePanelLabels,
 } from "./side-panel.js";
 import {
@@ -16,6 +16,7 @@ import {
   withColumnDragOwner,
   type RowGroupPanelModel,
 } from "./group-panel.js";
+import { useGridLocale } from "./locale.js";
 import { GridIcon } from "./icons.js";
 import { ColumnConditionFilter } from "./column-condition-filter.js";
 
@@ -46,10 +47,11 @@ export function ServerSidePanel<T>({
     model.getSnapshot,
   );
   const query = useMemo(() => model.getQuery(), [model, snapshot]);
+  const { t, locale } = useGridLocale();
   const text = {
-    ...DEFAULT_SIDE_PANEL_LABELS,
-    providerHint: "Grouping, values and conditions run in the data provider.",
-    unknownGroups: "Some grouped fields are outside this column list.",
+    ...useGridSidePanelLabels(labels),
+    providerHint: t("sidePanel.providerHint"),
+    unknownGroups: t("sidePanel.unknownGroups"),
     ...labels,
   };
   const id = useId();
@@ -173,6 +175,7 @@ export function ServerSidePanel<T>({
   return (
     <section
       className={`og-side-panel og-server-side-panel ${className}`}
+      lang={locale}
       aria-label={`Server ${text.columns} / ${text.filters}`}
     >
       <div
@@ -410,7 +413,7 @@ export function ServerSidePanel<T>({
                         <option value="">{text.noAggregate}</option>
                         {choices.map((operation) => (
                           <option key={operation} value={operation}>
-                            {operation}
+                            {t(`sidePanel.aggregate.${operation}`)}
                           </option>
                         ))}
                         {current &&

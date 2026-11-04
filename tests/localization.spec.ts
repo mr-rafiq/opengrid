@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 const cell = (grid: Locator, id: string, column: string) =>
   grid.locator(`[data-row-id="${id}"][data-column-id="${column}"]`);
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("./");
   await page
     .getByRole("button", { name: "Localization lab", exact: true })
     .click();

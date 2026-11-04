@@ -1,5 +1,6 @@
 import { useId, useRef, useState, useSyncExternalStore } from "react";
 import type { Aggregate, Column, GridModel } from "@opengrid/core";
+import { useGridLocale } from "./locale.js";
 import { GridIcon } from "./icons.js";
 import {
   RowGroupPanel,
@@ -38,6 +39,28 @@ export const DEFAULT_SIDE_PANEL_LABELS: Readonly<GridSidePanelLabels> = {
   collapseGroup: "Collapse {group} columns",
   expandGroup: "Expand {group} columns",
 };
+/** Shared defaults follow the provider; explicit host labels retain priority. */
+export function useGridSidePanelLabels(
+  labels?: Partial<GridSidePanelLabels>,
+): GridSidePanelLabels {
+  const { t } = useGridLocale();
+  return {
+    columns: t("sidePanel.columns"),
+    filters: t("sidePanel.filters"),
+    search: t("sidePanel.search"),
+    values: t("sidePanel.values"),
+    rowGroups: t("sidePanel.rowGroups"),
+    noColumns: t("sidePanel.noColumns"),
+    noValues: t("sidePanel.noValues"),
+    noAggregate: t("sidePanel.noAggregate"),
+    customAggregate: t("sidePanel.customAggregate"),
+    groupColumn: t("sidePanel.groupColumn"),
+    dragHint: t("sidePanel.dragHint"),
+    collapseGroup: t("sidePanel.collapseGroup"),
+    expandGroup: t("sidePanel.expandGroup"),
+    ...labels,
+  };
+}
 export interface GridSidePanelProps<T> {
   model: GridModel<T>;
   className?: string;
@@ -63,7 +86,8 @@ export function GridSidePanel<T>({
     model.getState,
     model.getState,
   );
-  const text = { ...DEFAULT_SIDE_PANEL_LABELS, ...labels };
+  const { t, locale } = useGridLocale();
+  const text = useGridSidePanelLabels(labels);
   const id = useId();
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const [tab, setTab] = useState(0);
@@ -106,6 +130,7 @@ export function GridSidePanel<T>({
   return (
     <section
       className={`og-side-panel ${className}`}
+      lang={locale}
       aria-label={`${text.columns} / ${text.filters}`}
     >
       <div
@@ -339,7 +364,7 @@ export function GridSidePanel<T>({
                       <option value="">{text.noAggregate}</option>
                       {aggregates.map((value) => (
                         <option key={value} value={value}>
-                          {value}
+                          {t(`sidePanel.aggregate.${value}`)}
                         </option>
                       ))}
                       {typeof column.aggregate === "function" && (

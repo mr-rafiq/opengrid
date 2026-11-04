@@ -1,6 +1,20 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createGrid, type Column, type GridState } from "@opengrid/core";
-import { DataGrid, GridSidePanel, GridWorkspace } from "@opengrid/react";
+import {
+  DataGrid,
+  GridSidePanel,
+  GridWorkspace,
+  GridLocaleProvider,
+  enUS,
+  deDE,
+} from "@opengrid/react";
 interface EstimateRow {
   id: string;
   section: string;
@@ -9,10 +23,10 @@ interface EstimateRow {
   item: { quantity: number; rate: number };
   locked: boolean;
 }
-const money = new Intl.NumberFormat("en-GB", {
-  style: "currency",
-  currency: "EUR",
-});
+const moneyFormats = {
+  en: new Intl.NumberFormat("en-GB", { style: "currency", currency: "EUR" }),
+  de: new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }),
+};
 const amount = (row: EstimateRow) => row.item.quantity * row.item.rate;
 const data = (): EstimateRow[] => [
   {
@@ -65,6 +79,8 @@ const data = (): EstimateRow[] => [
   },
 ];
 export function CalculationLab() {
+  const [language, setLanguage] = useState<"en" | "de">("en");
+  const money = useRef(moneyFormats.en);
   const model = useMemo(() => {
     const columns: Column<EstimateRow>[] = [
       {
@@ -126,7 +142,7 @@ export function CalculationLab() {
         },
         validate: (value) =>
           Number(value) < 0 ? "Use a nonnegative rate" : undefined,
-        valueFormatter: (value) => money.format(Number(value)),
+        valueFormatter: (value) => money.current.format(Number(value)),
         groupPath: ["Estimate"],
       },
       {
@@ -136,9 +152,9 @@ export function CalculationLab() {
         type: "number",
         width: 155,
         pinned: "right",
-        valueFormatter: (value) => money.format(Number(value)),
+        valueFormatter: (value) => money.current.format(Number(value)),
         aggregate: "sum",
-        aggregateFormatter: (value) => money.format(Number(value)),
+        aggregateFormatter: (value) => money.current.format(Number(value)),
         groupPath: ["Estimate"],
       },
     ];
@@ -180,6 +196,13 @@ export function CalculationLab() {
     media.addEventListener("change", update);
     return () => media.removeEventListener("change", update);
   }, [model]);
+  useLayoutEffect(() => {
+    const next = moneyFormats[language];
+    if (money.current === next) return;
+    money.current = next;
+    // Refresh formatter-dependent search without recreating schema, rows, drafts or history.
+    model.expireValueCache();
+  }, [language, model]);
   const state = useSyncExternalStore(
     model.subscribe,
     model.getState,
@@ -216,185 +239,212 @@ export function CalculationLab() {
     );
   }
   return (
-    <article
-      className="calculation-example"
-      aria-label="Calculation workspace example"
-    >
-      <div className="calculation-heading">
-        <div>
-          <h2>Calculation workspace</h2>
-          <p>
-            Original synthetic estimate. Application services and data are
-            supplied by the host.
-          </p>
-        </div>
-        <label className="calculation-readonly">
-          <input
-            type="checkbox"
-            checked={model.isReadOnly()}
-            onChange={(event) => model.setReadOnly(event.target.checked)}
-          />
-          Read only
+    <GridLocaleProvider locale={language === "de" ? deDE : enUS}>
+      <article
+        className="calculation-example"
+        aria-label="Calculation workspace example"
+      >
+        <label className="calculation-language">
+          Calculation interface language
+          <select
+            aria-label="Calculation interface language"
+            value={language}
+            onChange={(event) => setLanguage(event.target.value as "en" | "de")}
+          >
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
         </label>
-      </div>
-      <label className="calculation-search">
-        Search estimate
-        <input
-          type="search"
-          value={query}
-          onChange={(event) => search(event.target.value)}
-          placeholder="Item text or amount > 100"
-        />
-      </label>
-      {searchError && <p role="alert">{searchError}</p>}
-      <GridWorkspace
-        panels={[
-          {
-            id: "columns",
-            label: "Columns & filters",
-            icon: "columns",
-            content: <GridSidePanel model={model} />,
-          },
-          {
-            id: "views",
-            label: "Saved view",
-            icon: "grid",
-            content: (
-              <>
-                <h3>Saved view</h3>
-                <p>
-                  Session-only column, filter, grouping and selection state.
-                </p>
-                <button
-                  type="button"
-                  onClick={() =>
-                    saveView({ grid: model.getState(), search: activeSearch })
-                  }
-                >
-                  Save current view
-                </button>
-                <button
-                  type="button"
-                  disabled={!view}
-                  onClick={() => {
-                    if (view) {
-                      search(view.search);
-                      model.setState(view.grid);
+        <p className="calculation-caption">
+          Grid controls and currency formatting follow this choice. Sample
+          record text and application panel content remain host-owned.
+        </p>
+        <div className="calculation-heading">
+          <div>
+            <h2>Calculation workspace</h2>
+            <p>
+              Original synthetic estimate. Application services and data are
+              supplied by the host.
+            </p>
+          </div>
+          <label className="calculation-readonly">
+            <input
+              type="checkbox"
+              checked={model.isReadOnly()}
+              onChange={(event) => model.setReadOnly(event.target.checked)}
+            />
+            Read only
+          </label>
+        </div>
+        <label className="calculation-search">
+          Search estimate
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => search(event.target.value)}
+            placeholder="Item text or amount > 100"
+          />
+        </label>
+        {searchError && <p role="alert">{searchError}</p>}
+        <GridWorkspace
+          panels={[
+            {
+              id: "columns",
+              label:
+                language === "de" ? "Spalten & Filter" : "Columns & filters",
+              icon: "columns",
+              content: <GridSidePanel model={model} />,
+            },
+            {
+              id: "views",
+              label: language === "de" ? "Ansichten" : "Saved view",
+              icon: "grid",
+              content: (
+                <>
+                  <h3>
+                    {language === "de" ? "Gespeicherte Ansicht" : "Saved view"}
+                  </h3>
+                  <p>
+                    Session-only column, filter, grouping and selection state.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      saveView({ grid: model.getState(), search: activeSearch })
                     }
-                  }}
-                >
-                  Restore saved view
-                </button>
-                {view && <p role="status">View saved for this session.</p>}
-              </>
-            ),
-          },
-          {
-            id: "notes",
-            label: "Project note",
-            icon: "note",
-            content: (
-              <>
-                <h3>Project note</h3>
-                <label>
-                  Estimate note
-                  <textarea
-                    value={note}
-                    readOnly={model.isReadOnly()}
-                    onChange={(event) => setNote(event.target.value)}
-                  />
-                </label>
-                <p>Session-only host content. No database is connected.</p>
-              </>
-            ),
-          },
-          {
-            id: "help",
-            label: "Help",
-            icon: "help",
-            content: (
-              <>
-                <h3>Estimate help</h3>
-                <p>
-                  Edit quantities or rates to update amounts and filtered
-                  totals. Survey equipment is individually protected. Use Read
-                  only to revoke all grid editing and history commands.
-                </p>
-                <p>
-                  The leading item column is locked. Group selection uses
-                  filtered descendants. Saved views and notes are working
-                  session examples, not backend integrations.
-                </p>
-              </>
-            ),
-          },
-        ]}
-      >
-        <DataGrid
-          model={model}
-          height={510}
-          rowHeight={32}
-          className="calculation-grid"
-          ariaLabel="Synthetic estimate"
-          columnGroups
-          rowGroupPanel="always"
-          hierarchySelection="filteredSubtree"
-          cellSelection
-          notes={false}
-          pagination={false}
-          columnMenu
-          renderHeader={({ column }) =>
-            column.id === "amount" ? (
-              <span>
-                Amount{" "}
-                <small className="calculation-header-total">
-                  {money.format(total)}
-                </small>
+                  >
+                    {language === "de"
+                      ? "Aktuelle Ansicht speichern"
+                      : "Save current view"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!view}
+                    onClick={() => {
+                      if (view) {
+                        search(view.search);
+                        model.setState(view.grid);
+                      }
+                    }}
+                  >
+                    {language === "de"
+                      ? "Ansicht wiederherstellen"
+                      : "Restore saved view"}
+                  </button>
+                  {view && <p role="status">View saved for this session.</p>}
+                </>
+              ),
+            },
+            {
+              id: "notes",
+              label: language === "de" ? "Projektnotiz" : "Project note",
+              icon: "note",
+              content: (
+                <>
+                  <h3>Project note</h3>
+                  <label>
+                    Estimate note
+                    <textarea
+                      value={note}
+                      readOnly={model.isReadOnly()}
+                      onChange={(event) => setNote(event.target.value)}
+                    />
+                  </label>
+                  <p>Session-only host content. No database is connected.</p>
+                </>
+              ),
+            },
+            {
+              id: "help",
+              label: language === "de" ? "Hilfe" : "Help",
+              icon: "help",
+              content: (
+                <>
+                  <h3>Estimate help</h3>
+                  <p>
+                    Edit quantities or rates to update amounts and filtered
+                    totals. Survey equipment is individually protected. Use Read
+                    only to revoke all grid editing and history commands.
+                  </p>
+                  <p>
+                    The leading item column is locked. Group selection uses
+                    filtered descendants. Saved views and notes are working
+                    session examples, not backend integrations.
+                  </p>
+                </>
+              ),
+            },
+          ]}
+        >
+          <DataGrid
+            model={model}
+            height={510}
+            rowHeight={32}
+            className="calculation-grid"
+            ariaLabel="Synthetic estimate"
+            columnGroups
+            rowGroupPanel="always"
+            hierarchySelection="filteredSubtree"
+            cellSelection
+            notes={false}
+            pagination={false}
+            columnMenu
+            renderHeader={({ column }) =>
+              column.id === "amount" ? (
+                <span>
+                  Amount{" "}
+                  <small className="calculation-header-total">
+                    {money.current.format(total)}
+                  </small>
+                </span>
+              ) : (
+                (column.header ?? column.id)
+              )
+            }
+            renderGroupCell={({ node, column, displayValue }) =>
+              column.id === "description" ? (
+                <span className="calculation-section">
+                  {node.total === "grand"
+                    ? "Grand total"
+                    : node.total === "group"
+                      ? `Subtotal ${node.label}`
+                      : node.label}
+                </span>
+              ) : (
+                displayValue
+              )
+            }
+            getRowClassName={(node) =>
+              node.data?.locked ? "calculation-protected" : ""
+            }
+            getCellTooltip={({ node, displayValue }) =>
+              node.data?.locked
+                ? `Protected item: ${displayValue}`
+                : displayValue
+            }
+            statusContent={
+              <span aria-label="Filtered estimate total">
+                Filtered estimate:{" "}
+                <strong>{money.current.format(total)}</strong>
               </span>
-            ) : (
-              (column.header ?? column.id)
-            )
-          }
-          renderGroupCell={({ node, column, displayValue }) =>
-            column.id === "description" ? (
-              <span className="calculation-section">
-                {node.total === "grand"
-                  ? "Grand total"
-                  : node.total === "group"
-                    ? `Subtotal ${node.label}`
-                    : node.label}
-              </span>
-            ) : (
-              displayValue
-            )
-          }
-          getRowClassName={(node) =>
-            node.data?.locked ? "calculation-protected" : ""
-          }
-          getCellTooltip={({ node, displayValue }) =>
-            node.data?.locked ? `Protected item: ${displayValue}` : displayValue
-          }
-          statusContent={
-            <span aria-label="Filtered estimate total">
-              Filtered estimate: <strong>{money.format(total)}</strong>
-            </span>
-          }
-        />
-      </GridWorkspace>
-      <output
-        className="calculation-output"
-        aria-label="Estimate source values"
-      >
-        {model
-          .getRows()
-          .map((row) => `${row.id}:${row.item.quantity}:${row.item.rate}`)
-          .join(" | ")}
-      </output>
-      <p className="calculation-caption">
-        {state.selected.length} source records selected. Generated group rows
-        have no source object; custom group editing requires a host batch
-        command.
-      </p>
-    </article>
+            }
+          />
+        </GridWorkspace>
+        <output
+          className="calculation-output"
+          aria-label="Estimate source values"
+        >
+          {model
+            .getRows()
+            .map((row) => `${row.id}:${row.item.quantity}:${row.item.rate}`)
+            .join(" | ")}
+        </output>
+        <p className="calculation-caption">
+          {state.selected.length} source records selected. Generated group rows
+          have no source object; custom group editing requires a host batch
+          command.
+        </p>
+      </article>
+    </GridLocaleProvider>
   );
 }

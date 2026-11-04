@@ -13,6 +13,7 @@ import {
   createGridLocale,
   enUS,
   esES,
+  deDE,
   gridMessage,
   GridLocaleProvider,
   useGridLocale,
@@ -39,16 +40,20 @@ function locale(
   }).result.current;
 }
 
-describe("complete typed English and Spanish locale catalogs", () => {
-  it("has the exact same complete message schema for both original catalogs", () => {
+describe("complete typed English, Spanish and German locale catalogs", () => {
+  it("has the exact same complete message schema for all original catalogs", () => {
     expect(Object.keys(enUS.messages).sort()).toEqual(
       Object.keys(MESSAGE_PARAM_TYPES).sort(),
     );
     expect(Object.keys(esES.messages).sort()).toEqual(
       Object.keys(enUS.messages).sort(),
     );
+    expect(Object.keys(deDE.messages).sort()).toEqual(
+      Object.keys(enUS.messages).sort(),
+    );
     const english = locale(),
-      spanish = locale(esES);
+      spanish = locale(esES),
+      german = locale(deDE);
     for (const [key, fields] of Object.entries(MESSAGE_PARAM_TYPES)) {
       const params = Object.fromEntries(
         Object.entries(fields).map(([field, type]) => [
@@ -63,8 +68,10 @@ describe("complete typed English and Spanish locale catalogs", () => {
       ) as GridMessage;
       expect(typeof english.resolveMessage(notice)).toBe("string");
       expect(typeof spanish.resolveMessage(notice)).toBe("string");
+      expect(typeof german.resolveMessage(notice)).toBe("string");
       expect(english.resolveMessage(notice)).not.toContain("[object Object]");
       expect(spanish.resolveMessage(notice)).not.toContain("[object Object]");
+      expect(german.resolveMessage(notice)).not.toContain("[object Object]");
     }
   });
   it("defaults to existing English text outside a provider and preserves legacy count phrasing", () => {

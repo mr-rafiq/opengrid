@@ -4,6 +4,29 @@ export interface GridMessageParams {
   "theme.system": undefined;
   "theme.light": undefined;
   "theme.dark": undefined;
+  "sidePanel.columns": undefined;
+  "sidePanel.filters": undefined;
+  "sidePanel.search": undefined;
+  "sidePanel.values": undefined;
+  "sidePanel.rowGroups": undefined;
+  "sidePanel.noColumns": undefined;
+  "sidePanel.noValues": undefined;
+  "sidePanel.noAggregate": undefined;
+  "sidePanel.customAggregate": undefined;
+  "sidePanel.groupColumn": undefined;
+  "sidePanel.dragHint": undefined;
+  "sidePanel.collapseGroup": undefined;
+  "sidePanel.expandGroup": undefined;
+  "sidePanel.aggregate.sum": undefined;
+  "sidePanel.aggregate.avg": undefined;
+  "sidePanel.aggregate.min": undefined;
+  "sidePanel.aggregate.max": undefined;
+  "sidePanel.aggregate.count": undefined;
+  "sidePanel.providerHint": undefined;
+  "sidePanel.unknownGroups": undefined;
+  "workspace.label": undefined;
+  "workspace.open": undefined;
+  "workspace.close": undefined;
   "grid.keyboardHelp": undefined;
 
   "columnMenu.open": { column: string };
@@ -548,6 +571,29 @@ export const MESSAGE_PARAM_TYPES = Object.freeze({
   "theme.system": {},
   "theme.light": {},
   "theme.dark": {},
+  "sidePanel.columns": {},
+  "sidePanel.filters": {},
+  "sidePanel.search": {},
+  "sidePanel.values": {},
+  "sidePanel.rowGroups": {},
+  "sidePanel.noColumns": {},
+  "sidePanel.noValues": {},
+  "sidePanel.noAggregate": {},
+  "sidePanel.customAggregate": {},
+  "sidePanel.groupColumn": {},
+  "sidePanel.dragHint": {},
+  "sidePanel.collapseGroup": {},
+  "sidePanel.expandGroup": {},
+  "sidePanel.aggregate.sum": {},
+  "sidePanel.aggregate.avg": {},
+  "sidePanel.aggregate.min": {},
+  "sidePanel.aggregate.max": {},
+  "sidePanel.aggregate.count": {},
+  "sidePanel.providerHint": {},
+  "sidePanel.unknownGroups": {},
+  "workspace.label": {},
+  "workspace.open": {},
+  "workspace.close": {},
   "grid.keyboardHelp": {},
 
   "columnMenu.open": { column: "string" },

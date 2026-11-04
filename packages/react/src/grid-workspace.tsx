@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useGridLocale } from "./locale.js";
 import { GridIcon } from "./icons.js";
 
 export interface GridWorkspacePanel {
@@ -21,11 +22,15 @@ export function GridWorkspace({
   children,
   panels,
   initialPanel,
-  label = "Grid panels",
-  openLabel = "Open grid panels",
-  closeLabel = "Close grid panels",
+  label: suppliedLabel,
+  openLabel: suppliedOpenLabel,
+  closeLabel: suppliedCloseLabel,
   className = "",
 }: GridWorkspaceProps) {
+  const { t, locale } = useGridLocale();
+  const label = suppliedLabel ?? t("workspace.label");
+  const openLabel = suppliedOpenLabel ?? t("workspace.open");
+  const closeLabel = suppliedCloseLabel ?? t("workspace.close");
   if (
     panels.some((p) => !p.id || !p.label) ||
     new Set(panels.map((p) => p.id)).size !== panels.length
@@ -114,7 +119,7 @@ export function GridWorkspace({
     </>
   );
   return (
-    <section className={`og-workspace ${className}`}>
+    <section className={`og-workspace ${className}`} lang={locale}>
       <div className="og-workspace-main">
         {panels.length > 0 && mobile && (
           <button

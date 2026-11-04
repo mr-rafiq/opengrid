@@ -69,7 +69,9 @@ const treeColumn = {
 - `getRowClassName(node)`, `getCellClassName(context)` and `getCellTooltip(context)`: host decoration. Formula-error tooltips take precedence.
 - `statusContent`: application content appended to the native counts and pagination bar.
 
-`GridWorkspace` hosts real React panels alongside a grid. Supply unique `id`, `label`, optional `icon` and `content` per panel. The tab rail supports Arrow Up/Down and Home/End. At 1024 CSS pixels and below it becomes a modal drawer with native focus containment, Escape dismissal and launcher focus return. Only the selected panel mounts; keep persistent panel state in the host. `label`, `openLabel` and `closeLabel` are application-localizable. The workbench uses shared light/dark tokens.
+`GridWorkspace` hosts real React panels alongside a grid. Supply unique `id`, `label`, optional `icon` and `content` per panel. The tab rail supports Arrow Up/Down and Home/End. At 1024 CSS pixels and below it becomes a modal drawer with native focus containment, Escape dismissal and launcher focus return. Only the selected panel mounts; keep persistent panel state in the host. Default `label`, `openLabel` and `closeLabel` follow `GridLocaleProvider`; explicit host overrides take priority. The workbench uses shared light/dark tokens.
+
+The lab offers English/Deutsch without replacing its model, source records or history. German mode uses explicit `de-DE` currency formatting for source values, aggregates and totals, plus German native controls and an **Ansichten** host-panel label. Its original business headers and data intentionally remain application-owned. Locale selection alone never changes stored numbers or enables locale-aware parsing. See [localization](LOCALIZATION.md) for the full boundary.
 
 ## Replacement readiness matrix
 
@@ -94,7 +96,7 @@ This matrix describes native capabilities and remaining integration work, not a 
 | Custom status panels/decorations      | Native React status content, row/cell classes, tooltips and group/header rendering added.                                                                                                                  |
 | Custom side panels                    | Native responsive panel host added. Actual document, article, phase, recalculation and permission services are application responsibilities.                                                               |
 | CSV and genuine XLSX                  | Existing exports; application-specific grouped workbook formats and business reports require adapters.                                                                                                     |
-| German/English presentation           | Host labels/locale overrides supported. Complete German built-in catalog remains pending; do not claim complete German UI parity.                                                                          |
+| German/English presentation           | Native `deDE` catalog supplies all 518 library-owned UI messages, including workspace/client/provider sidebar controls. Application labels, parsing and legacy core diagnostics remain host-owned.         |
 | Compact themes/responsiveness         | Original 12px workbench styling and shared light/dark tokens; tested fixture evidence is distinct from actual application visual acceptance.                                                               |
 | Actual application replacement        | **Not verified.** Requires the host adapters above, application tests, authenticated runtime access and visual acceptance. No target application source is changed by this release.                        |
 

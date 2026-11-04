@@ -2046,6 +2046,11 @@
 }
 .og-side-body > .og-group-panel .og-group-add-controls {
   margin: 0;
+  flex-wrap: wrap;
+}
+.og-side-body > .og-group-panel .og-group-add-controls select {
+  flex: 1 1 95px;
+  max-width: 100%;
 }
 .og-side-values {
   flex: 1 1 150px;

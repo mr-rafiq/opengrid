@@ -1,6 +1,6 @@
 {
   "name": "@opengrid/core",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Original framework-neutral data grid engine",
   "type": "module",
   "license": "MIT",

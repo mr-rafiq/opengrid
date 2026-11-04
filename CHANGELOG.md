@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.9.0 - 2026-11-04
+
+German native workflows and shared panel localization. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Original `deDE` catalog completes all 518 library-owned UI message keys, alongside English and Spanish. Typed parameters, counts, UTC dates, BigInt formatting and immutable notices retain the existing localization contract.
+- Client/provider sidebars and responsive workspaces share the locale provider, with explicit host-label overrides. Aggregation labels translate while their API values remain unchanged.
+- English/Deutsch calculation lab preserves source data, active model and undo history, with explicit European currency formatting; the localization lab demonstrates retaining an active editor during switching.
+- German phone drawers wrap long controls instead of squeezing the field selector. Library controls, application labels, legacy core diagnostics, business persistence and locale-aware parsing have explicit boundaries in the [localization guide](docs/LOCALIZATION.md) and [replacement matrix](docs/CALCULATION_WORKSPACES.md). This is not authenticated application replacement or pixel-parity certification.
+
 ## 0.8.0 - 2026-11-04
 
 Calculation-workspace foundations with original synthetic demo data. Created by Mohamed Rafiq. Source release only; no npm publication.

@@ -8,6 +8,7 @@ import {
   NumberRangeFilter,
   enUS,
   esES,
+  deDE,
   type EditorOption,
 } from "@opengrid/react";
 
@@ -77,7 +78,7 @@ const asyncOptions = (signal?: AbortSignal) =>
 const editorOptions = { category: { type: "select" as const, asyncOptions } };
 const filterComponents = { price: NumberRangeFilter };
 export function LocaleLab() {
-  const [language, setLanguage] = useState<"en" | "es">("en"),
+  const [language, setLanguage] = useState<"en" | "es" | "de">("en"),
     [rowMode, setRowMode] = useState(false),
     [analysis, setAnalysis] = useState(false);
   const [model] = useState(() =>
@@ -127,11 +128,12 @@ export function LocaleLab() {
       }}
     >
       <p>
-        Switch built-in controls between English and Spanish. Press
+        Choose English, Spanish or German for built-in controls. Press
         Ctrl/Cmd+Shift+L while editing to change language without leaving the
-        editor. Business headers, values and option names stay
-        application-owned. Category choices use a local delayed loader; no
-        network service is connected.
+        editor to toggle English/Spanish, or use Deutsch to switch to German.
+        Business headers, values and option names stay application-owned.
+        Category choices use a local delayed loader; no network service is
+        connected.
       </p>
       <div className="explorer-controls">
         <label>
@@ -139,10 +141,13 @@ export function LocaleLab() {
           <select
             aria-label="Example language"
             value={language}
-            onChange={(event) => setLanguage(event.target.value as "en" | "es")}
+            onChange={(event) =>
+              setLanguage(event.target.value as "en" | "es" | "de")
+            }
           >
             <option value="en">English</option>
             <option value="es">Español</option>
+            <option value="de">Deutsch</option>
           </select>
         </label>
         <button
@@ -150,6 +155,12 @@ export function LocaleLab() {
           onClick={switchLanguage}
         >
           Switch language
+        </button>
+        <button
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => setLanguage("de")}
+        >
+          Deutsch
         </button>
         <label>
           <input
@@ -163,7 +174,9 @@ export function LocaleLab() {
           Localized chart and print
         </button>
       </div>
-      <GridLocaleProvider locale={language === "es" ? esES : enUS}>
+      <GridLocaleProvider
+        locale={language === "de" ? deDE : language === "es" ? esES : enUS}
+      >
         <DataGrid
           model={model}
           ariaLabel="Localized inventory"

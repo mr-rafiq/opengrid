@@ -1,5 +1,17 @@
 # Verification record
 
+## German controls and shared panel localization (0.9.0)
+
+The 2026-11-04 source release adds an original German catalog covering all **518 library-owned message keys**, alongside complete English and Spanish catalogs. Workspace and client/provider sidebar defaults follow the same provider; explicit host labels take priority and aggregate operation codes remain unchanged. The calculation lab opts into German currency formatting without replacing its model, rows or history. Application labels, business services, legacy core diagnostics and locale-aware parsing retain their documented boundaries. See [localization](LOCALIZATION.md) and the [calculation readiness matrix](CALCULATION_WORKSPACES.md).
+
+Formatting, six-manifest/internal-dependency/lockfile consistency and strict TypeScript passed; the local strict check took **579.90 seconds**. All **1,964 unit tests in 128 files passed in 392.68 seconds**, followed by all three ESM/declaration library builds, React CSS and the production demo. The local unit run used one worker and a bounded 15-second per-test deadline after investigating an initial five-second menu timeout. Assertions were unchanged; diagnostic stderr was retained and process exit codes determined the final result.
+
+All **180 Chromium grid scenarios passed in 12.4 minutes**. Pages generation passed with **64 documentation routes**, and all **67 production-site scenarios passed in 4.3 minutes**. The **15 calculation/localization scenarios passed against the production `/opengrid/demo/` artifact in 43.1 seconds**; older localization tests now use a base-relative URL so they exercise the deployed subpath as well as the development root.
+
+An isolated browser configuration also ran those workflows with the consumer's installed **React and ReactDOM 18.3.1**. All **16 scenarios passed in 50.7 seconds**, including an explicit runtime-version assertion. Built-package ESM/SSR checks passed with the development runtime and React 18.3.1, with zero setter calls, provider requests, source changes or history writes during rendering. This verifies the exercised OpenGrid fixture on those runtimes; it does **not** verify an unchanged AG Grid consumer or certify full application compatibility. React 18's server-layout-effect diagnostics were retained.
+
+German checks cover an active focused editor surviving a language change, explicit commit/undo, European source/aggregate/filtered currency totals, translated native column sorting and condition filters, stable aggregation codes, native mobile drawer Escape/focus return, and 320/390px light/dark geometry. Screenshot review reproduced a squeezed German sidebar field picker; wrapping the Add controls keeps its value readable. Scoped German drawer checks and the existing calculation accessibility checks report zero serious/critical findings in the exercised cases. Physical-device, manual screen-reader, authenticated application and direct target-image acceptance remain separate and unverified.
+
 ## Calculation workspaces (0.8.0)
 
 The 2026-11-04 source release adds original native contracts for protected calculation screens; see the [capability and readiness matrix](CALCULATION_WORKSPACES.md). The target application was inspected read only at a fixed source snapshot. Its authenticated runtime could not be inspected, so this is not an application replacement or visual-parity certification. No target application source or business data is included or modified.

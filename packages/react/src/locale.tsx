@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo } from "react";
 import type { ReactNode } from "react";
 import { enUS, enMessages } from "./locale-en.js";
+import { deDE } from "./locale-de.js";
 import { esES } from "./locale-es.js";
 import { MESSAGE_PARAM_TYPES } from "./locale-messages.js";
 import type {
@@ -14,7 +15,7 @@ import type {
   GridMessages,
   GridPluralForms,
 } from "./locale-messages.js";
-export { enUS, esES };
+export { enUS, esES, deDE };
 export type {
   GridLocale,
   GridLocaleFormatters,
