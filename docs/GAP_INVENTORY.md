@@ -4,6 +4,8 @@ Initial audit baseline: `e3f5247fafc08e143562b6a0dacd4d397fe62641`, reviewed on 
 
 ## Completed bounded capabilities
 
+The resident presentation checkpoint applies source row/cell styles, function class rules and basic tooltip callbacks with original records and current context. It does not translate AG Grid DOM/theme selectors or implement custom tooltip components, and it does not promote the broad styling family to complete.
+
 The [experimental public legacy React bridge](LEGACY_REACT_BRIDGE.md) adds a tested read-only resident component/ref, defined-prop option precedence, live event callbacks, nullable rows, external filtering and measured viewport pin release. It remains a partial compatibility path: AG state/filter translation, business editors and transactions, menus/panels and authenticated application acceptance are open. This does not change the broad ledger counts.
 
 Only these four ledger entries are marked Implemented. Each has an executed test suite and explicit limits; this does not certify a complete AG Grid API family.

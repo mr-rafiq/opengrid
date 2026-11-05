@@ -48,6 +48,7 @@ export interface Ag31ClientControllerOptions<T> {
   callbacks?: Partial<Record<Ag31EventOptionName, unknown>>;
   isExternalFilterPresent?: (() => boolean) | null;
   doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
+  getRowStyle?: unknown;
   writeCell?(
     node: Ag31RowNode<T>,
     column: unknown,
@@ -114,6 +115,11 @@ export function createAg31ClientController<T>(
     columnApi,
     context: getGridOption("context"),
   });
+  if (options.getRowStyle != null && typeof options.getRowStyle !== "function")
+    throw new TypeError(
+      "Source getRowStyle must be a function, null or undefined",
+    );
+  settings.set("getRowStyle", options.getRowStyle);
   for (const name of [
     "isExternalFilterPresent",
     "doesExternalFilterPass",
@@ -277,6 +283,16 @@ export function createAg31ClientController<T>(
     }
     if (key === "context") {
       settings.set(key, value);
+      return;
+    }
+    if (key === "getRowStyle") {
+      if (value != null && typeof value !== "function")
+        throw new TypeError(
+          "Source getRowStyle must be a function, null or undefined",
+        );
+      if (settings.get(key) === value) return;
+      settings.set(key, value);
+      refreshCells();
       return;
     }
     if (key === "rowData") {

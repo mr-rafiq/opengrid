@@ -240,7 +240,9 @@ export interface DataGridProps<T> {
   /** Group/total content only. Expansion uses the native prefix unless renderTreePrefix replaces it; selection remains native. */
   renderGroupCell?: (context: GridNodeCellContext<T>) => ReactNode;
   getRowClassName?: (node: RowNode<T>) => string;
+  getRowStyle?: (node: RowNode<T>) => CSSProperties | undefined;
   getCellClassName?: (context: GridNodeCellContext<T>) => string;
+  getCellStyle?: (context: GridNodeCellContext<T>) => CSSProperties | undefined;
   getCellTooltip?: (context: GridNodeCellContext<T>) => string | undefined;
   /** Application-owned content appended to the native count/pagination status bar. */
   statusContent?: ReactNode;
@@ -417,7 +419,9 @@ export function DataGrid<T>({
   renderTreePrefix,
   renderGroupCell,
   getRowClassName,
+  getRowStyle,
   getCellClassName,
+  getCellStyle,
   getCellTooltip,
   statusContent,
   onCellEdit,
@@ -3208,6 +3212,7 @@ export function DataGrid<T>({
             data-og-row-id={node.id}
             className={`og-row ${entry.region !== "body" ? "og-pinned-row" : ""} ${row % 2 ? "og-row-alt" : ""} ${isSelected ? "og-row-selected" : ""} ${node.kind === "group" ? "og-group-row" : node.kind === "total" ? "og-total-row" : ""} ${getRowClassName?.(node) ?? ""}`}
             style={{
+              ...getRowStyle?.(node),
               top: rowGeometry.offset(row),
               height: rowGeometry.baseHeights[row],
               width: "100%",
@@ -3443,6 +3448,12 @@ export function DataGrid<T>({
                       data-formula-error={formulaError?.code}
                       className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""} ${getCellClassName?.({ node, column, value, displayValue: display }) ?? ""}`}
                       style={{
+                        ...getCellStyle?.({
+                          node,
+                          column,
+                          value,
+                          displayValue: display,
+                        }),
                         ...cellStyle(column, span),
                         ...(rowSpan
                           ? {

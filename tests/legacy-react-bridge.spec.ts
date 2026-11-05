@@ -40,6 +40,20 @@ for (const width of [320, 1440]) {
         .first()
         .click();
       await expect(grid.getByText("Line A", { exact: true })).toBeVisible();
+      const changedCell = grid.locator(
+        '[data-row-id="B"][data-column-id="amount"]',
+      );
+      const changedRow = grid.locator('[data-og-row-id="B"]');
+      await lab
+        .getByRole("button", { name: "Highlight sample changes" })
+        .click();
+      await expect(changedCell).toHaveClass(/legacy-source-change/);
+      await expect(changedCell).toHaveAttribute("title", /Line B: .*240,00/);
+      await expect(changedRow).toHaveCSS("font-weight", "600");
+      await lab
+        .getByRole("button", { name: "Highlight sample changes" })
+        .click();
+      await expect(changedCell).not.toHaveClass(/legacy-source-change/);
       const amount = grid.locator('[data-row-id="A"][data-column-id="amount"]');
       await expect(amount).toContainText("80,00");
       const amountBox = await amount.boundingBox(),

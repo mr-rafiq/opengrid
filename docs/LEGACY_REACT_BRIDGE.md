@@ -48,6 +48,14 @@ The typed ref exposes resident row/node traversal and selection, value and forma
 
 Pinned columns release under viewport pressure with a 50px center reservation, right before left, and do not automatically repin when the viewport grows. Native explicit pin locks remain enforced. Short schemas keep the inline-end pin band at the viewport edge in LTR and RTL without adding data/ARIA columns. Custom source components are isolated from native button/input styling; they remain responsible for their own accessible controls and styling.
 
+## Source decorations
+
+`getRowStyle` receives the owned source node, original data, row index, API/column API and current context. It works in initial options, direct props and `api.setGridOption`; clearing it removes previous inline styles. An imperative callback change survives unrelated prop updates. `api.refreshCells()` reevaluates view decorations without explicitly rerunning sort/filter stages.
+
+Column `cellStyle` records or callbacks, `cellClass` strings/arrays/callbacks and function-valued `cellClassRules` use owned column/value parameters. False rules disappear on refresh; source records and definitions are not rewritten. String rule expressions are rejected because an expression engine is a separate contract. Native row and column geometry takes precedence over corresponding style values.
+
+`tooltipValueGetter` takes precedence over a dotted `tooltipField`. Nullish callback results clear the ordinary browser title rather than falling back to a stale value. This is plain-text browser-tooltip support, not the reference custom-tooltip component/lifecycle. Existing source CSS classes are preserved, but AG Grid DOM/theme selectors are not translated automatically.
+
 ## Remaining replacement gaps
 
 AG Grid `initialState`/`getState` translation, complete filter models and custom-filter hooks, business editors/value setters, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. The bridge does not enable editing or backend writes. A source callback retained in metadata is not proof that its feature is implemented.

@@ -18,6 +18,74 @@ import { Ag31ClientGrid as PublicGrid } from "./index.js";
 afterEach(cleanup);
 type Row = { id: string; amount: number };
 const getRowId = ({ data }: { data: Row }) => data.id;
+it("renders and clears source row/cell decorations with current context while protecting native geometry", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>();
+  const context = { active: true },
+    rowData = [{ id: "a", amount: 12 }];
+  const rowStyle = () => ({
+    backgroundColor: "gold",
+    height: 9999,
+    top: 9999,
+    width: 9999,
+  });
+  const definitions = [
+    {
+      field: "amount",
+      width: 180,
+      cellStyle: { color: "navy", width: 1 },
+      cellClass: "domain-amount",
+      cellClassRules: {
+        changed: (p: { context: unknown }) =>
+          (p.context as { active: boolean }).active,
+      },
+      tooltipValueGetter: (p: { data: Row }) => `Amount ${p.data.amount}`,
+    },
+  ];
+  const view = render(
+    <PublicGrid
+      ref={ref}
+      getRowId={getRowId}
+      rowData={rowData}
+      columnDefs={definitions}
+      context={context}
+      getRowStyle={rowStyle}
+    />,
+  );
+  const cell = screen.getByRole("gridcell", { name: /^12$/ });
+  const row = cell.closest<HTMLElement>('[data-og-row-id="a"]')!;
+  expect(row.style.backgroundColor).toBe("gold");
+  expect(row.style.height).toBe("42px");
+  expect(row.style.top).toBe("0px");
+  expect(row.style.width).toBe("100%");
+  expect(cell.style.color).toBe("navy");
+  expect(cell.style.width).toBe("180px");
+  expect(cell.classList.contains("changed")).toBe(true);
+  expect(cell.title).toBe("Amount 12");
+  act(() => {
+    ref.current!.api.setGridOption("context", { active: false });
+    ref.current!.api.refreshCells();
+  });
+  expect(cell.classList.contains("changed")).toBe(false);
+  act(() =>
+    ref.current!.api.setGridOption("getRowStyle", () => ({
+      backgroundColor: "pink",
+    })),
+  );
+  view.rerender(
+    <PublicGrid
+      ref={ref}
+      getRowId={getRowId}
+      rowData={[...rowData]}
+      columnDefs={definitions}
+      context={context}
+      getRowStyle={rowStyle}
+    />,
+  );
+  expect(ref.current!.api.getGridOption("getRowStyle")).not.toBe(rowStyle);
+  expect(row.style.backgroundColor).toBe("pink");
+  act(() => ref.current!.api.setGridOption("getRowStyle", null));
+  expect(row.style.backgroundColor).toBe("");
+});
 it("keeps omitted columns and rows stable through the public ref lifecycle and unrelated prop changes", async () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>(),
     ready = vi.fn();

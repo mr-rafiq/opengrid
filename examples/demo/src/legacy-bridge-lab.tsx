@@ -5,6 +5,7 @@ import {
   type Ag31ColumnDefinition,
   type Ag31RowNode,
   type Ag31ValueParams,
+  type Ag31RowStyleParams,
 } from "@opengrid/react";
 
 class EstimateLine {
@@ -47,6 +48,18 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
         headerName: "Amount",
         width: 110,
         cellDataType: "number",
+        cellStyle: { paddingRight: 10 },
+        cellClassRules: {
+          "legacy-source-change": (p: Ag31ValueParams<EstimateLine>) =>
+            Boolean(
+              (p.context as { highlight: boolean }).highlight &&
+              p.data?.id === "B",
+            ),
+        },
+        tooltipValueGetter: (p: Ag31ValueParams<EstimateLine>) =>
+          p.data
+            ? `${p.data.caption()}: ${money.format(p.data.amount)}`
+            : undefined,
         valueFormatter: (p: Ag31ValueParams<EstimateLine>) =>
           p.value == null ? "" : money.format(Number(p.value)),
       },
@@ -55,6 +68,10 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
 ];
 const active = () => true;
 const expensive = (node: Ag31RowNode<EstimateLine>) => node.data!.amount >= 100;
+const rowStyle = (p: Ag31RowStyleParams<EstimateLine>) =>
+  (p.context as { highlight: boolean }).highlight && p.data?.id === "B"
+    ? { fontWeight: 600 }
+    : undefined;
 
 export function LegacyBridgeLab() {
   const grid = useRef<Ag31ClientGridHandle<EstimateLine>>(null);
@@ -77,6 +94,8 @@ export function LegacyBridgeLab() {
   );
   const [rows, setRows] = useState<EstimateLine[] | null>(null);
   const [filtered, setFiltered] = useState(false);
+  const [highlight, setHighlight] = useState(false);
+  const context = useMemo(() => ({ highlight }), [highlight]);
   const [summary, setSummary] = useState("Waiting for rows");
   const update = () => {
     const api = grid.current?.api;
@@ -113,6 +132,13 @@ export function LegacyBridgeLab() {
         <button type="button" onClick={() => grid.current?.api.deselectAll()}>
           Clear selection
         </button>
+        <button
+          type="button"
+          aria-pressed={highlight}
+          onClick={() => setHighlight(!highlight)}
+        >
+          Highlight sample changes
+        </button>
       </div>
       <p role="status" aria-label="Source summary">
         {summary}
@@ -122,6 +148,8 @@ export function LegacyBridgeLab() {
         gridOptions={options}
         rowData={rows}
         columnDefs={definitions}
+        context={context}
+        getRowStyle={rowStyle}
         initialModelState={{ groupBy: ["phase"] }}
         height={300}
         ariaLabel="Legacy source estimate"

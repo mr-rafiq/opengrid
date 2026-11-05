@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.16.0 - 2026-11-05
+
+Resident source presentation callbacks. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Native `getRowStyle` and `getCellStyle` provide row/cell paint and typography while retaining native row/column geometry precedence.
+- The experimental resident bridge applies source `getRowStyle`, column `cellStyle`, static/callback classes, function-valued class rules and plain-text tooltip getters/fields using original records and current context. Imperative row-style replacement/clearing survives unrelated React updates. False rules and cleared styles disappear on refresh.
+- Absent/static decorations and field-only tooltips avoid extra domain getter/formatter evaluation. Accessor style records and unimplemented string class expressions fail explicitly.
+- The responsive bridge lab demonstrates live sample-change highlights and tooltips without changing source values or history. Source-theme DOM/CSS, custom tooltip components, full saved-state/filter/editor/panel contracts and authenticated application replacement remain unfinished.
+
 ## 0.15.0 - 2026-11-05
 
 Experimental public resident React/ref bridge. Created by Mohamed Rafiq. Source release only; no npm publication.

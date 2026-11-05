@@ -23,6 +23,10 @@ import type { Ag31RowNode } from "./ag31-row-nodes.js";
 import type { DataGridViewController } from "./grid-view.js";
 import type { GridState } from "@opengrid/core";
 import { planAg31PinPressure } from "./ag31-pin-pressure.js";
+import {
+  createAg31Presentation,
+  type Ag31RowStyleCallback,
+} from "./ag31-presentation.js";
 
 type Owner<T> = ReturnType<typeof createAg31ClientController<T>>;
 export interface Ag31ClientGridHandle<T> {
@@ -60,6 +64,7 @@ export interface Ag31ClientGridConfig<T> {
   rowGroupPanelShow?: "always" | "onlyWhenGrouping" | "never";
   isExternalFilterPresent?: (() => boolean) | null;
   doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
+  getRowStyle?: Ag31RowStyleCallback<T> | null;
   onGridReady?(
     event: Ag31ClientGridHandle<T> & { context: unknown; type: "gridReady" },
   ): void;
@@ -102,6 +107,7 @@ const configKeys = new Set([
   "rowGroupPanelShow",
   "isExternalFilterPresent",
   "doesExternalFilterPass",
+  "getRowStyle",
   ...AG31_EVENT_OPTIONS.map(([name]) => name),
 ]);
 const emptyDefinitions: readonly never[] = Object.freeze([]);
@@ -258,6 +264,7 @@ function ResidentView<T>({
   const view = useRef<DataGridViewController>(null);
   const container = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
+  const presentation = useMemo(() => createAg31Presentation(owner), [owner]);
   useImperativeHandle(
     gridRef,
     () => ({ api: owner.api, columnApi: owner.columnApi }),
@@ -391,6 +398,16 @@ function ResidentView<T>({
         rowHeight={props.rowHeight ?? 42}
         className={props.className}
         ariaLabel={props.ariaLabel ?? "Source client grid"}
+        getRowStyle={(node) => presentation.rowStyle(rowNode(node))}
+        getCellStyle={({ node, column }) =>
+          presentation.cellStyle(rowNode(node), column.id)
+        }
+        getCellClassName={({ node, column }) =>
+          presentation.cellClass(rowNode(node), column.id)
+        }
+        getCellTooltip={({ node, column }) =>
+          presentation.tooltip(rowNode(node), column.id)
+        }
         selectionMode={props.rowSelection ? "multiple" : "none"}
         selectionCheckboxColumn={
           props.rowSelection ? checkboxColumn?.colId : undefined
@@ -480,6 +497,7 @@ function ClientGrid<T>(
     callbacks: Partial<Record<Ag31EventOptionName, unknown>>;
     isExternalFilterPresent: Ag31ClientGridConfig<T>["isExternalFilterPresent"];
     doesExternalFilterPass: Ag31ClientGridConfig<T>["doesExternalFilterPass"];
+    getRowStyle: Ag31ClientGridConfig<T>["getRowStyle"];
   }>({
     owner: null,
     context: props.context,
@@ -487,6 +505,7 @@ function ClientGrid<T>(
     callbacks: optionCallbacks(props),
     isExternalFilterPresent: props.isExternalFilterPresent,
     doesExternalFilterPass: props.doesExternalFilterPass,
+    getRowStyle: props.getRowStyle,
   });
   useLayoutEffect(() => {
     const options = initial.current;
@@ -504,6 +523,7 @@ function ClientGrid<T>(
       callbacks: optionCallbacks(options),
       isExternalFilterPresent: options.isExternalFilterPresent,
       doesExternalFilterPass: options.doesExternalFilterPass,
+      getRowStyle: options.getRowStyle,
     });
     setOwner(next);
     return () => next.api.destroy();
@@ -526,6 +546,7 @@ function ClientGrid<T>(
         callbacks: optionCallbacks(initial.current),
         isExternalFilterPresent: initial.current.isExternalFilterPresent,
         doesExternalFilterPass: initial.current.doesExternalFilterPass,
+        getRowStyle: initial.current.getRowStyle,
       };
     for (const [name] of AG31_EVENT_OPTIONS) {
       if (forwarded.current.callbacks[name] !== props[name]) {
@@ -537,6 +558,10 @@ function ClientGrid<T>(
       owner.api.setGridOption("context", props.context);
       forwarded.current.context = props.context;
       owner.api.refreshCells();
+    }
+    if (forwarded.current.getRowStyle !== props.getRowStyle) {
+      owner.api.setGridOption("getRowStyle", props.getRowStyle);
+      forwarded.current.getRowStyle = props.getRowStyle;
     }
     for (const name of [
       "isExternalFilterPresent",
@@ -566,6 +591,7 @@ function ClientGrid<T>(
     props.onColumnRowGroupChanged,
     props.isExternalFilterPresent,
     props.doesExternalFilterPass,
+    props.getRowStyle,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

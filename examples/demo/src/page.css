@@ -806,6 +806,11 @@ footer .creator-credit {
 .keyed-groups-lab > p {
   max-width: 70ch;
 }
+.legacy-bridge-lab .legacy-source-change {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
 .pivot-panel .keyed-groups-lab .grouping-lab-controls button {
   min-height: 44px;
 }

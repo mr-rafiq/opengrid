@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident source presentation (0.16.0)
+
+The complete serial local gate passed formatting and version consistency, strict TypeScript in **228.00 seconds**, **2,145 unit tests in 145 files** in **403.68 seconds**, package ESM/declaration/CSS and production demo builds in **223.06 seconds**, and **209 Chromium scenarios without retries in 13.4 minutes**. Built public ESM/SSR smoke checks passed on React 19.3.1 without owner/ref creation, callback execution or source reads during server rendering.
+
+The source-decoration slice separately passed **27 focused tests in three files** and four desktop/phone light/dark demo workflows. A regression initially reproduced unnecessary domain getter reads for absent/static decorations; the corrected fast paths avoid those reads. Tests cover callback context, replacement and clearing, class-rule removal, tooltip precedence, original source identity, and native geometry precedence. Actual 320px light and 1440px dark demo screenshots were inspected.
+
+A private read-only comparison passed on actual React/ReactDOM 18.3.1 and the installed AG Grid 31.3.4 reference. It mounts unchanged consumer definitions and selected components with original synthetic domain instances and compares source group paint, live recalculation class removal and tooltip text through the public OpenGrid React entry. This is one bounded presentation comparison, not the full application, authenticated backend acceptance or source-theme pixel equivalence. Private source and records are not published.
+
+The bridge remains experimental and read-only. Complete saved-state/filter/editor/menu/panel contracts, source-theme DOM/CSS compatibility and authenticated application acceptance remain open. Browser emulation is not physical-device or manual screen-reader verification.
+
 ## Experimental public resident bridge (0.15.0)
 
 The local full checkpoint passed formatting and version consistency, strict TypeScript in **291.64 seconds**, **2,137 unit tests across 144 files** in **420.53 seconds**, all package ESM/declaration/CSS and demo builds in **197.36 seconds**, and **209 browser scenarios without retries** in **11.8 minutes**. This checkpoint preceded a narrowly scoped public-default correction described below; it is not reported as an unchanged-source final run.
