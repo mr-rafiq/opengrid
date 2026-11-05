@@ -32,6 +32,7 @@ export interface Ag31ClientControllerOptions<T> {
   rowHeight?: number;
   initialState?: Partial<GridState>;
   readOnly?: boolean;
+  groupSelectsFiltered?: boolean;
   writeCell?(
     node: Ag31RowNode<T>,
     column: unknown,
@@ -83,6 +84,7 @@ export function createAg31ClientController<T>(
   options: Ag31ClientControllerOptions<T>,
 ) {
   let destroyed = false;
+  let selectionSource = "api";
   const api = {} as Record<string, unknown>;
   const columnApi = {} as Record<string, unknown>;
   const settings = new Map<string, unknown>([
@@ -126,6 +128,8 @@ export function createAg31ClientController<T>(
     getRowId: options.getRowId,
     rowHeight: options.rowHeight ?? 42,
     context: () => settings.get("context"),
+    groupSelectsFiltered: options.groupSelectsFiltered,
+    setSelection,
     groupIdentity: schema.groupIdentity,
     writeCell: (node, column, value, source) => {
       if (destroyed) return false;
@@ -201,7 +205,7 @@ export function createAg31ClientController<T>(
           ),
       });
     if (!equal(before.selected, next.selected))
-      emit({ type: "selectionChanged", source: "api" });
+      emit({ type: "selectionChanged", source: selectionSource });
     if (
       sorting ||
       grouping ||
@@ -354,6 +358,59 @@ export function createAg31ClientController<T>(
     model.setState(plan.layout);
     return plan.unknownColumnIds.length === 0;
   }
+  function getColumnState() {
+    return active(() => {
+      const state = model.getState();
+      const definitions = new Map(
+        model.getColumns().map((column) => [column.id, column]),
+      );
+      return state.columnOrder.map((id) => {
+        const definition = definitions.get(id)!;
+        const column = columns.getColumn(definition.id)!;
+        if (column.getAggFunc() != null)
+          throw new TypeError(
+            "Aggregate snapshots require an implemented aggregation registry contract",
+          );
+        return {
+          colId: column.colId,
+          width: column.getActualWidth(),
+          hide: !column.isVisible(),
+          pinned: column.getPinned(),
+          sort: column.getSort() ?? null,
+          sortIndex: column.getSortIndex() ?? null,
+          aggFunc: null,
+          rowGroup: column.isRowGroupActive(),
+          rowGroupIndex: state.groupBy.includes(column.colId)
+            ? state.groupBy.indexOf(column.colId)
+            : null,
+          pivot: false,
+          pivotIndex: null,
+          flex: definition.flex ?? null,
+        };
+      });
+    });
+  }
+  function setSelection(ids: string[], source: string) {
+    const previousSource = selectionSource;
+    selectionSource = source;
+    try {
+      model.setState({ selected: ids });
+    } finally {
+      selectionSource = previousSource;
+    }
+  }
+  function selectAll(source = "apiSelectAll") {
+    if (destroyed) return;
+    const ids = new Set(model.getState().selected);
+    nodes.forEachNode((node) => {
+      if (!node.group) ids.add(node.id);
+    });
+    setSelection([...ids], source);
+  }
+  function deselectAll(source = "apiSelectAll") {
+    if (destroyed) return;
+    setSelection([], source);
+  }
   function destroy() {
     if (destroyed) return;
     destroyed = true;
@@ -374,6 +431,9 @@ export function createAg31ClientController<T>(
     applyTransaction,
     setRowNodeExpanded,
     applyColumnState,
+    getColumnState,
+    selectAll,
+    deselectAll,
     destroy,
     isDestroyed: () => destroyed,
     getColumn: (key: unknown) => active(() => columns.getColumn(key)),
@@ -435,6 +495,7 @@ export function createAg31ClientController<T>(
     getAllDisplayedColumns: methods.getAllDisplayedColumns,
     getRowGroupColumns: methods.getRowGroupColumns,
     applyColumnState: methods.applyColumnState,
+    getColumnState: methods.getColumnState,
   };
   Object.assign(columnApi, columnMethods);
   return Object.freeze({

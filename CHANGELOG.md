@@ -2,6 +2,15 @@
 
 Created by Mohamed Rafiq.
 
+## 0.14.0 - 2026-11-05
+
+Integrated hierarchy checkboxes and selection-scope contracts. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Native `selectionCheckboxColumn` places selection inside an existing data column, with correct logical column indices and no duplicate utility checkbox. The calculation lab demonstrates this compact layout. Labels isolate checkbox pointer/keyboard actions from sorting and editing.
+- Optional native `selectionControls` separates host-owned checkbox state from row/header actions while retaining the same selected source IDs. Default current-page/subtree selection remains unchanged.
+- Optional `floatingFilters` hides all or selected floating inputs without clearing or disabling model filtering. The internal source bridge honors each column's floating-filter configuration.
+- The internal resident bridge implements the measured filtered-descendant group action, all-descendant mixed state and all-source header action, and detached legacy column-state snapshots. Original source fixtures compare real checkbox interactions against the installed reference. The bridge remains internal and read-only; full application, state/filter/panel/editor and authenticated acceptance are still incomplete.
+
 ## 0.13.0 - 2026-11-04
 
 Interactive source headers and resident React bridge development. Created by Mohamed Rafiq. Source release only; no npm publication.

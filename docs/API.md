@@ -417,6 +417,8 @@ ColumnConditionFilter registers through filterComponents and defaults to four st
 
 ## Resident subtree selection
 
+`DataGrid.selectionCheckboxColumn` optionally embeds row and header checkboxes in an existing data column. `selectionControls` provides host-owned `getRowState`, `toggleRow`, `getHeaderState` and `toggleHeader` callbacks for distinct display/action policies; actions must update selected IDs in the same model. Default native selection is unchanged. `floatingFilters` optionally hides all floating inputs or supplies a column predicate without disabling filtering. See [calculation workspaces](CALCULATION_WORKSPACES.md).
+
 `DataGrid.hierarchySelection` accepts `self` (default), `subtree` or `filteredSubtree` in multiple-selection mode. Subtrees include real source parents when eligible, independently of collapse/pages, and preserve selections outside the action. Header actions union represented page subtrees; native mixed state and Space use the same model operation. The headless `model.getHierarchySelectionPlan({filtered?: boolean})` and `createHierarchySelectionPlan(roots,{eligibleRowIds?})` expose compact immutable counts/unions and atomic next-ID snapshots. These are resident source operations, not remote/global selection or reference API compatibility. See [hierarchy selection](HIERARCHY_SELECTION.md) for exact bounds, fresh-state fences and parent semantics.
 
 ## Column header commands

@@ -2396,6 +2396,23 @@
   padding: 0 10px;
   overflow: hidden;
 }
+.og-inline-selection {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: stretch;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  margin-inline-end: 6px;
+}
+.og-inline-selection input {
+  margin: 0;
+}
+@media (pointer: coarse) {
+  .og-inline-selection {
+    min-width: 32px;
+  }
+}
 .og-header-cell[data-og-custom-header="true"]:focus-visible {
   outline: 2px solid var(--og-focus);
   outline-offset: -2px;

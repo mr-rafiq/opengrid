@@ -433,6 +433,7 @@ export function CalculationLab() {
             columnGroups
             rowGroupPanel="always"
             hierarchySelection="filteredSubtree"
+            selectionCheckboxColumn="description"
             cellSelection
             notes={false}
             pagination={false}

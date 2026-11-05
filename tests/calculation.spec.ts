@@ -46,6 +46,34 @@ test("interactive amount header sorts once and opens the native menu without dup
   await expect(header).toBeFocused();
   expect(errors).toEqual([]);
 });
+
+test("hierarchy checkboxes share the item column and preserve header sorting and editing boundaries", async ({
+  page,
+}) => {
+  const { article, grid, errors } = await setup(page);
+  const item = grid.locator(
+    '[role="gridcell"][data-row-id="est-1"][data-column-id="description"]',
+  );
+  const checkbox = item.getByRole("checkbox");
+  await checkbox.click();
+  await expect(checkbox).toBeChecked();
+  await expect(article).toContainText("1 source records selected");
+  const header = grid
+    .getByRole("columnheader")
+    .filter({
+      has: page.getByRole("button", {
+        name: "Sort Item / section",
+        exact: true,
+      }),
+    });
+  await header.getByRole("checkbox").click();
+  await expect(article).toContainText("6 source records selected");
+  await expect(header).not.toHaveAttribute("aria-sort", "ascending");
+  expect(await grid.locator(".og-selection-cell input").count()).toBe(0);
+  await header.getByRole("checkbox").click();
+  await expect(article).toContainText("0 source records selected");
+  expect(errors).toEqual([]);
+});
 test("nested edits update computed amounts and header totals, undo, and protected rows reject editors", async ({
   page,
 }) => {

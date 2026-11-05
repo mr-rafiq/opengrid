@@ -149,6 +149,19 @@ export interface GridHeaderControlsContext<T> {
   progressSort(multi?: boolean): void;
   showColumnMenu(anchor?: HTMLElement): boolean;
 }
+export interface GridSelectionCheckboxState {
+  checked: boolean;
+  mixed?: boolean;
+  disabled?: boolean;
+  label?: string;
+}
+/** Host-owned selection remains backed by the same model; callbacks must publish their selected IDs. */
+export interface GridSelectionControls<T> {
+  getRowState(node: RowNode<T>): GridSelectionCheckboxState | null;
+  toggleRow(node: RowNode<T>): void;
+  getHeaderState(): GridSelectionCheckboxState | null;
+  toggleHeader(): void;
+}
 export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
@@ -179,8 +192,13 @@ export interface DataGridProps<T> {
   columnOverscan?: number;
   virtualizeColumns?: boolean;
   columnGroups?: boolean;
+  /** Floating filter inputs can be hidden without disabling filtering or filter panels. */
+  floatingFilters?: boolean | ((column: Column<T>) => boolean);
   rowGroupPanel?: false | "always" | "whenGrouped";
   selectionMode?: "single" | "multiple" | "none";
+  /** Place native row/header checkboxes inside this data column instead of a separate utility column. */
+  selectionCheckboxColumn?: string;
+  selectionControls?: GridSelectionControls<T>;
   /** Multiple-selection subtrees include source parents; filtered actions retain hidden selections. */
   hierarchySelection?: HierarchySelectionMode;
   cellSelection?: boolean;
@@ -369,8 +387,11 @@ export function DataGrid<T>({
   columnOverscan = 200,
   virtualizeColumns = true,
   columnGroups = true,
+  floatingFilters = true,
   rowGroupPanel = false,
   selectionMode = "multiple",
+  selectionCheckboxColumn,
+  selectionControls,
   hierarchySelection = "self",
   cellSelection = true,
   contextMenu = true,
@@ -538,8 +559,16 @@ export function DataGrid<T>({
     rows,
   );
   const dataRowIds = useMemo(() => [...projection.rangeRowIds], [projection]);
+  if (
+    selectionCheckboxColumn !== undefined &&
+    !allColumns.some((column) => column.id === selectionCheckboxColumn)
+  )
+    throw new TypeError(
+      "The selection checkbox column must exist in the current schema",
+    );
   const selectionWidth =
-    (selectionMode === "none" ? 0 : 44) + (rowDragging ? 32 : 0);
+    (selectionMode === "none" || selectionCheckboxColumn ? 0 : 44) +
+    (rowDragging ? 32 : 0);
   const emptyColumnView = columns.length === 0 && selectionWidth === 0;
   const [viewportWidth, setViewportWidth] = useState(1024);
   const [sizingWidth, setSizingWidth] = useState<number | undefined>();
@@ -700,9 +729,12 @@ export function DataGrid<T>({
     pinned: pinOf(column),
   }));
   const groupDepth = computeHeaderGroups(groupedColumns, { direction }).length;
-  const hasColumnFilters = columns.some(
-    (column) => column.filterable !== false,
-  );
+  const showsFloatingFilter = (column: Column<T>) =>
+    column.filterable !== false &&
+    (typeof floatingFilters === "function"
+      ? floatingFilters(column)
+      : floatingFilters);
+  const hasColumnFilters = columns.some(showsFloatingFilter);
   const headerRows = groupDepth + 1 + (hasColumnFilters ? 1 : 0);
   const headerHeight = headerRows * 38;
   const viewport = useRef<HTMLDivElement>(null);
@@ -1243,6 +1275,11 @@ export function DataGrid<T>({
   const selected = new Set(state.selected);
   function toggleSelectedNode(node: RowNode<T>) {
     if (selectionMode === "none") return;
+    if (selectionControls) {
+      const control = selectionControls.getRowState(node);
+      if (control && !control.disabled) selectionControls.toggleRow(node);
+      return;
+    }
     if (hierarchy.enabled) hierarchy.toggle([node.id]);
     else if (node.kind === "row")
       model.toggleSelection(node.id, selectionMode === "multiple");
@@ -3000,6 +3037,11 @@ export function DataGrid<T>({
     : visibleLeafIds.length > 0 &&
       visibleLeafIds.every((id) => selected.has(id));
   function selectPage() {
+    if (selectionControls) {
+      const control = selectionControls.getHeaderState();
+      if (control && !control.disabled) selectionControls.toggleHeader();
+      return;
+    }
     if (hierarchy.enabled) {
       hierarchy.toggle(
         rows.filter((node) => node.kind !== "total").map((node) => node.id),
@@ -3011,6 +3053,92 @@ export function DataGrid<T>({
       allSelected ? next.delete(id) : next.add(id),
     );
     model.selectRows([...next]);
+  }
+  function pageCheckbox() {
+    if (selectionControls) {
+      const control = selectionControls.getHeaderState();
+      return selectionMode === "multiple" && control ? (
+        <SelectionCheckbox
+          {...control}
+          label={control.label ?? t("grid.selectPage")}
+          onChange={selectPage}
+        />
+      ) : null;
+    }
+    return selectionMode === "multiple" ? (
+      <SelectionCheckbox
+        label={
+          hierarchy.enabled ? t("hierarchy.selectPage") : t("grid.selectPage")
+        }
+        checked={allSelected}
+        mixed={
+          hierarchy.enabled
+            ? pageSelection?.mixed
+            : visibleLeafIds.some((id) => selected.has(id)) && !allSelected
+        }
+        disabled={
+          hierarchy.enabled && (!pageSelection || pageSelection.total === 0)
+        }
+        onChange={selectPage}
+      />
+    ) : null;
+  }
+  function rowCheckbox(node: RowNode<T>) {
+    if (selectionControls) {
+      const control = selectionControls.getRowState(node);
+      return selectionMode !== "none" && control ? (
+        <SelectionCheckbox
+          {...control}
+          tabIndex={-1}
+          label={control.label ?? t("grid.selectRow", { rowId: node.id })}
+          onChange={() => toggleSelectedNode(node)}
+        />
+      ) : null;
+    }
+    if (
+      selectionMode === "none" ||
+      node.kind === "total" ||
+      (node.kind !== "row" && !hierarchy.enabled)
+    )
+      return null;
+    const subtree = hierarchy.resolved?.getState(node.id);
+    return (
+      <SelectionCheckbox
+        tabIndex={-1}
+        label={
+          hierarchy.enabled && (node.kind === "group" || node.children?.length)
+            ? t("hierarchy.selectSubtree", { label: node.label ?? node.id })
+            : t("grid.selectRow", { rowId: node.id })
+        }
+        checked={
+          hierarchy.enabled
+            ? (subtree?.checked ?? false)
+            : selected.has(node.id)
+        }
+        mixed={hierarchy.enabled && subtree?.mixed}
+        disabled={hierarchy.enabled && (!subtree || subtree.total === 0)}
+        onChange={() => toggleSelectedNode(node)}
+      />
+    );
+  }
+  function inlineCheckbox(control: ReactNode) {
+    return (
+      control && (
+        <label
+          className="og-inline-selection"
+          data-og-no-edit
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
+          onDoubleClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === " " || event.key === "Enter")
+              event.stopPropagation();
+          }}
+        >
+          {control}
+        </label>
+      )
+    );
   }
   function downloadCsv() {
     const url = URL.createObjectURL(
@@ -3032,9 +3160,12 @@ export function DataGrid<T>({
       const anchorOnly = rowSpanAnchorCells.get(row);
       const presentationDepth = entry.region === "body" ? node.depth : 0;
       const subtreeSelection = hierarchy.resolved?.getState(node.id);
-      const isSelected = hierarchy.enabled
-        ? (subtreeSelection?.checked ?? false)
-        : selected.has(node.id);
+      const externalSelection = selectionControls?.getRowState(node);
+      const isSelected = externalSelection
+        ? externalSelection.checked
+        : hierarchy.enabled
+          ? (subtreeSelection?.checked ?? false)
+          : selected.has(node.id);
       return (
         <Fragment key={node.id}>
           <div
@@ -3215,28 +3346,7 @@ export function DataGrid<T>({
                         <GridIcon name="grip" size={16} />
                       </button>
                     )}
-                    {node.kind !== "total" &&
-                      (node.kind === "row" || hierarchy.enabled) &&
-                      selectionMode !== "none" && (
-                        <SelectionCheckbox
-                          tabIndex={-1}
-                          label={
-                            hierarchy.enabled &&
-                            (node.kind === "group" || node.children?.length)
-                              ? t("hierarchy.selectSubtree", {
-                                  label: node.label ?? node.id,
-                                })
-                              : t("grid.selectRow", { rowId: node.id })
-                          }
-                          checked={isSelected}
-                          mixed={hierarchy.enabled && subtreeSelection?.mixed}
-                          disabled={
-                            hierarchy.enabled &&
-                            (!subtreeSelection || subtreeSelection.total === 0)
-                          }
-                          onChange={() => toggleSelectedNode(node)}
-                        />
-                      )}
+                    {!selectionCheckboxColumn && rowCheckbox(node)}
                   </div>
                 )}
                 {spanWindowFor(row).map((entry) => {
@@ -3472,6 +3582,8 @@ export function DataGrid<T>({
                         )
                       ) : (
                         <>
+                          {selectionCheckboxColumn === column.id &&
+                            inlineCheckbox(rowCheckbox(node))}
                           {notes !== false &&
                             node.kind === "row" &&
                             notesStore.get({
@@ -4460,28 +4572,7 @@ export function DataGrid<T>({
                           minWidth: selectionWidth,
                         }}
                       >
-                        {selectionMode === "multiple" && (
-                          <SelectionCheckbox
-                            label={
-                              hierarchy.enabled
-                                ? t("hierarchy.selectPage")
-                                : t("grid.selectPage")
-                            }
-                            checked={allSelected}
-                            mixed={
-                              hierarchy.enabled
-                                ? pageSelection?.mixed
-                                : visibleLeafIds.some((id) =>
-                                    selected.has(id),
-                                  ) && !allSelected
-                            }
-                            disabled={
-                              hierarchy.enabled &&
-                              (!pageSelection || pageSelection.total === 0)
-                            }
-                            onChange={selectPage}
-                          />
-                        )}
+                        {!selectionCheckboxColumn && pageCheckbox()}
                       </div>
                     )}
                     {columnEntries.map((entry) => {
@@ -4681,6 +4772,8 @@ export function DataGrid<T>({
                               );
                           }}
                         >
+                          {selectionCheckboxColumn === column.id &&
+                            inlineCheckbox(pageCheckbox())}
                           {customHeader !== undefined ? (
                             <div className="og-custom-header">
                               {customHeader}
@@ -4947,7 +5040,7 @@ export function DataGrid<T>({
                                 );
                             }}
                           >
-                            {column.filterable !== false &&
+                            {showsFloatingFilter(column) &&
                               renderColumnFilter(column)}
                           </div>
                         );

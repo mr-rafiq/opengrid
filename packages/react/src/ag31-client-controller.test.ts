@@ -44,6 +44,118 @@ function setup(definitions?: readonly Ag31ColumnDefinition<Row>[]) {
   return { ...controller, rows, context };
 }
 afterEach(() => vi.useRealTimers());
+it("keeps group mixed state over all descendants, applies filtered group actions and selects all source rows from the header API", async () => {
+  const owner = createAg31ClientController({
+    rows: [
+      new Row("a", "East", 1),
+      new Row("b", "East", 2),
+      new Row("c", "West", 2),
+    ],
+    definitions: [
+      { field: "team", enableRowGroup: true },
+      { field: "amount", cellDataType: "number" },
+    ],
+    getRowId: (row) => row.id,
+    initialState: { groupBy: ["team"] },
+    groupSelectsFiltered: true,
+  });
+  const group = owner.api.getDisplayedRowAtIndex(0)!;
+  const events: string[] = [];
+  owner.api.addEventListener("selectionChanged", (e) =>
+    events.push(String(e.source)),
+  );
+  group.setSelected(true, false, "checkboxSelected");
+  expect(owner.api.getSelectedNodes()!.map((n) => n.id)).toEqual(["a", "b"]);
+  owner.api.setGridOption("isExternalFilterPresent", () => true);
+  owner.api.setGridOption(
+    "doesExternalFilterPass",
+    (n: Ag31RowNode<Row>) => n.data!.amount === 2,
+  );
+  owner.api.onFilterChanged();
+  group.setSelected(false, false, "checkboxSelected");
+  expect(owner.api.getSelectedNodes()!.map((n) => n.id)).toEqual(["a"]);
+  expect(group.isSelected()).toBeUndefined();
+  owner.api.deselectAll();
+  owner.api.selectAll("uiSelectAll");
+  expect(owner.api.getSelectedRows()!.map((n) => n.id)).toEqual([
+    "a",
+    "b",
+    "c",
+  ]);
+  expect(group.isSelected()).toBe(true);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(events).toEqual([
+    "checkboxSelected",
+    "checkboxSelected",
+    "apiSelectAll",
+    "uiSelectAll",
+  ]);
+  owner.api.deselectAll();
+  owner.api.getRowNode("c")!.setSelected(true);
+  owner.api.selectAll();
+  expect(owner.api.getSelectedNodes()!.map((node) => node.id)).toEqual([
+    "c",
+    "a",
+    "b",
+  ]);
+  owner.api.destroy();
+  expect(() => owner.api.selectAll()).not.toThrow();
+});
+it("snapshots real column order/layout with detached legacy state records and can restore them", () => {
+  const owner = setup();
+  owner.api.applyColumnState({
+    applyOrder: true,
+    defaultState: { sort: null, hide: false, pinned: null },
+    state: [
+      {
+        colId: "scaled",
+        width: 144,
+        pinned: "right",
+      },
+      { colId: "amount", width: 99, hide: true, sort: "desc", sortIndex: 0 },
+      { colId: "team", rowGroup: true, rowGroupIndex: 0 },
+      { colId: "label" },
+    ],
+  });
+  const snapshot = owner.api.getColumnState()!;
+  expect(snapshot.map((c) => c.colId)).toEqual([
+    "scaled",
+    "amount",
+    "team",
+    "label",
+  ]);
+  expect(snapshot[0]).toEqual({
+    colId: "scaled",
+    width: 144,
+    pinned: "right",
+    hide: false,
+    sort: null,
+    sortIndex: null,
+    aggFunc: null,
+    rowGroup: false,
+    rowGroupIndex: null,
+    pivot: false,
+    pivotIndex: null,
+    flex: null,
+  });
+  expect(snapshot[1].hide).toBe(true);
+  expect(snapshot[1].sort).toBe("desc");
+  expect(snapshot[2].rowGroupIndex).toBe(0);
+  expect(owner.columnApi.getColumnState()).toEqual(snapshot);
+  snapshot[0].width = 999;
+  expect(owner.api.getColumnState()![0].width).toBe(144);
+  const saved = owner.api.getColumnState()!;
+  owner.api.applyColumnState({
+    state: [
+      { colId: "scaled", width: 188, pinned: null },
+      { colId: "amount", sort: null },
+    ],
+  });
+  owner.api.applyColumnState({ state: saved, applyOrder: true });
+  expect(owner.api.getColumnState()).toEqual(saved);
+  owner.api.destroy();
+  expect(owner.api.getColumnState()).toBeUndefined();
+});
 it("matches measured nullish, case-sensitive and mixed scalar ordering without changing native defaults", () => {
   const rows = [
     { id: "n12", amount: 12 },

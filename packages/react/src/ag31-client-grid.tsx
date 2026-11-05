@@ -38,6 +38,10 @@ export interface Ag31ClientGridProps<T> {
   ariaLabel?: string;
   /** A complete tree renderer includes its own indentation/disclosure controls. */
   completeTreeRenderer?: boolean;
+  rowSelection?: "multiple";
+  groupSelectsChildren?: boolean;
+  groupSelectsFiltered?: boolean;
+  suppressRowClickSelection?: boolean;
   onGridReady?(
     event: Ag31ClientGridHandle<T> & { context: unknown; type: "gridReady" },
   ): void;
@@ -158,6 +162,26 @@ function ResidentView<T>({
         : colDef.cellRendererParams;
     return <Renderer {...params} {...(extra as object)} />;
   }
+  const checkboxColumns = owner.columns
+    .getColumns()
+    .filter((column) => column.getColDef().checkboxSelection === true);
+  if (props.rowSelection && checkboxColumns.length !== 1)
+    throw new TypeError(
+      "Source checkbox selection requires exactly one static checkbox column",
+    );
+  if (
+    props.rowSelection &&
+    owner.model.getState().groupBy.length &&
+    !props.groupSelectsChildren
+  )
+    throw new TypeError("Source group selection requires descendant selection");
+  if (props.rowSelection && props.suppressRowClickSelection === false)
+    throw new TypeError(
+      "Source row-click selection requires a separate interaction contract",
+    );
+  const checkboxColumn = checkboxColumns[0];
+  const rowNode = (node: { id: string }) =>
+    owner.nodes.getRowNodeByNativeId(node.id)!;
   if (destroyed) return null;
   return (
     <DataGrid
@@ -165,10 +189,62 @@ function ResidentView<T>({
       viewRef={view}
       toolbar={false}
       pagination={false}
+      floatingFilters={(column) =>
+        owner.columns.getColumn(column.id)!.getColDef().floatingFilter === true
+      }
       height={props.height}
       rowHeight={props.rowHeight ?? 42}
       className={props.className}
       ariaLabel={props.ariaLabel ?? "Source client grid"}
+      selectionMode={props.rowSelection ? "multiple" : "none"}
+      selectionCheckboxColumn={
+        props.rowSelection ? checkboxColumn?.colId : undefined
+      }
+      selectionControls={
+        props.rowSelection
+          ? {
+              getRowState: (node) => {
+                const source = rowNode(node),
+                  selected = source.isSelected();
+                return {
+                  checked: selected === true,
+                  mixed: selected === undefined,
+                  label: `Select ${source.id}`,
+                };
+              },
+              toggleRow: (node) => {
+                const source = rowNode(node);
+                source.setSelected(
+                  source.isSelected() !== true,
+                  false,
+                  "checkboxSelected",
+                );
+              },
+              getHeaderState: () => {
+                if (
+                  checkboxColumn?.getColDef().headerCheckboxSelection !== true
+                )
+                  return null;
+                const selected = owner.api.getSelectedNodes()!.length;
+                const total = owner.model.getRows().length;
+                return {
+                  checked: total > 0 && selected === total,
+                  mixed: selected > 0 && selected < total,
+                  disabled: total === 0,
+                  label: "Select all rows",
+                };
+              },
+              toggleHeader: () => {
+                const all =
+                  owner.model.getRows().length > 0 &&
+                  owner.api.getSelectedNodes()!.length ===
+                    owner.model.getRows().length;
+                if (all) owner.api.deselectAll("uiSelectAll");
+                else owner.api.selectAll("uiSelectAll");
+              },
+            }
+          : undefined
+      }
       renderTreePrefix={props.completeTreeRenderer ? () => null : undefined}
       renderCell={({ row, column }) =>
         cell(owner.nodes.getRowNode(props.getRowId({ data: row }))!, column.id)
@@ -208,6 +284,7 @@ function ClientGrid<T>(
       initialState: options.initialModelState,
       rowHeight: options.rowHeight,
       readOnly: true,
+      groupSelectsFiltered: options.groupSelectsFiltered,
     });
     setOwner(next);
     return () => next.api.destroy();
@@ -216,7 +293,8 @@ function ClientGrid<T>(
     if (!owner || owner.api.isDestroyed()) return;
     if (
       props.columnDefs !== initial.current.columnDefs ||
-      props.defaultColDef !== initial.current.defaultColDef
+      props.defaultColDef !== initial.current.defaultColDef ||
+      props.groupSelectsFiltered !== initial.current.groupSelectsFiltered
     )
       throw new Error(
         "Structural source column replacement requires remounting this internal bridge",

@@ -16,6 +16,60 @@ afterEach(cleanup);
 type Row = { id: string; amount: number };
 const getRowId = ({ data }: { data: Row }) => data.id;
 
+it("embeds source checkboxes in the data column with distinct filtered group and all-row header scopes", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>();
+  render(
+    <Ag31ClientGrid
+      ref={ref}
+      rowData={[
+        { id: "a", amount: 1 },
+        { id: "b", amount: 2 },
+        { id: "c", amount: 2 },
+      ]}
+      getRowId={getRowId}
+      rowSelection="multiple"
+      groupSelectsChildren
+      groupSelectsFiltered
+      suppressRowClickSelection
+      columnDefs={[
+        {
+          field: "id",
+          checkboxSelection: true,
+          headerCheckboxSelection: true,
+          enableRowGroup: true,
+        },
+        { field: "amount", cellDataType: "number", enableRowGroup: true },
+      ]}
+      initialModelState={{ groupBy: ["amount"] }}
+    />,
+  );
+  const api = ref.current!.api;
+  const group = api.getDisplayedRowAtIndex(0)!;
+  expect(screen.getByRole("treegrid").getAttribute("aria-colcount")).toBe("2");
+  const checkbox = screen.getByRole("checkbox", {
+    name: `Select ${group.id}`,
+  }) as HTMLInputElement;
+  fireEvent.click(checkbox);
+  expect(api.getSelectedRows()!.map((row) => row.id)).toEqual(["a"]);
+  act(() => {
+    api.setGridOption("isExternalFilterPresent", () => true);
+    api.setGridOption(
+      "doesExternalFilterPass",
+      (node: any) => node.data.id !== "a",
+    );
+    api.onFilterChanged();
+  });
+  const header = screen.getByRole("checkbox", {
+    name: "Select all rows",
+  }) as HTMLInputElement;
+  expect(header.indeterminate).toBe(true);
+  fireEvent.click(header);
+  expect(api.getSelectedRows()).toHaveLength(3);
+  expect(header.checked).toBe(true);
+  fireEvent.click(header);
+  expect(api.getSelectedRows()).toEqual([]);
+});
+
 it("commits a live API/ref before ready and revokes it on StrictMode unmount", () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>();
   const callbacks: Ag31ClientGridHandle<Row>[] = [];

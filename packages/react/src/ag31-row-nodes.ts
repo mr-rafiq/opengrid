@@ -65,6 +65,9 @@ export interface Ag31RowNodeOptions<T> {
     source: string,
   ): boolean;
   selectionChanged?(source: string): void;
+  setSelection?(ids: string[], source: string): void;
+  /** Group actions use filtered descendants; displayed mixed state still uses all descendants. */
+  groupSelectsFiltered?: boolean;
 }
 type Entry<T> = {
   node: Ag31RowNode<T>;
@@ -238,7 +241,13 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
         if (destroyed || !entry.live || syncing) return;
         const previous = model.getState().selected,
           next = new Set(clearSelection ? [] : previous);
-        for (const id of leafIds(entry)) {
+        const targets =
+          entry.group && options.groupSelectsFiltered
+            ? flatten(current(entry).filtered ?? [], "filtered")
+                .filter((node) => !node.group)
+                .map((node) => node.id)
+            : leafIds(entry);
+        for (const id of targets) {
           if (value) next.add(id);
           else next.delete(id);
         }
@@ -247,7 +256,8 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           previous.every((id) => next.has(id))
         )
           return;
-        model.setState({ selected: [...next] });
+        if (options.setSelection) options.setSelection([...next], source);
+        else model.setState({ selected: [...next] });
         options.selectionChanged?.(source);
       },
       setExpanded(value) {
