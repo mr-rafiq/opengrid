@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident view-stage refresh (0.18.0)
+
+The complete serial local gate passed formatting/version checks, strict TypeScript in **211.25 seconds**, **2,201 unit tests in 152 files** in **381.37 seconds**, package ESM/declaration/CSS and production demo builds in **266.82 seconds**, and **217 Chromium scenarios without retries** in **727.81 seconds**. Built public ESM/SSR smoke passed. The full affected core/controller slice separately passed **968 tests in 49 files** in **23.72 seconds**.
+
+A private installed-reference comparison on React/ReactDOM 18.3.1 and AG Grid 31.3.4 first reproduced unintended query refreshes during resize, hide, pin, reorder, unchanged sort application and expansion, plus a missing full-refresh API. All seven actions matched after the correction; the post-fix comparison passed in **23.5 seconds**. Original records retain identity, live cell values and cached group/aggregate projections. An initial core regression exposed external-predicate replacement being incorrectly classified as view-only; explicit query invalidation restores its atomic preparation and rollback contract.
+
+Eight affected public React browser flows passed in **24.2 seconds**, followed by four strengthened phone/desktop light/dark cases in **13.1 seconds** exercising actual keyboard resize, pin/unpin menus, selection and explicit complete refresh. Actual 320px light and 1440px dark screenshots were inspected. Browser emulation is not physical-device or manual screen-reader verification.
+
+`refreshClientSideRowModel()` supports complete resident processing (`everything` or `group`). Independent partial aggregate/filter/sort stages, conditional source header visibility and full saved state, custom filter/editor/panel contracts, source-theme equivalence and authenticated full application acceptance remain open. No target source or backend data is changed.
+
 ## Resident source filter models (0.17.0)
 
 The complete serial local gate passed formatting/version consistency, strict TypeScript in **188.32 seconds**, **2,187 unit tests in 150 files** in **293.84 seconds**, all package ESM/declaration/CSS and production demo builds in **186.20 seconds**, and **217 Chromium scenarios without retries in 10.9 minutes**. The built public ESM/SSR smoke passed. The affected six-file source-filter slice separately passed **70 tests in 2.03 seconds**.

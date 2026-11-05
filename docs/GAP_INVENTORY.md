@@ -104,7 +104,7 @@ Internal row/column/value adapters have separate original regressions and privat
 
 ## Resident source stage boundary
 
-A private reference comparison reproduced selection invalidating a computed sorted projection after a retained class value changes and a view-only refresh. Selection-only updates now retain computed sort/filter/group projections while ordinary cell reads remain live. Complete independent reference processing stages, partial aggregate refresh and layout-only equivalence remain open. Full application replacement is not verified.
+A private reference comparison reproduced selection invalidating a computed sorted projection after a retained class value changes and a view-only refresh. Selection, column layout, pagination and expansion now retain computed sort/filter/group and aggregate projections while ordinary cell reads remain live. Unchanged source sort/group state also preserves the query. An explicit complete resident model refresh is available; independent partial stages (including aggregate refresh), conditional source header groups and full saved state remain open. Full application replacement is not verified.
 
 ## Resident source filter-model boundary
 
