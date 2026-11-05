@@ -71,10 +71,23 @@ for (const width of [320, 1440]) {
       await expect
         .poll(async () => (await grid.boundingBox())!.height)
         .toBeLessThan(before!.height - 80);
-      const bounds = await overlay.boundingBox(),
-        frame = await grid.boundingBox();
-      expect(Math.abs(bounds!.height - frame!.height)).toBeLessThan(2);
-      expect(Math.abs(bounds!.width - frame!.width)).toBeLessThan(2);
+      // ResizeObserver updates the overlay separately from its host layout.
+      // Compare both rectangles in one browser task after reconciliation.
+      await expect
+        .poll(() =>
+          overlay.evaluate((element) => {
+            const viewport =
+              element.parentElement?.querySelector(".og-viewport");
+            if (!viewport) return Infinity;
+            const bounds = element.getBoundingClientRect(),
+              frame = viewport.getBoundingClientRect();
+            return Math.max(
+              Math.abs(bounds.height - frame.height),
+              Math.abs(bounds.width - frame.width),
+            );
+          }),
+        )
+        .toBeLessThan(2);
       await example
         .getByRole("checkbox", { name: "Custom loading component" })
         .check();

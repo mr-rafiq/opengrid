@@ -63,6 +63,13 @@ async function touchDrag(
     });
     await page.waitForTimeout(25);
   }
+  // Finish a stationary contact before the next tap. A moving raw CDP release
+  // can suppress the next activation even on a plain page without the grid.
+  await page.waitForTimeout(150);
+  await session.send("Input.dispatchTouchEvent", {
+    type: "touchMove",
+    touchPoints: [point(to.x, to.y)],
+  });
   await beforeEnd?.();
   await session.send("Input.dispatchTouchEvent", {
     type: cancel ? "touchCancel" : "touchEnd",
@@ -189,6 +196,10 @@ test("explicit touch extension survives native scrolling and fill remains one un
   const grid = await openLab(page),
     root = gridRoot(grid);
   await cell(grid, "rtl1", "amount").tap();
+  await expect(cell(grid, "rtl1", "amount")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await root.getByRole("button", { name: "Extend range", exact: true }).tap();
   await expect(
     root.getByRole("button", { name: "Extend range", exact: true }),
@@ -203,6 +214,16 @@ test("explicit touch extension survives native scrolling and fill remains one un
   await grid.evaluate((element) => {
     element.scrollTop = 0;
   });
+  await expect
+    .poll(() => grid.evaluate((element) => element.scrollTop))
+    .toBe(0);
+  await expect(cell(grid, "rtl1", "amount")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(
+    root.getByRole("button", { name: "Extend range", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await cell(grid, "rtl3", "amount").tap();
   await expect(grid.getByRole("gridcell", { selected: true })).toHaveCount(3);
   await root

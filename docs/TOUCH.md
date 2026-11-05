@@ -28,4 +28,6 @@ The column chooser provides hide, physical pin and move controls. Managed row mo
 
 The [verification record](VERIFICATION.md) records executed unit/component tests and native Chromium touch-input scenarios. Dispatched DOM PointerEvents alone do not prove native panning, browser cancellation or gesture ownership. Chromium touch emulation is distinct from physical-device testing; momentum, virtual keyboards, assistive touch, screen readers and Safari/Firefox/device coverage remain open. The broader feature family stays Partial.
 
+The native drag fixtures finish a stationary contact before starting the next tap. A moving raw browser-input release can suppress that activation even in a minimal page without OpenGrid. The completed-gesture checks retain their range, cancellation, data and atomic Undo assertions; they do not establish first-tap activation during native momentum or a moving-release sequence.
+
 Reference behavior is drawn from the public [AG Grid touch documentation](https://www.ag-grid.com/react-data-grid/touch/) and [W3C Pointer Events Level 3](https://www.w3.org/TR/pointerevents3/). OpenGrid uses original code. In particular, `touch-action` determines native manipulation before a gesture starts; calling `preventDefault()` on a PointerEvent is not a substitute for that policy.

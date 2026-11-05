@@ -6,6 +6,7 @@ Touch input timing correction. Created by Mohamed Rafiq. Source release; npm pub
 
 - Recognize brief taps and double taps using input timestamps rather than callback delivery delay. Preserve pointer identity, stale-input, long-press, scroll, cancellation and model/view guards.
 - Add a real-touch delayed-click regression and strengthen range setup and active-preview assertions before cancellation. Keep the two-cell restoration and atomic fill/Undo checks.
+- Complete stationary native drag input before the next test tap, and sample overlay resize geometry after observer reconciliation. Document the moving-release boundary separately; these verification corrections do not change Undo or pointer-capture runtime behavior.
 - The known source Order-header sizing discrepancy and remaining full Kalkverse integration gaps are unchanged. This patch does not establish physical-device or full application compatibility.
 
 ## 0.25.0 - 2026-11-05
