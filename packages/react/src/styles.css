@@ -2453,7 +2453,8 @@
   border-radius: var(--ag-wrapper-border-radius, 8px);
   box-shadow: var(--ag-card-shadow, none);
 }
-.og-source-client[data-og-host-theme] .og-row-alt:not(.og-row-selected):not(:hover) {
+.og-source-client[data-og-host-theme]
+  .og-row-alt:not(.og-row-selected):not(:hover) {
   background: var(--ag-odd-row-background-color, var(--og-bg));
 }
 .og-source-client[data-og-host-theme] .og-grid-frame {
