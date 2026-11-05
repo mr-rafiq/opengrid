@@ -7,14 +7,161 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
 } from "@testing-library/react";
 import {
   Ag31ClientGrid,
+  resolveAg31ClientGridConfig,
   type Ag31ClientGridHandle,
 } from "./ag31-client-grid.js";
 afterEach(cleanup);
 type Row = { id: string; amount: number };
 const getRowId = ({ data }: { data: Row }) => data.id;
+
+it("matches measured defined-prop precedence without mutating source options or losing false/null", () => {
+  const context = { from: "options" };
+  const rows = [{ id: "a", amount: 3 }];
+  const options = {
+    getRowId,
+    rowData: rows,
+    columnDefs: [{ field: "amount" }],
+    context,
+    rowHeight: 42,
+    suppressRowClickSelection: true,
+  };
+  const resolved = resolveAg31ClientGridConfig({
+    gridOptions: options,
+    context: undefined,
+    rowHeight: undefined,
+    suppressRowClickSelection: false,
+  });
+  expect(resolved.context).toBe(context);
+  expect(resolved.rowHeight).toBe(42);
+  expect(resolved.suppressRowClickSelection).toBe(false);
+  expect(resolved.rowData).toBe(rows);
+  expect(resolved.getRowId).toBe(getRowId);
+  expect(options.suppressRowClickSelection).toBe(true);
+  expect(
+    resolveAg31ClientGridConfig({
+      gridOptions: options,
+      context: null,
+      rowHeight: 0,
+    }).context,
+  ).toBeNull();
+  expect(
+    resolveAg31ClientGridConfig({
+      gridOptions: options,
+      context: null,
+      rowHeight: 0,
+    }).rowHeight,
+  ).toBe(0);
+  expect(() =>
+    resolveAg31ClientGridConfig({
+      gridOptions: { ...options, sideBar: true } as any,
+    }),
+  ).toThrow(/Unsupported source gridOptions option: sideBar/);
+});
+
+it("mounts a source identity and callbacks supplied through gridOptions while explicit context wins", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>();
+  const ready = vi.fn();
+  render(
+    <Ag31ClientGrid
+      ref={ref}
+      context={{ from: "props" }}
+      gridOptions={{
+        getRowId,
+        rowData: [{ id: "a", amount: 3 }],
+        columnDefs: [{ field: "amount" }],
+        context: { from: "options" },
+        onGridReady: ready,
+      }}
+    />,
+  );
+  expect(ready).toHaveBeenCalledTimes(1);
+  expect(ready.mock.calls[0][0].api).toBe(ref.current!.api);
+  expect(ref.current!.api.getRowNode("a")!.data!.amount).toBe(3);
+  expect(ref.current!.api.getGridOption("context")).toEqual({ from: "props" });
+});
+
+it("normalizes nullable loading options like the measured grid service and forwards authoritative records without recreating the API", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>();
+  const options = {
+    getRowId,
+    columnDefs: [{ field: "amount" }],
+    rowData: null as Row[] | null,
+  };
+  const view = render(<Ag31ClientGrid ref={ref} gridOptions={options} />);
+  const api = ref.current!.api;
+  expect(api.getGridOption("rowData")).toBeUndefined();
+  expect(api.getDisplayedRowCount()).toBe(0);
+  const row = { id: "a", amount: 42 };
+  view.rerender(
+    <Ag31ClientGrid ref={ref} gridOptions={{ ...options, rowData: [row] }} />,
+  );
+  expect(ref.current!.api).toBe(api);
+  expect(api.getRowNode("a")!.data).toBe(row);
+  view.rerender(<Ag31ClientGrid ref={ref} gridOptions={options} />);
+  expect(api.getGridOption("rowData")).toBeUndefined();
+  expect(api.getDisplayedRowCount()).toBe(0);
+});
+
+it("preserves imperative context changes when only the rowData prop changes", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>(),
+    context = { from: "props" };
+  const props = { ref, getRowId, columnDefs: [{ field: "amount" }], context };
+  const view = render(
+    <Ag31ClientGrid {...props} rowData={[{ id: "a", amount: 1 }]} />,
+  );
+  const imperative = { from: "api" };
+  act(() => ref.current!.api.setGridOption("context", imperative));
+  view.rerender(
+    <Ag31ClientGrid {...props} rowData={[{ id: "a", amount: 2 }]} />,
+  );
+  expect(ref.current!.api.getGridOption("context")).toBe(imperative);
+  const next = { from: "new prop" };
+  view.rerender(
+    <Ag31ClientGrid
+      {...props}
+      context={next}
+      rowData={[{ id: "a", amount: 3 }]}
+    />,
+  );
+  expect(ref.current!.api.getGridOption("context")).toBe(next);
+});
+
+it("emits ready once after initial narrow-layout unpinning commits an active view", async () => {
+  const width = vi
+    .spyOn(HTMLElement.prototype, "clientWidth", "get")
+    .mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("og-viewport") ? 320 : 0;
+    });
+  try {
+    const ref = createRef<Ag31ClientGridHandle<Row>>(),
+      ready = vi.fn();
+    render(
+      <Ag31ClientGrid
+        ref={ref}
+        getRowId={getRowId}
+        rowData={[{ id: "a", amount: 1 }]}
+        columnDefs={[
+          { field: "id", width: 300, pinned: "left" },
+          { field: "amount", width: 240, pinned: "right" },
+        ]}
+        onGridReady={ready}
+      />,
+    );
+    await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
+    expect(
+      ref
+        .current!.api.getColumnState()!
+        .every((column) => column.pinned === null),
+    ).toBe(true);
+    expect(ready.mock.calls[0][0].api).toBe(ref.current!.api);
+  } finally {
+    width.mockRestore();
+  }
+});
 
 it("embeds source checkboxes in the data column with distinct filtered group and all-row header scopes", () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>();

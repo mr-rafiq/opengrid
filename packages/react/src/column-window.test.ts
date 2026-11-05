@@ -2,6 +2,58 @@ import { describe, expect, it } from "vitest";
 import { getColumnWindow } from "./column-window";
 const dimensions = { scrollLeft: 0, viewportWidth: 300, overscan: 0 };
 describe("fixed-width column window", () => {
+  it("keeps short end-pinned bands at the viewport edge with one non-column center gap in either direction", () => {
+    for (const direction of ["ltr", "rtl"] as const) {
+      const columns = [
+        {
+          width: 300,
+          pinned: direction === "ltr" ? ("left" as const) : ("right" as const),
+        },
+        {
+          width: 240,
+          pinned: direction === "ltr" ? ("right" as const) : ("left" as const),
+        },
+      ];
+      expect(
+        getColumnWindow(columns, {
+          scrollLeft: 0,
+          viewportWidth: 950,
+          leadingWidth: 44,
+          direction,
+        }),
+      ).toEqual([
+        { kind: "column", index: 0 },
+        { kind: "spacer", key: "pin-end-gap", width: 366 },
+        { kind: "column", index: 1 },
+      ]);
+    }
+    expect(
+      getColumnWindow(
+        [
+          { width: 100, pinned: "left" },
+          { width: 50 },
+          { width: 80, pinned: "right" },
+          { width: 60, pinned: "right" },
+        ],
+        { scrollLeft: 0, viewportWidth: 600, leadingWidth: 44 },
+      ),
+    ).toEqual([
+      { kind: "column", index: 0 },
+      { kind: "column", index: 1 },
+      { kind: "spacer", key: "pin-end-gap", width: 266 },
+      { kind: "column", index: 2 },
+      { kind: "column", index: 3 },
+    ]);
+    expect(
+      getColumnWindow([{ width: 100, pinned: "left" }, { width: 100 }], {
+        scrollLeft: 0,
+        viewportWidth: 600,
+      }),
+    ).toEqual([
+      { kind: "column", index: 0 },
+      { kind: "column", index: 1 },
+    ]);
+  });
   it("renders only overlapping center columns with exact spacer widths", () => {
     expect(
       getColumnWindow(

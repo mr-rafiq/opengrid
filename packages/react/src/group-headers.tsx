@@ -3,6 +3,7 @@ import { GridIcon } from "./icons.js";
 import { useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { ColumnWindowEntry, WindowColumn } from "./column-window.js";
+import { getInlineEndPinGap } from "./column-window.js";
 import { assertGridDirection, normalizeScrollLeft } from "./direction.js";
 import type { GridDirection } from "./direction.js";
 
@@ -297,6 +298,12 @@ export function HeaderGroupRows({
     ),
   );
   const offsets = [0];
+  const pinGap = getInlineEndPinGap(
+    columns,
+    viewport.width,
+    leadingWidth,
+    direction,
+  );
   for (const column of columns) offsets.push(offsets.at(-1)! + column.width);
   const background = "var(--og-surface, #f4f7fa)",
     border = "var(--og-border, #ccd7e1)";
@@ -365,11 +372,21 @@ export function HeaderGroupRows({
         const cells: ReactNode[] = [];
         let gapWidth = 0,
           gapStart = 0;
+        let endGapAdded = false;
         const flush = () => {
           if (gapWidth > 0) cells.push(spacer(gapStart, gapWidth));
           gapWidth = 0;
         };
         for (const cell of row) {
+          if (
+            pinGap &&
+            !endGapAdded &&
+            cell.pinned === (direction === "rtl" ? "left" : "right")
+          ) {
+            flush();
+            cells.push(spacer(-1, pinGap.width));
+            endGapAdded = true;
+          }
           const mounted =
             !visible ||
             cell.pinned !== null ||

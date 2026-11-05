@@ -20,6 +20,22 @@ export interface ColumnWindowOptions {
   enabled?: boolean;
 }
 
+/** A presentation-only center gap anchors the inline-end pin band when columns do not fill the view. */
+export function getInlineEndPinGap(
+  columns: readonly WindowColumn[],
+  viewportWidth: number,
+  leadingWidth: number,
+  direction: GridDirection,
+): { beforeIndex: number; width: number } | null {
+  const endSide = direction === "rtl" ? "left" : "right";
+  const beforeIndex = columns.findIndex((column) => column.pinned === endSide);
+  const width =
+    viewportWidth -
+    leadingWidth -
+    columns.reduce((sum, column) => sum + column.width, 0);
+  return beforeIndex >= 0 && width > 0 ? { beforeIndex, width } : null;
+}
+
 /** Fixed-width horizontal window. Pinned and explicitly retained columns always render.
  * Spacer widths preserve all omitted columns' logical positions without adding ARIA cells.
  */
@@ -72,6 +88,12 @@ export function getColumnWindow(
   const right = Math.max(left + 1, scroll + viewportWidth - endPinned);
   const retained = new Set(options.retainIndices ?? []);
   const result: ColumnWindowEntry[] = [];
+  const pinGap = getInlineEndPinGap(
+    columns,
+    viewportWidth,
+    leadingWidth,
+    direction,
+  );
   let position = leadingWidth,
     gap = 0,
     gapStart = 0;
@@ -81,6 +103,10 @@ export function getColumnWindow(
     gap = 0;
   }
   columns.forEach((column, index) => {
+    if (pinGap?.beforeIndex === index) {
+      flushGap();
+      result.push({ kind: "spacer", key: "pin-end-gap", width: pinGap.width });
+    }
     const render =
       options.enabled === false ||
       column.pinned === "left" ||

@@ -212,31 +212,31 @@
 .og-root * {
   box-sizing: border-box;
 }
-.og-root button,
-.og-root input,
-.og-root select {
+.og-root button:not(:where([data-og-source-component] *)),
+.og-root input:not(:where([data-og-source-component] *)),
+.og-root select:not(:where([data-og-source-component] *)) {
   font: inherit;
   color: inherit;
 }
-.og-root button,
-.og-root select {
+.og-root button:not(:where([data-og-source-component] *)),
+.og-root select:not(:where([data-og-source-component] *)) {
   border: 1px solid var(--og-border);
   background: var(--og-bg);
   border-radius: 5px;
   padding: 5px 9px;
 }
-.og-root button {
+.og-root button:not(:where([data-og-source-component] *)) {
   cursor: pointer;
 }
-.og-root button:hover:not(:disabled) {
+.og-root button:not(:where([data-og-source-component] *)):hover:not(:disabled) {
   background: var(--og-surface);
   border-color: var(--og-accent);
 }
-.og-root button:disabled {
+.og-root button:not(:where([data-og-source-component] *)):disabled {
   opacity: 0.4;
   cursor: default;
 }
-.og-root input[type="checkbox"] {
+.og-root input:not(:where([data-og-source-component] *))[type="checkbox"] {
   accent-color: var(--og-accent);
   width: 15px;
   height: 15px;
@@ -972,7 +972,7 @@
   }
 }
 @media (pointer: coarse) {
-  .og-root input[type="checkbox"] {
+  .og-root input:not(:where([data-og-source-component] *))[type="checkbox"] {
     width: 24px;
     height: 24px;
   }
@@ -1212,15 +1212,15 @@
   transform: scaleX(-1);
 }
 
-.og-root button {
+.og-root button:not(:where([data-og-source-component] *)) {
   min-height: 30px;
   cursor: pointer;
 }
-.og-root button:hover:not(:disabled) {
+.og-root button:not(:where([data-og-source-component] *)):hover:not(:disabled) {
   background: var(--og-hover);
 }
-.og-root button:focus-visible,
-.og-root select:focus-visible {
+.og-root button:not(:where([data-og-source-component] *)):focus-visible,
+.og-root select:not(:where([data-og-source-component] *)):focus-visible {
   outline: 2px solid var(--og-focus);
   outline-offset: 2px;
 }

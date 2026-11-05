@@ -25,6 +25,8 @@ export interface Ag31RowTransaction<T> {
 }
 export interface Ag31ClientControllerOptions<T> {
   rows: T[];
+  /** Original nullable component option; rows remains the resident projection. */
+  rowData?: T[] | null;
   definitions: readonly Ag31ColumnDefinition<T>[];
   defaultColDef?: Ag31ColumnDefinition<T>;
   getRowId(row: T): string;
@@ -89,12 +91,15 @@ export function createAg31ClientController<T>(
   const columnApi = {} as Record<string, unknown>;
   const settings = new Map<string, unknown>([
     ["context", options.context],
-    ["rowData", options.rows],
+    [
+      "rowData",
+      Object.hasOwn(options, "rowData") ? options.rowData : options.rows,
+    ],
   ]);
   const commonParams = () => ({
     api,
     columnApi,
-    context: settings.get("context"),
+    context: getGridOption("context"),
   });
   const events = createAg31EventHub(commonParams);
   const lifecycle = new Set<() => void>();
@@ -220,7 +225,7 @@ export function createAg31ClientController<T>(
     return destroyed ? undefined : read();
   }
   function getGridOption(key: string) {
-    return active(() => settings.get(key));
+    return active(() => settings.get(key) ?? undefined);
   }
   function setGridOption(key: string, value: unknown) {
     if (destroyed) return;
@@ -229,17 +234,18 @@ export function createAg31ClientController<T>(
       return;
     }
     if (key === "rowData") {
-      if (!Array.isArray(value))
-        throw new TypeError("rowData must be an array");
+      if (value !== null && !Array.isArray(value))
+        throw new TypeError("rowData must be an array or null");
+      const nextRows = (value ?? []) as T[];
       const previousRows = settings.get(key);
       settings.set(key, value);
       try {
-        model.setRows(value);
+        model.setRows(nextRows);
       } catch (error) {
         const resident = model.getRows();
         if (
-          resident.length !== value.length ||
-          resident.some((row, index) => row !== value[index])
+          resident.length !== nextRows.length ||
+          resident.some((row, index) => row !== nextRows[index])
         )
           settings.set(key, previousRows);
         throw error;

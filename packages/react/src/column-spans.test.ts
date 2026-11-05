@@ -22,6 +22,33 @@ const windowWidth = (entries: ReturnType<typeof getColumnSpanWindow>) =>
   );
 
 describe("row-specific column span geometry", () => {
+  it("keeps a merged end-pinned owner behind the same non-column gap as its headers", () => {
+    const plan = createColumnSpanPlan(
+      [
+        { id: "left", width: 300, pinned: "left" },
+        { id: "amount", width: 120, pinned: "right", colSpan: 2 },
+        { id: "units", width: 120, pinned: "right" },
+      ],
+      context,
+    );
+    const entries = getColumnSpanWindow(plan, {
+      scrollLeft: 0,
+      viewportWidth: 950,
+      leadingWidth: 44,
+    });
+    expect(
+      entries.map((entry) =>
+        entry.kind === "spacer"
+          ? entry
+          : { kind: "cell", id: entry.cell.columnId, width: entry.cell.width },
+      ),
+    ).toEqual([
+      { kind: "cell", id: "left", width: 300 },
+      { kind: "spacer", key: "pin-end-gap", width: 366 },
+      { kind: "cell", id: "amount", width: 240 },
+    ]);
+    expect(windowWidth(entries) + 44).toBe(950);
+  });
   it("covers each leaf exactly once and sums widths without changing the input", () => {
     const input = columns();
     input[0] = { ...input[0], colSpan: 3 };
