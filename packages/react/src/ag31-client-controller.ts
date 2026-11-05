@@ -1,4 +1,8 @@
 import {
+  createAg31ColumnGroups,
+  type Ag31ColumnGroupState,
+} from "./ag31-column-groups.js";
+import {
   createGrid,
   HIERARCHY_SELECTION_LIMITS,
   type GridState,
@@ -166,12 +170,28 @@ export function createAg31ClientController<T>(
     viewRevision++;
     for (const listener of [...viewListeners]) listener();
   }
+  const groups = createAg31ColumnGroups(
+    options.definitions,
+    () => refreshCells(),
+    {
+      snapshot: () => model.getState(),
+      isVisible: (id) => {
+        const visibility = model.getState().columnVisibility;
+        return Object.hasOwn(visibility, id)
+          ? visibility[id]
+          : baseVisibility.get(id) !== false;
+      },
+    },
+  );
   const schema = createAg31ValueColumns({
     definitions: options.definitions,
     defaultColDef: options.defaultColDef,
     getRowId: options.getRowId,
     commonParams,
   });
+  const baseVisibility = new Map(
+    schema.columns.map((column) => [column.id, !column.hidden]),
+  );
   const model = createGrid({
     rows: options.rows,
     columns: schema.columns,
@@ -206,6 +226,7 @@ export function createAg31ClientController<T>(
     commonParams,
     ownsNode: (node) => nodes.getRowNode(node.id) === node,
     sourceFilterActive: (id) => Object.hasOwn(sourceFilters, id),
+    sourceColumnDisplayed: groups.isColumnDisplayed,
   });
   schema.bind({ model, nodes, columns });
   const emit = (event: Ag31Event) => events.dispatchEvent(event);
@@ -753,6 +774,16 @@ export function createAg31ClientController<T>(
       active(() => schema.getCellValue(params)),
     refreshCells,
     refreshClientSideRowModel,
+    getColumnGroupState: () => active(() => groups.getColumnGroupState()),
+    setColumnGroupState: (state: readonly Ag31ColumnGroupState[]) => {
+      if (!destroyed) groups.setColumnGroupState(state);
+    },
+    resetColumnGroupState: () => {
+      if (!destroyed) groups.resetColumnGroupState();
+    },
+    setColumnGroupOpened: (id: string, open: boolean) => {
+      if (!destroyed) groups.setColumnGroupOpened(id, open);
+    },
     addEventListener: events.addEventListener,
     removeEventListener: events.removeEventListener,
     dispatchEvent: events.dispatchEvent,
@@ -765,6 +796,10 @@ export function createAg31ClientController<T>(
     getRowGroupColumns: methods.getRowGroupColumns,
     applyColumnState: methods.applyColumnState,
     getColumnState: methods.getColumnState,
+    getColumnGroupState: methods.getColumnGroupState,
+    setColumnGroupState: methods.setColumnGroupState,
+    resetColumnGroupState: methods.resetColumnGroupState,
+    setColumnGroupOpened: methods.setColumnGroupOpened,
   };
   Object.assign(columnApi, columnMethods);
   if (
@@ -779,6 +814,7 @@ export function createAg31ClientController<T>(
     nodes,
     columns,
     schema,
+    groups,
     subscribeLifecycle(listener: () => void) {
       lifecycle.add(listener);
       return () => {

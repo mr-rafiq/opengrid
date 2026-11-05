@@ -612,3 +612,31 @@ it("connects custom header subscriptions to local sort and asynchronous source r
   fireEvent.click(screen.getByRole("button", { name: "Source menu" }));
   expect(screen.getByRole("menu")).toBeTruthy();
 });
+
+it("controlled source group toggles and API restoration retain leaf visibility", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>(),
+    rowData = [{ id: "a", amount: 12 }];
+  const columnDefs = [
+    {
+      headerName: "Details",
+      children: [{ field: "id" }, { field: "amount", columnGroupShow: "open" }],
+    },
+  ];
+  render(
+    <PublicGrid
+      ref={ref}
+      getRowId={getRowId}
+      rowData={rowData}
+      columnDefs={columnDefs}
+    />,
+  );
+  expect(screen.queryByRole("gridcell", { name: /^12$/ })).toBeNull();
+  expect(ref.current!.api.getColumn("amount")!.isVisible()).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: /Expand.*Details/i }));
+  expect(screen.getByRole("gridcell", { name: /^12$/ })).toBeTruthy();
+  act(() => ref.current!.api.resetColumnGroupState());
+  expect(screen.queryByRole("gridcell", { name: /^12$/ })).toBeNull();
+  expect(
+    ref.current!.api.getColumnState()!.find((c) => c.colId === "amount")!.hide,
+  ).toBe(false);
+});

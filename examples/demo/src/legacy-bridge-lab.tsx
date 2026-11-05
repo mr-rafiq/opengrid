@@ -24,6 +24,7 @@ const money = new Intl.NumberFormat("de-DE", {
 });
 const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
   {
+    groupId: "estimate",
     headerName: "Estimate",
     children: [
       {
@@ -47,6 +48,7 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
     ],
   },
   {
+    groupId: "values",
     headerName: "Values",
     children: [
       {
@@ -69,6 +71,14 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
             : undefined,
         valueFormatter: (p: Ag31ValueParams<EstimateLine>) =>
           p.value == null ? "" : money.format(Number(p.value)),
+      },
+      {
+        colId: "amountRaw",
+        field: "amount",
+        headerName: "Raw amount",
+        width: 120,
+        cellDataType: "number",
+        columnGroupShow: "open",
       },
     ],
   },
@@ -187,6 +197,29 @@ export function LegacyBridgeLab() {
             onClick={() => grid.current?.api.setFilterModel(null)}
           >
             Clear source filter model
+          </button>
+        </div>
+      </details>
+      <details>
+        <summary>Source header group example</summary>
+        <p>
+          Open Values to show its optional raw-value column. Header group
+          display and a column's own hidden flag remain independent.
+        </p>
+        <div className="grouping-lab-controls">
+          <button
+            type="button"
+            onClick={() =>
+              grid.current?.api.setColumnGroupOpened("values", true)
+            }
+          >
+            Show value details
+          </button>
+          <button
+            type="button"
+            onClick={() => grid.current?.api.resetColumnGroupState()}
+          >
+            Reset source headers
           </button>
         </div>
       </details>

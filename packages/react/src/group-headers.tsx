@@ -11,6 +11,8 @@ export interface GroupedWindowColumn extends WindowColumn {
   id: string;
   header?: string;
   groupPath?: readonly string[];
+  /** Stable keys can differ from labels; blank labels represent padding groups. */
+  headerGroupPath?: readonly { key: string; label: string }[];
 }
 export interface HeaderGroupCell {
   key: string;
@@ -66,7 +68,25 @@ export function computeHeaderGroups(
         ))
     )
       throw new Error("groupPath must contain at most eight nonblank strings");
-    depthCount = Math.max(depthCount, column.groupPath?.length ?? 0);
+    if (
+      column.headerGroupPath !== undefined &&
+      (!Array.isArray(column.headerGroupPath) ||
+        column.headerGroupPath.length > 8 ||
+        column.headerGroupPath.some(
+          (part) =>
+            !part ||
+            typeof part.key !== "string" ||
+            !part.key ||
+            typeof part.label !== "string",
+        ))
+    )
+      throw new TypeError(
+        "Controlled header paths require bounded keyed labels",
+      );
+    depthCount = Math.max(
+      depthCount,
+      column.headerGroupPath?.length ?? column.groupPath?.length ?? 0,
+    );
     const total = offsets[index] + column.width;
     if (
       !Number.isFinite(total) ||
@@ -87,8 +107,14 @@ export function computeHeaderGroups(
   return Array.from({ length: depthCount }, (_, depth) => {
     const cells: HeaderGroupCell[] = [];
     columns.forEach((column, index) => {
-      const path = column.groupPath?.slice(0, depth + 1) ?? [],
-        label = column.groupPath?.[depth] ?? "",
+      const path =
+          column.headerGroupPath?.slice(0, depth + 1).map((part) => part.key) ??
+          column.groupPath?.slice(0, depth + 1) ??
+          [],
+        label =
+          (column.headerGroupPath
+            ? column.headerGroupPath[depth]?.label
+            : column.groupPath?.[depth]) ?? "",
         pinned = column.pinned ?? null;
       const previous = cells.at(-1);
       if (
@@ -149,6 +175,8 @@ export interface HeaderGroupRowsProps {
   /** Called only by an explicit group toggle. The parent owns actual column visibility. */
   onToggle?: (path: string[]) => void;
   collapsedPaths?: readonly (readonly string[])[];
+  canToggle?: (path: readonly string[]) => boolean;
+  isExpanded?: (path: readonly string[]) => boolean;
   ariaLabel?: string;
   className?: string;
 }
@@ -163,6 +191,8 @@ export function HeaderGroupRows({
   rowHeight = 38,
   onToggle,
   collapsedPaths = [],
+  canToggle,
+  isExpanded,
   ariaLabel,
   className = "",
 }: HeaderGroupRowsProps) {
@@ -399,7 +429,17 @@ export function HeaderGroupRows({
             continue;
           }
           flush();
-          const isCollapsed = collapsed.has(JSON.stringify(cell.path));
+          const isCollapsed = isExpanded
+            ? !isExpanded(cell.path)
+            : collapsed.has(JSON.stringify(cell.path));
+          const toggleEnabled =
+            !!onToggle && !!cell.label && (canToggle?.(cell.path) ?? true);
+          const caption =
+            columns[cell.start].headerGroupPath
+              ?.slice(0, depth + 1)
+              .map((part) => part.label)
+              .filter(Boolean)
+              .join(" / ") ?? cell.path.join(" / ");
           const padding = Math.min(10, cell.width / 2);
           const contentOffset =
             cell.pinned !== null
@@ -407,7 +447,7 @@ export function HeaderGroupRows({
               : Math.min(
                   Math.max(
                     padding,
-                    cell.width - padding - (onToggle && cell.label ? 28 : 0),
+                    cell.width - padding - (toggleEnabled ? 28 : 0),
                   ),
                   Math.max(
                     padding,
@@ -456,13 +496,13 @@ export function HeaderGroupRows({
                   maxWidth: contentWidth,
                 }}
               >
-                {onToggle && cell.label && (
+                {toggleEnabled && onToggle && (
                   <button
                     type="button"
                     className="og-header-group-toggle"
                     aria-label={t(
                       isCollapsed ? "headers.expand" : "headers.collapse",
-                      { path: cell.path.join(" / ") },
+                      { path: caption },
                     )}
                     aria-pressed={isCollapsed}
                     data-group-toggle-path={JSON.stringify(cell.path)}
@@ -482,7 +522,7 @@ export function HeaderGroupRows({
                     />
                   </button>
                 )}
-                {(!onToggle || !cell.label) && (
+                {!toggleEnabled && (
                   <span
                     style={{ overflow: "hidden", textOverflow: "ellipsis" }}
                   >

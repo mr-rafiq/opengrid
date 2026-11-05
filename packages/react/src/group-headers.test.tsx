@@ -249,3 +249,43 @@ describe("grouped header React rows", () => {
     expect(container.childElementCount).toBe(0);
   });
 });
+
+it("controlled header identities distinguish equal captions and preserve blank padding", () => {
+  const rows = computeHeaderGroups([
+    {
+      id: "a",
+      width: 100,
+      headerGroupPath: [{ key: "first", label: "Details" }],
+    },
+    {
+      id: "b",
+      width: 120,
+      headerGroupPath: [{ key: "second", label: "Details" }],
+    },
+    { id: "c", width: 80, headerGroupPath: [{ key: "padding", label: "" }] },
+  ]);
+  expect(rows[0].map((cell) => [cell.label, cell.path, cell.width])).toEqual([
+    ["Details", ["first"], 100],
+    ["Details", ["second"], 120],
+    ["", ["padding"], 80],
+  ]);
+});
+it("controlled nonexpandable groups render captions without misleading toggle buttons", () => {
+  const toggle = vi.fn();
+  render(
+    <HeaderGroupRows
+      columns={[
+        {
+          id: "a",
+          width: 200,
+          headerGroupPath: [{ key: "id", label: "Details" }],
+        },
+      ]}
+      onToggle={toggle}
+      canToggle={() => false}
+      isExpanded={() => false}
+    />,
+  );
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.getByRole("columnheader").textContent).toBe("Details");
+});

@@ -162,6 +162,14 @@ export interface GridSelectionControls<T> {
   getHeaderState(): GridSelectionCheckboxState | null;
   toggleHeader(): void;
 }
+/** Controlled provided-header presentation; leaf hidden state remains model-owned. */
+export interface GridHeaderGroupController<T> {
+  getPath(column: Column<T>): readonly { key: string; label: string }[];
+  isColumnDisplayed(column: Column<T>): boolean;
+  canToggle(path: readonly string[]): boolean;
+  isExpanded(path: readonly string[]): boolean;
+  toggle(path: readonly string[]): void;
+}
 export interface DataGridProps<T> {
   model: GridModel<T>;
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
@@ -192,6 +200,7 @@ export interface DataGridProps<T> {
   columnOverscan?: number;
   virtualizeColumns?: boolean;
   columnGroups?: boolean;
+  headerGroupController?: GridHeaderGroupController<T>;
   /** Floating filter inputs can be hidden without disabling filtering or filter panels. */
   floatingFilters?: boolean | ((column: Column<T>) => boolean);
   rowGroupPanel?: false | "always" | "whenGrouped";
@@ -389,6 +398,7 @@ export function DataGrid<T>({
   columnOverscan = 200,
   virtualizeColumns = true,
   columnGroups = true,
+  headerGroupController,
   floatingFilters = true,
   rowGroupPanel = false,
   selectionMode = "multiple",
@@ -510,7 +520,11 @@ export function DataGrid<T>({
         (bi < 0 ? allColumns.indexOf(b) : bi)
       );
     })
-    .filter(visibleOf);
+    .filter(
+      (column) =>
+        visibleOf(column) &&
+        (headerGroupController?.isColumnDisplayed(column) ?? true),
+    );
   const pinOf = (column: Column<T>) =>
     Object.prototype.hasOwnProperty.call(state.columnPinning, column.id)
       ? state.columnPinning[column.id]
@@ -524,6 +538,9 @@ export function DataGrid<T>({
     direction,
   ).map((index) => ordered[index]);
   const columnIds = columns.map((column) => column.id);
+  const displayedColumnSignature = JSON.stringify(
+    ordered.map((column) => column.id),
+  );
   const rowModel = model.getRowModel();
   const hierarchical =
     Boolean(renderDetail) ||
@@ -585,7 +602,7 @@ export function DataGrid<T>({
         leadingWidth: selectionWidth,
         columnWidths: state.columnWidths,
       }),
-    [model, state, sizingWidth, selectionWidth],
+    [model, state, sizingWidth, selectionWidth, displayedColumnSignature],
   );
   const baseWidthSignature = JSON.stringify([
     selectionWidth,
@@ -729,6 +746,9 @@ export function DataGrid<T>({
     id: column.id,
     header: column.header,
     groupPath: columnGroups ? column.groupPath : undefined,
+    headerGroupPath: columnGroups
+      ? headerGroupController?.getPath(column)
+      : undefined,
     width: widthOf(column),
     pinned: pinOf(column),
   }));
@@ -4562,7 +4582,13 @@ export function DataGrid<T>({
                     columns={groupedColumns}
                     entries={columnEntries}
                     leadingWidth={selectionWidth}
-                    onToggle={toggleColumnGroup}
+                    onToggle={
+                      headerGroupController
+                        ? (path) => headerGroupController.toggle(path)
+                        : toggleColumnGroup
+                    }
+                    canToggle={headerGroupController?.canToggle}
+                    isExpanded={headerGroupController?.isExpanded}
                     collapsedPaths={collapsedGroups}
                   />
                 )}

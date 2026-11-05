@@ -468,3 +468,7 @@ See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `
 ### Resident view projections
 
 Native selection, column layout, pagination and expansion updates reuse the existing query results. Expansion rebuilds the displayed flat list while retaining group membership, child sorting and aggregate snapshots. Explicit sort/filter/data/cache operations invalidate those projections. External-predicate replacement remains a query operation even when it only resets the page.
+
+### Controlled provided headers
+
+`DataGrid.headerGroupController` supplies keyed caption paths, display predicates and actual group-toggle/expanded state. Leaf visibility remains model-owned. This optional controller is distinct from native collapse-by-hiding; without it existing native behavior is unchanged. The source resident bridge uses it for conditional provided groups. See [the legacy bridge contracts](LEGACY_REACT_BRIDGE.md#provided-header-groups).

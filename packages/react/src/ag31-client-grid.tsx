@@ -305,10 +305,12 @@ function ResidentView<T>({
         : new ResizeObserver(reconcile);
     if (host) observer?.observe(host);
     const unsubscribe = owner.model.subscribe(reconcile);
+    const unsubscribeView = owner.subscribeViewRefresh(reconcile);
     reconcile();
     return () => {
       observer?.disconnect();
       unsubscribe();
+      unsubscribeView();
     };
   }, [owner, destroyed]);
   useEffect(() => {
@@ -380,6 +382,14 @@ function ResidentView<T>({
     <div ref={container} style={{ minWidth: 0 }}>
       <DataGrid
         model={owner.model}
+        headerGroupController={{
+          getPath: (column) => owner.groups.getPath(column.id),
+          isColumnDisplayed: (column) =>
+            owner.groups.isColumnDisplayed(column.id),
+          canToggle: owner.groups.canToggle,
+          isExpanded: owner.groups.isExpanded,
+          toggle: owner.groups.toggle,
+        }}
         viewRef={view}
         toolbar={false}
         pagination={false}

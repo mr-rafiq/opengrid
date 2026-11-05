@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.19.0 - 2026-11-05
+
+Resident provided header groups. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Add ref/column API group-state snapshots, restore/reset and explicit group opening with measured generated/padding IDs and nested ordering.
+- Render open/closed-only child columns without overwriting saved leaf visibility. Hidden children update group expandability; equal captions retain independent identities.
+- Recompute width geometry when controlled display changes, preserve keyboard toggle focus and reconcile pin pressure. An original example reveals optional value details.
+- Full group objects/events, dynamic source definitions, complete saved state, custom filters/editors/panels and authenticated full application acceptance remain open.
+
 ## 0.18.0 - 2026-11-05
 
 Resident view-stage refresh correction. Created by Mohamed Rafiq. Source release only; no npm publication.

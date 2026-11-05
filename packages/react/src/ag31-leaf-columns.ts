@@ -62,6 +62,7 @@ export interface Ag31LeafColumnsOptions<T> {
   renderedWidth?(columnId: string): number | undefined;
   eventSource?(): string;
   sourceFilterActive?(columnId: string): boolean;
+  sourceColumnDisplayed?(columnId: string): boolean;
 }
 type Entry<T> = {
   id: string;
@@ -291,7 +292,13 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
     getAllDisplayedColumns() {
       if (!active) return [];
       assertSchema();
-      const visible = model.getColumns().filter((column) => !column.hidden);
+      const visible = model
+        .getColumns()
+        .filter(
+          (column) =>
+            !column.hidden &&
+            (options.sourceColumnDisplayed?.(column.id) ?? true),
+        );
       return ["left", null, "right"].flatMap((pin) =>
         visible
           .filter((column) => (column.pinned ?? null) === pin)

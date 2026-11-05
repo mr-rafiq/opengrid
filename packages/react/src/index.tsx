@@ -11,6 +11,7 @@ export type {
   Ag31LeafColumn,
 } from "./ag31-leaf-columns.js";
 export type { Ag31RowNode } from "./ag31-row-nodes.js";
+export type { Ag31ColumnGroupState } from "./ag31-column-groups.js";
 export type { Ag31ValueParams } from "./ag31-value-columns.js";
 export type {
   Ag31RowStyleParams,

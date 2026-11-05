@@ -67,6 +67,16 @@ Source filter getters and set key creators receive original owned records/column
 
 Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.
 
+## Provided header groups
+
+`api.getColumnGroupState()`, `setColumnGroupState([{ groupId, open }])`, `resetColumnGroupState()` and `setColumnGroupOpened(groupId, open)` control resident provided header groups. The same methods are available through `columnApi`. Explicit IDs remain stable; generated and padding IDs follow the measured construction order, and snapshots include nested groups in postorder. Reset restores `openByDefault`, while unknown IDs are ignored.
+
+`columnGroupShow: "open" | "closed"` affects display without changing a leaf's own `isVisible()` or column-state `hide` flag. Therefore `getAllDisplayedColumns()` can exclude a column that is still visible in saved column state. Expansion availability follows currently visible children; nonexpandable groups show surviving columns and have no misleading toggle. Nested conditions compose, and identical captions retain distinct group identities.
+
+The source group methods update the actual header/cell view without rerunning row queries. Keyboard toggle focus survives expansion, and pin pressure is reconciled for newly displayed columns. The original bridge example reveals an optional raw-value column and resets the group independently of leaf visibility.
+
+This is bounded to static resident definitions, at most eight header levels, 1,000 source leaves and 9,000 header-tree nodes. Full source group objects/events, group drag/resize constraints, dynamic definition migration and complete saved-state restoration remain unfinished. Source host CSS/theme translation is separate.
+
 ## Source decorations
 
 `getRowStyle` receives the owned source node, original data, row index, API/column API and current context. It works in initial options, direct props and `api.setGridOption`; clearing it removes previous inline styles. An imperative callback change survives unrelated prop updates. `api.refreshCells()` reevaluates view decorations without explicitly rerunning sort/filter stages.
