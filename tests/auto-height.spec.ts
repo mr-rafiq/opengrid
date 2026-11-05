@@ -96,7 +96,27 @@ test("a scrolled source-row point and outside focus survive content growth above
 }) => {
   const { wrapped, grid, errors } = await setup(page);
   await grid.hover({ position: { x: 450, y: 180 } });
+  const previousScroll = await grid.evaluate((element) => element.scrollTop);
   await page.mouse.wheel(0, 1200);
+  // wheel() returns before compositor scrolling and lazy height discovery finish.
+  // Capture the source-row point only after real scrolling/layout has settled.
+  await grid.evaluate(async (element, previous) => {
+    let signature = "",
+      stable = 0;
+    for (let frame = 0; frame < 120; frame++) {
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => resolve()),
+      );
+      const next = `${element.scrollTop}:${element.scrollHeight}:${element.clientHeight}`;
+      if (element.scrollTop > previous && next === signature) stable++;
+      else stable = 0;
+      signature = next;
+      if (stable >= 4) return;
+    }
+    throw new Error(
+      "Wheel scrolling and automatic row-height layout did not settle",
+    );
+  }, previousScroll);
   const anchor = await grid.evaluate((element) => {
     const box = element.getBoundingClientRect();
     return [

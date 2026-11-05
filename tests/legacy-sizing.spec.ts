@@ -95,6 +95,14 @@ for (const width of [320, 1440])
         if (width === 320) await action.tap();
         else await action.click();
         await expect(action).toHaveText("Action 2");
+        await lab
+          .getByRole("button", { name: "Size values, then fit", exact: true })
+          .click();
+        await expect(status).toContainText("Sequence complete");
+        await expect
+          .poll(async () => (await cell.boundingBox())?.width)
+          .toBe(fittedItem.width);
+        await expect(action).toHaveText("Action 2");
         await expect(status).not.toContainText(/cancelled|failed/i);
         expect(
           await page.evaluate(

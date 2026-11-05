@@ -779,3 +779,31 @@ it("leaves existing flex ownership untouched when source fitting already fills t
   expect(write).not.toHaveBeenCalled();
   expect(Object.hasOwn(f.model.getState().columnWidths, "value")).toBe(false);
 });
+
+it("fits using newly published manual widths before the committed render snapshot catches up", () => {
+  const f = fixture([
+    { id: "a", field: "value", width: 100 },
+    { id: "b", field: "value", width: 200 },
+  ]);
+  Object.defineProperty(f.root, "clientWidth", {
+    value: 639,
+    configurable: true,
+  });
+  const controller = createColumnSizingController(() => ({
+    model: f.model,
+    viewport: f.root,
+    columns: f.model.getColumns(),
+    widths: { a: 100, b: 200 },
+    viewToken: 1,
+  }));
+  f.model.resizeColumn("a", 150);
+  const report = controller.sizeColumnsToFit({
+    excludeColumnIds: ["a"],
+    freezeExcluded: false,
+    roundToPixels: true,
+  });
+  expect(report.cancelled).toBe(false);
+  expect(report.allocation?.widths).toEqual({ a: 150, b: 489 });
+  expect(f.model.getState().columnWidths).toEqual({ a: 150, b: 489 });
+  controller.dispose();
+});

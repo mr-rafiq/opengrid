@@ -412,6 +412,13 @@ export function createColumnSizingController<T>(
         return cancelled("unavailable");
       const clientWidth = root.clientWidth;
       const defaults = context.model.getColumnWidthDefaults();
+      // A preceding synchronous model command can publish before React commits.
+      // Respect its manual widths while retaining the committed displayed set.
+      const currentWidths = Object.create(null) as Record<string, number>;
+      for (const id of Object.keys(context.widths))
+        currentWidths[id] = Object.hasOwn(state.columnWidths, id)
+          ? state.columnWidths[id]
+          : context.widths[id];
       const allocation = fitColumnWidths(
         context.columns.map((column) => ({
           ...column,
@@ -421,14 +428,14 @@ export function createColumnSizingController<T>(
         {
           availableWidth: options.availableWidth ?? clientWidth,
           leadingWidth: context.leadingWidth,
-          columnWidths: context.widths,
+          columnWidths: currentWidths,
           excludeColumnIds: options.excludeColumnIds,
           roundToPixels: options.roundToPixels,
         },
       );
       if (
         options.skipIfAlreadyFits &&
-        Object.values(context.widths).reduce(
+        Object.values(currentWidths).reduce(
           (sum, width) => sum + width,
           context.leadingWidth ?? 0,
         ) === (options.availableWidth ?? clientWidth)

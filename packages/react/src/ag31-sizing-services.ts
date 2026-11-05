@@ -13,9 +13,13 @@ export function createAg31SizingServices(
   let alive = true;
   let attachment: { read(): DataGridSizingController | null } | null = null;
   let activeRequest: AbortController | null = null;
+  let activeCompletion: Promise<AutoSizeReport> | null = null;
+  let commandIntent: object = {};
   const cancel = () => {
+    commandIntent = {};
     activeRequest?.abort();
     activeRequest = null;
+    activeCompletion = null;
   };
   const unavailable = (): AutoSizeReport =>
     Object.freeze({
@@ -52,7 +56,7 @@ export function createAg31SizingServices(
     const request = new AbortController();
     activeRequest = request;
     try {
-      return port
+      const completion = port
         .autoSizeColumns([...ids], {
           contentMode: "rendered-dom",
           extraPadding: 20,
@@ -60,8 +64,13 @@ export function createAg31SizingServices(
           signal: request.signal,
         })
         .finally(() => {
-          if (activeRequest === request) activeRequest = null;
+          if (activeRequest === request) {
+            activeRequest = null;
+            activeCompletion = null;
+          }
         });
+      activeCompletion = completion;
+      return completion;
     } catch (error) {
       if (activeRequest === request) activeRequest = null;
       throw error;
@@ -71,7 +80,7 @@ export function createAg31SizingServices(
     getRenderedWidth(id: string): number | undefined {
       return alive ? attachment?.read()?.getWidths()[id] : undefined;
     },
-    sizeColumnsToFit(width?: number): FitColumnsReport {
+    sizeColumnsToFit(width?: number): Promise<FitColumnsReport> {
       if (
         width !== undefined &&
         (typeof width !== "number" ||
@@ -83,26 +92,45 @@ export function createAg31SizingServices(
           "Source fit width must be a finite nonnegative safe dimension",
         );
       const unavailableFit = (
-        reason: "disposed" | "unavailable",
+        reason: "disposed" | "unavailable" | "stale" | "busy",
       ): FitColumnsReport =>
         Object.freeze({
           cancelled: true,
           cancelReason: reason,
           changedColumnIds: Object.freeze([]),
         });
-      if (!alive) return unavailableFit("disposed");
-      if (width === 0) return unavailableFit("unavailable");
+      if (!alive) return Promise.resolve(unavailableFit("disposed"));
+      if (width === 0) return Promise.resolve(unavailableFit("unavailable"));
       const excludeColumnIds = excluded(),
-        port = attachment?.read();
-      cancel();
-      if (!port) return unavailableFit("unavailable");
-      return port.sizeColumnsToFit({
-        availableWidth: width,
-        excludeColumnIds,
-        roundToPixels: true,
-        freezeExcluded: false,
-        skipIfAlreadyFits: true,
-      });
+        owner = attachment,
+        port = owner?.read();
+      if (!port) return Promise.resolve(unavailableFit("unavailable"));
+      const intent = {},
+        pending = activeCompletion;
+      commandIntent = intent;
+      const fit = (report?: AutoSizeReport): FitColumnsReport => {
+        if (!alive) return unavailableFit("disposed");
+        if (
+          commandIntent !== intent ||
+          attachment !== owner ||
+          owner?.read() !== port
+        )
+          return unavailableFit("stale");
+        if (report?.cancelled)
+          return unavailableFit(
+            report.cancelReason === "busy" ? "busy" : "stale",
+          );
+        return port.sizeColumnsToFit({
+          availableWidth: width,
+          excludeColumnIds,
+          roundToPixels: true,
+          freezeExcluded: false,
+          skipIfAlreadyFits: true,
+        });
+      };
+      // Legacy callers issue these commands together without awaiting autosizing.
+      // Preserve that sequence rather than aborting the pending content measurement.
+      return pending ? pending.then(fit) : Promise.resolve(fit());
     },
     autoSizeColumns,
     autoSizeAllColumns(skipHeader = false) {

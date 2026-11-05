@@ -48,7 +48,7 @@ it("resolves real source identities, deduplicates keys and forwards the measured
   });
   f.owner.api.destroy();
 });
-it("binds fit to the mounted port, preserves suppressed ownership and revokes retired views", () => {
+it("binds fit to the mounted port, preserves suppressed ownership and revokes retired views", async () => {
   const owner = createAg31ClientController({
     rows: [{ id: "a" }],
     definitions: [
@@ -60,13 +60,14 @@ it("binds fit to the mounted port, preserves suppressed ownership and revokes re
   const fit = vi
     .fn<DataGridSizingController["sizeColumnsToFit"]>()
     .mockReturnValue({ cancelled: false, changedColumnIds: [] });
-  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("unavailable");
-  const detach = owner.sizingServices.attach(() => ({
+  expect((await owner.api.sizeColumnsToFit()).cancelReason).toBe("unavailable");
+  const port: DataGridSizingController = {
     sizeColumnsToFit: fit,
     autoSizeColumns: vi.fn(),
     getWidths: () => ({}),
     resetWidths() {},
-  }));
+  };
+  const detach = owner.sizingServices.attach(() => port);
   owner.api.sizeColumnsToFit();
   expect(fit).toHaveBeenCalledExactlyOnceWith({
     availableWidth: undefined,
@@ -79,12 +80,14 @@ it("binds fit to the mounted port, preserves suppressed ownership and revokes re
   expect(fit).toHaveBeenLastCalledWith(
     expect.objectContaining({ availableWidth: 600 }),
   );
-  expect(owner.api.sizeColumnsToFit(0).cancelReason).toBe("unavailable");
+  expect((await owner.api.sizeColumnsToFit(0)).cancelReason).toBe(
+    "unavailable",
+  );
   expect(fit).toHaveBeenCalledTimes(2);
   detach();
-  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("unavailable");
+  expect((await owner.api.sizeColumnsToFit()).cancelReason).toBe("unavailable");
   owner.api.destroy();
-  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("disposed");
+  expect((await owner.api.sizeColumnsToFit()).cancelReason).toBe("disposed");
 });
 it("uses the source default minimum and reports manual flex ownership", () => {
   const owner = createAg31ClientController({
@@ -188,4 +191,97 @@ it("reports mounted flex widths while immediate manual widths win over a previou
   expect(owner.sizingServices.getRenderedWidth("id")).toBeUndefined();
   owner.api.destroy();
   expect(owner.sizingServices.getRenderedWidth("id")).toBeUndefined();
+});
+
+it("preserves the actual autosize-then-fit command sequence without aborting content sizing", async () => {
+  const f = fixture();
+  let finish!: (
+    report: Awaited<ReturnType<DataGridSizingController["autoSizeColumns"]>>,
+  ) => void;
+  let signal: AbortSignal | undefined;
+  f.autoSizeColumns.mockImplementation((_ids, options) => {
+    signal = options?.signal;
+    return new Promise((resolve) => {
+      finish = resolve;
+    });
+  });
+  const fit = vi
+    .mocked(f.port.sizeColumnsToFit)
+    .mockReturnValue({ cancelled: false, changedColumnIds: ["name"] });
+  f.owner.sizingServices.attach(() => f.port);
+  const autosize = f.owner.api.autoSizeColumns(["id"]),
+    pendingFit = f.owner.api.sizeColumnsToFit(600);
+  expect(fit).not.toHaveBeenCalled();
+  expect(signal?.aborted).toBe(false);
+  expect(() => f.owner.api.sizeColumnsToFit(Number.NaN)).toThrow(/width/);
+  finish({ cancelled: false, measured: [], unchanged: [], skipped: [] });
+  await autosize;
+  expect((await pendingFit).cancelled).toBe(false);
+  expect(fit).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ availableWidth: 600 }),
+  );
+  f.owner.api.destroy();
+});
+it("revokes queued fits on detach and lets only the latest fit intent follow the measurement", async () => {
+  const f = fixture();
+  let finish!: (
+    report: Awaited<ReturnType<DataGridSizingController["autoSizeColumns"]>>,
+  ) => void;
+  f.autoSizeColumns.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const fit = vi
+    .mocked(f.port.sizeColumnsToFit)
+    .mockReturnValue({ cancelled: false, changedColumnIds: [] });
+  let detach = f.owner.sizingServices.attach(() => f.port);
+  let autosize = f.owner.api.autoSizeColumns(["id"]);
+  const old = f.owner.api.sizeColumnsToFit(400),
+    latest = f.owner.api.sizeColumnsToFit(500);
+  finish({ cancelled: false, measured: [], unchanged: [], skipped: [] });
+  await autosize;
+  expect((await old).cancelReason).toBe("stale");
+  expect((await latest).cancelled).toBe(false);
+  expect(fit).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ availableWidth: 500 }),
+  );
+  fit.mockClear();
+  autosize = f.owner.api.autoSizeColumns(["id"]);
+  const retired = f.owner.api.sizeColumnsToFit();
+  detach();
+  finish({ cancelled: false, measured: [], unchanged: [], skipped: [] });
+  await autosize;
+  expect((await retired).cancelReason).toBe("stale");
+  expect(fit).not.toHaveBeenCalled();
+  f.owner.api.destroy();
+});
+
+it("never runs a queued fit after its owner is destroyed", async () => {
+  const f = fixture();
+  let finish!: (
+    report: Awaited<ReturnType<DataGridSizingController["autoSizeColumns"]>>,
+  ) => void;
+  f.autoSizeColumns.mockImplementation(
+    () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+  );
+  const fit = vi.mocked(f.port.sizeColumnsToFit);
+  f.owner.sizingServices.attach(() => f.port);
+  const auto = f.owner.api.autoSizeAllColumns(),
+    pending = f.owner.api.sizeColumnsToFit();
+  f.owner.api.destroy();
+  finish({
+    cancelled: true,
+    cancelReason: "aborted",
+    measured: [],
+    unchanged: [],
+    skipped: [],
+  });
+  await auto;
+  expect((await pending).cancelReason).toBe("disposed");
+  expect(fit).not.toHaveBeenCalled();
 });

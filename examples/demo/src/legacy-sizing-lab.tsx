@@ -108,6 +108,31 @@ export function LegacySizingLab() {
       if (active.current) setBusy(false);
     }
   }
+  async function sizeThenFit() {
+    const api = ref.current?.api;
+    if (!api || api.isDestroyed()) return;
+    setBusy(true);
+    try {
+      const measurement = api.autoSizeAllColumns(true);
+      const fitting = api.sizeColumnsToFit();
+      const [measured, fitted] = await Promise.all([measurement, fitting]);
+      if (active.current)
+        setSummary(
+          measured.cancelled || fitted.cancelled
+            ? "Sequence cancelled"
+            : `Sequence complete. ${Object.entries(
+                fitted.allocation?.widths ?? {},
+              )
+                .map(([id, width]) => `${id}: ${width}px`)
+                .join("; ")}`,
+        );
+    } catch (error) {
+      if (active.current)
+        setSummary(error instanceof Error ? error.message : "Sequence failed");
+    } finally {
+      if (active.current) setBusy(false);
+    }
+  }
   return (
     <section aria-label="Source rendered sizing example">
       <h3>Size mounted renderer content</h3>
@@ -123,18 +148,35 @@ export function LegacySizingLab() {
         <button
           type="button"
           disabled={!ready || busy}
-          onClick={() => {
-            const report = ref.current?.api.sizeColumnsToFit();
-            if (report)
-              setSummary(
-                report.cancelled
-                  ? `Fit cancelled: ${report.cancelReason}`
-                  : `Fit complete. ${Object.entries(
-                      report.allocation?.widths ?? {},
-                    )
-                      .map(([id, width]) => `${id}: ${width}px`)
-                      .join("; ")}`,
-              );
+          onClick={() => void sizeThenFit()}
+        >
+          Size values, then fit
+        </button>
+        <button
+          type="button"
+          disabled={!ready || busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const report = await ref.current?.api.sizeColumnsToFit();
+              if (active.current && report)
+                setSummary(
+                  report.cancelled
+                    ? `Fit cancelled: ${report.cancelReason}`
+                    : `Fit complete. ${Object.entries(
+                        report.allocation?.widths ?? {},
+                      )
+                        .map(([id, width]) => `${id}: ${width}px`)
+                        .join("; ")}`,
+                );
+            } catch (error) {
+              if (active.current)
+                setSummary(
+                  error instanceof Error ? error.message : "Fit failed",
+                );
+            } finally {
+              if (active.current) setBusy(false);
+            }
           }}
         >
           Fit available width
