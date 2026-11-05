@@ -689,7 +689,14 @@ export function createAg31ClientController<T>(
           colId: column.id,
           width: regular("width"),
           hide: regular("hide"),
-          pinned: regular("pinned"),
+          pinned: (() => {
+            const pin = regular("pinned");
+            return pin === true
+              ? "left"
+              : pin === "left" || pin === "right"
+                ? pin
+                : null;
+          })(),
           sort: regular("sort"),
           sortIndex: regular("sortIndex"),
           rowGroup: regular("rowGroup"),

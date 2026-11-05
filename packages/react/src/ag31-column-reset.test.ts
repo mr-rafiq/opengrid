@@ -253,3 +253,28 @@ it("uses initial pinning on construction and reset while retaining undeclared wi
     c.api.destroy();
   }
 });
+
+it("normalizes empty declared pin values when restoring the original consumer column layout", () => {
+  const c = createAg31ClientController({
+    rows: [new Record("a", "East", 1)],
+    getRowId: (r) => r.id,
+    definitions: [
+      { field: "team", pinned: "", initialPinned: "left" },
+      { field: "amount", initialPinned: "" },
+    ],
+  });
+  try {
+    expect(c.api.getColumn("team")!.getPinned()).toBeNull();
+    c.api.applyColumnState({
+      state: [
+        { colId: "team", pinned: "right" },
+        { colId: "amount", pinned: "left" },
+      ],
+    });
+    c.api.resetColumnState();
+    expect(c.api.getColumn("team")!.getPinned()).toBeNull();
+    expect(c.api.getColumn("amount")!.getPinned()).toBeNull();
+  } finally {
+    c.api.destroy();
+  }
+});
