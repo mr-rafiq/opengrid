@@ -3,6 +3,91 @@ import { fitColumnWidths, type WidthColumn } from "./column-widths";
 import { createGrid } from "./index";
 
 describe("explicit proportional size-to-fit", () => {
+  it("keeps fractional native sizing by default and supports measured end-first pixel residuals", () => {
+    const columns = [
+      { id: "a", width: 100 },
+      { id: "b", width: 200 },
+      { id: "c", width: 300 },
+    ];
+    expect(fitColumnWidths(columns, { availableWidth: 639 }).widths).toEqual({
+      a: 106.5,
+      b: 213,
+      c: 319.5,
+    });
+    expect(
+      fitColumnWidths(columns, { availableWidth: 639, roundToPixels: true })
+        .widths,
+    ).toEqual({ a: 106, b: 213, c: 320 });
+    expect(
+      fitColumnWidths(columns, { availableWidth: 638, roundToPixels: true })
+        .widths,
+    ).toEqual({ a: 106, b: 213, c: 319 });
+  });
+  it("preserves saturated bounds before distributing integer residuals", () => {
+    expect(
+      fitColumnWidths(
+        [
+          { id: "a", width: 101, minWidth: 101 },
+          { id: "b", width: 100 },
+          { id: "c", width: 100 },
+        ],
+        { availableWidth: 300, roundToPixels: true },
+      ).widths,
+    ).toEqual({ a: 101, b: 99, c: 100 });
+    expect(
+      fitColumnWidths(
+        [
+          { id: "a", width: 100, maxWidth: 100 },
+          { id: "b", width: 100 },
+          { id: "c", width: 100 },
+        ],
+        { availableWidth: 301, roundToPixels: true },
+      ).widths,
+    ).toEqual({ a: 100, b: 100, c: 101 });
+    expect(
+      fitColumnWidths(
+        [
+          { id: "a", width: 100, minWidth: 120, maxWidth: 130 },
+          { id: "b", width: 200, minWidth: 60, maxWidth: 220 },
+          { id: "c", width: 300, minWidth: 80, maxWidth: 400 },
+        ],
+        { availableWidth: 639, roundToPixels: true },
+      ).widths,
+    ).toEqual({ a: 124, b: 206, c: 309 });
+  });
+  it("leaves excluded ownership values and fractional constraints intact without adding rounded overflow", () => {
+    const input = [
+      { id: "a", width: 100 },
+      { id: "b", width: 200 },
+      { id: "c", width: 300 },
+      { id: "hidden", width: 800, hidden: true },
+    ];
+    const result = fitColumnWidths(input, {
+      availableWidth: 683,
+      leadingWidth: 44,
+      excludeColumnIds: ["a"],
+      columnWidths: { a: 150.5 },
+      roundToPixels: true,
+    });
+    expect(result.widths).toEqual({ a: 150.5, b: 195, c: 293 });
+    expect(result.totalWidth).toBe(682.5);
+    expect(result.overflow).toBe(0);
+    expect(result.unusedWidth).toBe(0.5);
+    expect(Object.isFrozen(result.widths)).toBe(true);
+    expect(Object.getPrototypeOf(result.widths)).toBeNull();
+    const narrow = fitColumnWidths(
+      [{ id: "a", width: 20.5, minWidth: 20.2, maxWidth: 20.8 }],
+      { availableWidth: 20.6, roundToPixels: true },
+    );
+    expect(narrow.widths.a).toBe(20.2);
+    expect(narrow.overflow).toBe(0);
+    expect(() =>
+      fitColumnWidths(input, {
+        availableWidth: 600,
+        roundToPixels: "yes" as never,
+      }),
+    ).toThrow(/boolean/);
+  });
   it("retains immutable configured defaults before restored state and after layout changes", () => {
     const input = [
       { id: "__proto__", width: 100 },

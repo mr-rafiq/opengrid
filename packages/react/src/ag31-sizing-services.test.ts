@@ -48,6 +48,56 @@ it("resolves real source identities, deduplicates keys and forwards the measured
   });
   f.owner.api.destroy();
 });
+it("binds fit to the mounted port, preserves suppressed ownership and revokes retired views", () => {
+  const owner = createAg31ClientController({
+    rows: [{ id: "a" }],
+    definitions: [
+      { field: "id", suppressSizeToFit: true },
+      { colId: "value", flex: 1 },
+    ],
+    getRowId: (row) => row.id,
+  });
+  const fit = vi
+    .fn<DataGridSizingController["sizeColumnsToFit"]>()
+    .mockReturnValue({ cancelled: false, changedColumnIds: [] });
+  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("unavailable");
+  const detach = owner.sizingServices.attach(() => ({
+    sizeColumnsToFit: fit,
+    autoSizeColumns: vi.fn(),
+    getWidths: () => ({}),
+    resetWidths() {},
+  }));
+  owner.api.sizeColumnsToFit();
+  expect(fit).toHaveBeenCalledExactlyOnceWith({
+    availableWidth: undefined,
+    excludeColumnIds: ["id"],
+    roundToPixels: true,
+    freezeExcluded: false,
+    skipIfAlreadyFits: true,
+  });
+  owner.api.sizeColumnsToFit(600);
+  expect(fit).toHaveBeenLastCalledWith(
+    expect.objectContaining({ availableWidth: 600 }),
+  );
+  expect(owner.api.sizeColumnsToFit(0).cancelReason).toBe("unavailable");
+  expect(fit).toHaveBeenCalledTimes(2);
+  detach();
+  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("unavailable");
+  owner.api.destroy();
+  expect(owner.api.sizeColumnsToFit().cancelReason).toBe("disposed");
+});
+it("uses the source default minimum and reports manual flex ownership", () => {
+  const owner = createAg31ClientController({
+    rows: [],
+    definitions: [{ field: "id", flex: 1 }],
+    getRowId: () => "",
+  });
+  expect(owner.model.getColumnDefinitions()[0].minWidth).toBe(20);
+  expect(owner.api.getColumnState()![0].flex).toBe(1);
+  owner.model.resizeColumn("id", 100);
+  expect(owner.api.getColumnState()![0].flex).toBeNull();
+  owner.api.destroy();
+});
 it("revokes detached and destroyed sizing without a fake width publication", async () => {
   const f = fixture();
   expect((await f.owner.api.autoSizeAllColumns()).cancelReason).toBe("view");
@@ -116,4 +166,26 @@ it("revokes replaced and detached requests while an old cleanup cannot cancel th
   expect(signals[1].aborted).toBe(true);
   await Promise.all([old, current]);
   f.owner.api.destroy();
+});
+
+it("reports mounted flex widths while immediate manual widths win over a previous React commit", () => {
+  const owner = createAg31ClientController({
+    rows: [],
+    definitions: [{ field: "id", flex: 1 }],
+    getRowId: () => "",
+  });
+  const detach = owner.sizingServices.attach(() => ({
+    getWidths: () => ({ id: 439 }),
+    sizeColumnsToFit: vi.fn(),
+    autoSizeColumns: vi.fn(),
+    resetWidths() {},
+  }));
+  expect(owner.api.getColumn("id")!.getActualWidth()).toBe(439);
+  expect(owner.api.getColumnState()![0].width).toBe(439);
+  owner.model.resizeColumn("id", 123);
+  expect(owner.api.getColumnState()![0].width).toBe(123);
+  detach();
+  expect(owner.sizingServices.getRenderedWidth("id")).toBeUndefined();
+  owner.api.destroy();
+  expect(owner.sizingServices.getRenderedWidth("id")).toBeUndefined();
 });

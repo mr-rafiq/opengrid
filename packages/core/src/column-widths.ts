@@ -76,6 +76,8 @@ export interface ResolvedColumnWidths {
   readonly unusedWidth: number;
 }
 export interface FitColumnWidthsOptions {
+  /** Prefer whole CSS pixels; constraints and excluded widths retain precedence. */
+  readonly roundToPixels?: boolean;
   readonly availableWidth: number;
   readonly leadingWidth?: number;
   /** Retained only for excluded columns; eligible ratios use configured widths. */
@@ -348,6 +350,11 @@ export function fitColumnWidths(
 ): FittedColumnWidths {
   if (!options || typeof options !== "object")
     throw new TypeError("Fit options must include availableWidth");
+  if (
+    options.roundToPixels !== undefined &&
+    typeof options.roundToPixels !== "boolean"
+  )
+    throw new TypeError("roundToPixels must be boolean");
   dimension(options.availableWidth, "availableWidth");
   // Validate original metadata/overrides before deriving any allocation inputs.
   const initial = resolveColumnWidths(columns, {
@@ -404,8 +411,56 @@ export function fitColumnWidths(
       maxWork: options.maxWork,
     },
   );
+  let widths = allocation.widths;
+  let totalWidth = allocation.totalWidth;
+  if (options.roundToPixels) {
+    const byId = new Map(columns.map((column) => [column.id, column]));
+    const free = initial.columnIds
+      .filter((id) => {
+        if (excluded.has(id)) return false;
+        const bounds = getColumnWidthConstraints(byId.get(id)!);
+        return widths[id] !== bounds.minWidth && widths[id] !== bounds.maxWidth;
+      })
+      .map((id) => ({ id, bounds: getColumnWidthConstraints(byId.get(id)!) }));
+    const minimum = [0],
+      maximum = [0];
+    for (const item of free) {
+      minimum.push(minimum[minimum.length - 1] + item.bounds.minWidth);
+      maximum.push(maximum[maximum.length - 1] + item.bounds.maxWidth);
+    }
+    const freeIds = new Set(free.map((item) => item.id));
+    let fixed = options.leadingWidth ?? 0;
+    for (const id of allocation.columnIds)
+      if (!freeIds.has(id)) fixed = addWidth(fixed, widths[id]);
+    let remaining = Math.max(
+      minimum[free.length],
+      Math.min(
+        maximum[free.length],
+        Math.floor(options.availableWidth - fixed),
+      ),
+    );
+    const rounded = Object.assign(Object.create(null), widths) as Record<
+      string,
+      number
+    >;
+    for (let i = free.length - 1; i >= 0; i--) {
+      const item = free[i],
+        low = Math.max(item.bounds.minWidth, remaining - maximum[i]),
+        high = Math.min(item.bounds.maxWidth, remaining - minimum[i]);
+      const value = Math.max(
+        low,
+        Math.min(high, i === 0 ? remaining : Math.round(widths[item.id])),
+      );
+      rounded[item.id] = value;
+      remaining -= value;
+    }
+    widths = Object.freeze(rounded);
+    totalWidth = options.leadingWidth ?? 0;
+    for (const id of allocation.columnIds)
+      totalWidth = addWidth(totalWidth, widths[id]);
+  }
   return Object.freeze({
-    widths: allocation.widths,
+    widths,
     columnIds: allocation.columnIds,
     fittedColumnIds: Object.freeze(
       initial.columnIds.filter((id) => !excluded.has(id)),
@@ -413,9 +468,9 @@ export function fitColumnWidths(
     excludedColumnIds: Object.freeze(
       initial.columnIds.filter((id) => excluded.has(id)),
     ),
-    totalWidth: allocation.totalWidth,
+    totalWidth,
     availableWidth: options.availableWidth,
-    overflow: allocation.overflow,
-    unusedWidth: allocation.unusedWidth,
+    overflow: Math.max(0, totalWidth - options.availableWidth),
+    unusedWidth: Math.max(0, options.availableWidth - totalWidth),
   });
 }

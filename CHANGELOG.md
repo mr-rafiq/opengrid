@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.25.0 - 2026-11-05
+
+Explicit resident viewport fit. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.
+
+- Bind source `api.sizeColumnsToFit(width?)` to the real mounted viewport with declared ratios, suppressed-column ownership, bounded integer allocation, constraints and intentional minimum overflow. Preserve flex when the displayed columns already fit.
+- Report committed flex widths through source column objects and saved column-width state; immediate manual changes take precedence over a previous React commit. Use the measured source default 20px minimum while preserving native defaults.
+- Add explicit fit to the responsive original sizing example, retaining renderer state and an excluded Amount column. Eight private synthetic installed-reference profiles assert equal width and flex states; they do not establish full nested-component or application parity.
+- Full source state, logical focus, filter/editor/panel contracts, business persistence and authenticated Kalkverse acceptance remain open. No complete replacement readiness claim.
+
 ## 0.24.0 - 2026-11-05
 
 Resident mounted-renderer autosizing. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.

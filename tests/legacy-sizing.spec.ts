@@ -59,6 +59,42 @@ for (const width of [320, 1440])
           .poll(async () => (await cell.boundingBox())!.width)
           .toBe(valueWidth);
         await expect(action).toHaveText("Action 1");
+        const amount = grid.locator(
+          '[data-row-id="a"][data-column-id="amount"]',
+        );
+        const previousAmount = (await amount.boundingBox())?.width;
+        await lab
+          .getByRole("button", { name: "Fit available width", exact: true })
+          .click();
+        await expect(status).toContainText("Fit complete");
+        await expect
+          .poll(async () => (await amount.boundingBox())?.width)
+          .toBe(previousAmount);
+        await expect(action).toHaveText("Action 1");
+        const body = lab.locator(".og-viewport");
+        const layout = await body.evaluate((element) => ({
+          client: element.clientWidth,
+          scroll: element.scrollWidth,
+        }));
+        const fittedItem = (await cell.boundingBox())!,
+          fittedAction = (await action.boundingBox())!;
+        expect(fittedItem.width).toBeGreaterThanOrEqual(140);
+        expect(fittedAction.x).toBeGreaterThanOrEqual(fittedItem.x);
+        expect(fittedAction.x + fittedAction.width).toBeLessThanOrEqual(
+          fittedItem.x + fittedItem.width + 1,
+        );
+        expect(fittedAction.y + fittedAction.height).toBeLessThanOrEqual(
+          fittedItem.y + fittedItem.height + 1,
+        );
+        expect(layout.scroll).toBeLessThanOrEqual(
+          Math.max(
+            layout.client,
+            Math.ceil(fittedItem.width + previousAmount!),
+          ) + 1,
+        );
+        if (width === 320) await action.tap();
+        else await action.click();
+        await expect(action).toHaveText("Action 2");
         await expect(status).not.toContainText(/cancelled|failed/i);
         expect(
           await page.evaluate(

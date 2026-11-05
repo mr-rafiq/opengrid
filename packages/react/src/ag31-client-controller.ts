@@ -223,6 +223,16 @@ export function createAg31ClientController<T>(
   const sizingServices = createAg31SizingServices(
     (key) => columns.getColumn(key),
     () => columns.getAllDisplayedColumns(),
+    () =>
+      columns
+        .getAllDisplayedColumns()
+        .filter((column) => {
+          const value = column.getColDef().suppressSizeToFit;
+          if (value != null && typeof value !== "boolean")
+            throw new TypeError("Source suppressSizeToFit must be boolean");
+          return value === true;
+        })
+        .map((column) => column.getColId()),
   );
   const overlays = createAg31Overlays({
     rowCount: options.rows.length,
@@ -298,6 +308,12 @@ export function createAg31ClientController<T>(
     sourceFilterActive: (id) => Object.hasOwn(sourceFilters, id),
     sourceColumnDisplayed: groups.isColumnDisplayed,
     sourceSortIndexes: true,
+    renderedWidth: (id) => {
+      const widths = model.getState().columnWidths;
+      return Object.hasOwn(widths, id)
+        ? widths[id]
+        : sizingServices.getRenderedWidth(id);
+    },
   });
   schema.bind({ model, nodes, columns });
   const emit = (event: Ag31Event) => {
@@ -806,7 +822,9 @@ export function createAg31ClientController<T>(
             : null,
           pivot: false,
           pivotIndex: null,
-          flex: definition.flex ?? null,
+          flex: Object.hasOwn(state.columnWidths, definition.id)
+            ? null
+            : (definition.flex ?? null),
         };
       });
     });
@@ -860,6 +878,7 @@ export function createAg31ClientController<T>(
     viewListeners.clear();
   }
   const methods = {
+    sizeColumnsToFit: sizingServices.sizeColumnsToFit,
     autoSizeColumns: sizingServices.autoSizeColumns,
     autoSizeAllColumns: sizingServices.autoSizeAllColumns,
     ctrlsService: viewServices.ctrlsService,

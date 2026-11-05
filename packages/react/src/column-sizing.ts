@@ -65,6 +65,11 @@ export interface DataGridSizingController {
   resetWidths(ids?: readonly string[]): void;
 }
 export interface FitColumnsOptions {
+  readonly roundToPixels?: boolean;
+  /** Defaults to true; false preserves existing excluded width/flex ownership. */
+  readonly freezeExcluded?: boolean;
+  /** Retain all ownership when current displayed widths already fill the viewport. */
+  readonly skipIfAlreadyFits?: boolean;
   /** Omit to use the mounted viewport's usable client width. */
   readonly availableWidth?: number;
   readonly excludeColumnIds?: readonly string[];
@@ -369,6 +374,13 @@ export function createColumnSizingController<T>(
     sizeColumnsToFit(options: FitColumnsOptions = {}): FitColumnsReport {
       if (!options || typeof options !== "object" || Array.isArray(options))
         throw new TypeError("Fit options must be a record");
+      for (const name of [
+        "roundToPixels",
+        "freezeExcluded",
+        "skipIfAlreadyFits",
+      ] as const)
+        if (options[name] !== undefined && typeof options[name] !== "boolean")
+          throw new TypeError(`${name} must be boolean`);
       if (
         options.availableWidth !== undefined &&
         (typeof options.availableWidth !== "number" ||
@@ -403,6 +415,7 @@ export function createColumnSizingController<T>(
       const allocation = fitColumnWidths(
         context.columns.map((column) => ({
           ...column,
+          hidden: column.hidden || !Object.hasOwn(context.widths, column.id),
           width: defaults[column.id],
         })),
         {
@@ -410,8 +423,20 @@ export function createColumnSizingController<T>(
           leadingWidth: context.leadingWidth,
           columnWidths: context.widths,
           excludeColumnIds: options.excludeColumnIds,
+          roundToPixels: options.roundToPixels,
         },
       );
+      if (
+        options.skipIfAlreadyFits &&
+        Object.values(context.widths).reduce(
+          (sum, width) => sum + width,
+          context.leadingWidth ?? 0,
+        ) === (options.availableWidth ?? clientWidth)
+      )
+        return Object.freeze({
+          cancelled: false,
+          changedColumnIds: Object.freeze([]),
+        });
       cancel("superseded");
       const latest = getSnapshot();
       if (disposed) return cancelled("disposed");
@@ -433,7 +458,9 @@ export function createColumnSizingController<T>(
       const changed: string[] = [];
       // Freeze excluded flex columns at their existing rendered width too: otherwise
       // their subsequent flex pass could violate the explicit fixed-width allocation.
-      for (const id of allocation.columnIds) {
+      for (const id of options.freezeExcluded === false
+        ? allocation.fittedColumnIds
+        : allocation.columnIds) {
         const width = allocation.widths[id];
         if (!Object.hasOwn(next, id) || next[id] !== width) {
           next[id] = width;

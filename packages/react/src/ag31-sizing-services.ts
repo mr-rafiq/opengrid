@@ -1,12 +1,14 @@
 import type {
   AutoSizeReport,
   DataGridSizingController,
+  FitColumnsReport,
 } from "./column-sizing.js";
 
 /** Mounted source sizing has the same ownership lifetime as the real native port. */
 export function createAg31SizingServices(
   resolve: (key: unknown) => { getColId(): string } | null | undefined,
   all: () => readonly { getColId(): string }[],
+  excluded: () => readonly string[] = () => [],
 ) {
   let alive = true;
   let attachment: { read(): DataGridSizingController | null } | null = null;
@@ -66,6 +68,42 @@ export function createAg31SizingServices(
     }
   }
   return Object.freeze({
+    getRenderedWidth(id: string): number | undefined {
+      return alive ? attachment?.read()?.getWidths()[id] : undefined;
+    },
+    sizeColumnsToFit(width?: number): FitColumnsReport {
+      if (
+        width !== undefined &&
+        (typeof width !== "number" ||
+          !Number.isFinite(width) ||
+          width < 0 ||
+          width > Number.MAX_SAFE_INTEGER)
+      )
+        throw new RangeError(
+          "Source fit width must be a finite nonnegative safe dimension",
+        );
+      const unavailableFit = (
+        reason: "disposed" | "unavailable",
+      ): FitColumnsReport =>
+        Object.freeze({
+          cancelled: true,
+          cancelReason: reason,
+          changedColumnIds: Object.freeze([]),
+        });
+      if (!alive) return unavailableFit("disposed");
+      if (width === 0) return unavailableFit("unavailable");
+      const excludeColumnIds = excluded(),
+        port = attachment?.read();
+      cancel();
+      if (!port) return unavailableFit("unavailable");
+      return port.sizeColumnsToFit({
+        availableWidth: width,
+        excludeColumnIds,
+        roundToPixels: true,
+        freezeExcluded: false,
+        skipIfAlreadyFits: true,
+      });
+    },
     autoSizeColumns,
     autoSizeAllColumns(skipHeader = false) {
       return autoSizeColumns(

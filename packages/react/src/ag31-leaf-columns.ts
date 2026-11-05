@@ -142,7 +142,7 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       entry.width =
         typeof rendered === "number" &&
         Number.isFinite(rendered) &&
-        rendered > 0
+        rendered >= 0
           ? rendered
           : source.width!;
       return entry.width;

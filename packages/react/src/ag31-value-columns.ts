@@ -257,7 +257,7 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
           header: definition.headerName ?? definition.field ?? id,
           groupPath: path,
           width: number("width") ?? number("initialWidth") ?? 200,
-          minWidth: number("minWidth"),
+          minWidth: number("minWidth") ?? 20,
           maxWidth: number("maxWidth"),
           flex: number("flex"),
           hidden:

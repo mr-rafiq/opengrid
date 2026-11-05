@@ -13,8 +13,25 @@ const rows: Record[] = [
 function Item({ value }: { value: string }) {
   const [count, setCount] = useState(0);
   return (
-    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
-      <span>{value}</span>
+    <span
+      style={{
+        display: "inline-flex",
+        width: "100%",
+        gap: 8,
+        alignItems: "center",
+      }}
+    >
+      <span
+        style={{
+          flex: "1 1 0%",
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {value}
+      </span>
       <button
         type="button"
         onClick={() => setCount(count + 1)}
@@ -28,6 +45,7 @@ function Item({ value }: { value: string }) {
           font: "inherit",
           lineHeight: 1.4,
           cursor: "pointer",
+          flexShrink: 0,
         }}
       >
         Action {count}
@@ -41,12 +59,14 @@ const columns: Ag31ColumnDefinition<Record>[] = [
     headerName:
       "An intentionally much longer item heading that only participates when headings are included",
     width: 180,
+    minWidth: 140,
     cellRenderer: Item,
   },
   {
     field: "amount",
     headerName: "Amount",
     width: 140,
+    suppressSizeToFit: true,
     valueFormatter: ({ value }: { value: unknown }) =>
       new Intl.NumberFormat("de-DE", {
         style: "currency",
@@ -95,9 +115,30 @@ export function LegacySizingLab() {
         Original local records. Sizing measures the mounted text and passive
         layout with 20px padding. It preserves each renderer’s local state. Only
         currently rendered content participates; offscreen columns, merged cells
-        and full-width rows are outside this example.
+        and full-width rows are outside this example. Fit uses the mounted
+        viewport, restores the declared width ratios and keeps Amount excluded.
+        Column minima can require horizontal scrolling on a narrow screen.
       </p>
       <div className="grouping-lab-controls">
+        <button
+          type="button"
+          disabled={!ready || busy}
+          onClick={() => {
+            const report = ref.current?.api.sizeColumnsToFit();
+            if (report)
+              setSummary(
+                report.cancelled
+                  ? `Fit cancelled: ${report.cancelReason}`
+                  : `Fit complete. ${Object.entries(
+                      report.allocation?.widths ?? {},
+                    )
+                      .map(([id, width]) => `${id}: ${width}px`)
+                      .join("; ")}`,
+              );
+          }}
+        >
+          Fit available width
+        </button>
         <button
           type="button"
           disabled={!ready || busy}
@@ -146,7 +187,8 @@ export function LegacySizingLab() {
         rowData={rows}
         columnDefs={columns}
         getRowId={identify}
-        height={200}
+        height={220}
+        rowHeight={52}
         onGridReady={() => setReady(true)}
         ariaLabel="Source sizing records"
       />

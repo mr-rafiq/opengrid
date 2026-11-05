@@ -185,6 +185,24 @@ it("does not publish stale passive measurements or leave measurement DOM after s
 });
 
 describe("explicit size-to-fit controller", () => {
+  it("can preserve an excluded flex column's ownership while fitting only the resolved displayed set", () => {
+    const f = fixture([
+      { id: "a", field: "value", width: 100, flex: 1 },
+      { id: "b", field: "value", width: 200 },
+    ]);
+    Object.defineProperty(f.root, "clientWidth", {
+      value: 639,
+      configurable: true,
+    });
+    const report = f.controller.sizeColumnsToFit({
+      excludeColumnIds: ["a"],
+      freezeExcluded: false,
+      roundToPixels: true,
+    });
+    expect(report.cancelled).toBe(false);
+    expect(Object.hasOwn(f.model.getState().columnWidths, "a")).toBe(false);
+    expect(f.model.getState().columnWidths.b).toBe(539);
+  });
   function setup() {
     const f = fixture([
       { id: "a", field: "value", width: 100, pinned: "left", editable: true },
@@ -742,4 +760,22 @@ describe("bounded rendered default-text sizing", () => {
     expect(write).toHaveBeenCalledTimes(1);
     expect(Object.keys(f.model.getState().columnWidths)).toEqual([]);
   });
+});
+
+it("leaves existing flex ownership untouched when source fitting already fills the viewport", () => {
+  const f = fixture([{ id: "value", field: "value", width: 160, flex: 1 }]);
+  Object.defineProperty(f.root, "clientWidth", {
+    value: 160,
+    configurable: true,
+  });
+  const write = vi.spyOn(f.model, "setState");
+  const report = f.controller.sizeColumnsToFit({
+    skipIfAlreadyFits: true,
+    roundToPixels: true,
+    freezeExcluded: false,
+  });
+  expect(report.cancelled).toBe(false);
+  expect(report.changedColumnIds).toEqual([]);
+  expect(write).not.toHaveBeenCalled();
+  expect(Object.hasOwn(f.model.getState().columnWidths, "value")).toBe(false);
 });
