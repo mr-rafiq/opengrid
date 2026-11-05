@@ -227,3 +227,44 @@ it("rejects unimplemented supplied/tree key services instead of silently using r
   expect(c.api.getFilterModel()).toEqual({});
   c.api.destroy();
 });
+
+it("clears advanced expressions for saved-view reset without disturbing other filters or selection", () => {
+  const c = setup();
+  c.api.setFilterModel({
+    amount: { filterType: "number", type: "greaterThan", filter: 0 },
+  });
+  c.model.selectRows(["b"]);
+  c.model.setAdvancedFilter({
+    kind: "condition",
+    columnId: "amount",
+    filter: { op: "gt", value: 3 },
+  });
+  expect(c.ids()).toEqual(["d"]);
+  expect(() => c.api.getAdvancedFilterModel()).toThrow(
+    /source expression adapter/,
+  );
+  const before = c.model.getState();
+  expect(() =>
+    c.api.setAdvancedFilterModel({
+      filterType: "join",
+      type: "AND",
+      conditions: [],
+    }),
+  ).toThrow(/source expression adapter/);
+  expect(c.model.getState()).toBe(before);
+  c.api.setAdvancedFilterModel(null);
+  expect(c.ids()).toEqual(["b", "c", "d"]);
+  expect(c.api.getSelectedRows()).toEqual([c.rows[1]]);
+  expect(c.api.getFilterModel()).toEqual({
+    amount: { filterType: "number", type: "greaterThan", filter: 0 },
+  });
+  expect(c.api.getAdvancedFilterModel()).toBeNull();
+  const cleared = c.model.getState();
+  c.api.setAdvancedFilterModel(undefined);
+  expect(c.model.getState()).toBe(cleared);
+  c.api.destroy();
+  expect(() =>
+    c.api.setAdvancedFilterModel({ unsupported: true }),
+  ).not.toThrow();
+  expect(c.api.getAdvancedFilterModel()).toBeUndefined();
+});

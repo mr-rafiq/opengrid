@@ -2460,3 +2460,14 @@
 .og-source-client[data-og-host-theme] .og-grid-frame {
   border-radius: var(--ag-wrapper-border-radius, 8px);
 }
+
+.og-source-overlay-message {
+  color: var(--og-text);
+  background: var(--og-surface, #fff);
+  border: 1px solid var(--og-border);
+  border-radius: var(--og-radius, 6px);
+  padding: 12px 16px;
+  text-align: center;
+  max-width: calc(100% - 24px);
+  overflow-wrap: anywhere;
+}

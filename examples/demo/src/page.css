@@ -844,3 +844,22 @@ footer .creator-credit {
   min-width: 0;
   min-height: 0;
 }
+
+.legacy-overlay-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: calc(100% - 24px);
+  padding: 20px;
+  border: 1px solid var(--og-border);
+  border-radius: 8px;
+  color: var(--og-text);
+  background: var(--og-surface);
+  box-shadow: 0 4px 20px #0001;
+  text-align: center;
+}
+.legacy-overlay-card svg {
+  color: var(--og-accent);
+  flex-shrink: 0;
+}

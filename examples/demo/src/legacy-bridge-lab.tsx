@@ -1,3 +1,4 @@
+import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
 import {
@@ -113,6 +114,7 @@ export function LegacyBridgeLab() {
   );
   const [rows, setRows] = useState<EstimateLine[] | null>(null);
   const [hostOpen, setHostOpen] = useState(false);
+  const [overlayOpen, setOverlayOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -139,7 +141,7 @@ export function LegacyBridgeLab() {
         <button type="button" onClick={() => setRows([...source])}>
           Load source records
         </button>
-        <button type="button" onClick={() => setRows(null)}>
+        <button type="button" onClick={() => setRows([])}>
           Clear records
         </button>
         <button
@@ -301,6 +303,10 @@ export function LegacyBridgeLab() {
             Reset source columns
           </button>
         </div>
+      </details>
+      <details onToggle={(event) => setOverlayOpen(event.currentTarget.open)}>
+        <summary>Source loading overlay example</summary>
+        {overlayOpen && <LegacyOverlayLab />}
       </details>
       <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
         <summary>Source host layout example</summary>

@@ -347,6 +347,11 @@ it("normalizes nullable loading options like the measured grid service and forwa
   expect(api.getRowNode("a")!.data).toBe(row);
   view.rerender(<Ag31ClientGrid ref={ref} gridOptions={options} />);
   expect(api.getGridOption("rowData")).toBeUndefined();
+  expect(api.getDisplayedRowCount()).toBe(1);
+  expect(api.getRowNode("a")!.data).toBe(row);
+  view.rerender(
+    <Ag31ClientGrid ref={ref} gridOptions={{ ...options, rowData: [] }} />,
+  );
   expect(api.getDisplayedRowCount()).toBe(0);
 });
 

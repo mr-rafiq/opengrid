@@ -1,3 +1,5 @@
+export type { Ag31LocaleText } from "./ag31-overlays.js";
+export type { Ag31OverlayComponentOptions } from "./ag31-source-overlay.js";
 export * from "./data-grid.js";
 export { Ag31ClientGrid } from "./ag31-client-grid.js";
 export type {

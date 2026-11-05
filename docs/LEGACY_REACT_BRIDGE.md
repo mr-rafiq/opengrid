@@ -35,7 +35,7 @@ export function Estimate({ rows }: { rows: Line[] | null }) {
 
 The ref exposes one owned `api` and `columnApi` graph. Row nodes retain original record and class identities, group ancestry, filtered/sorted children and selection state. Unmount destroys that owner and cancels queued events. React StrictMode creates a fresh owner after cleanup. Keep column definitions and default definitions stable; structural replacement and `groupSelectsFiltered` changes currently require remounting.
 
-`gridOptions` supplies the same supported configuration as direct props. Defined props take precedence; an undefined prop preserves its option. Omitted rows and `rowData={null}` provide an empty resident projection and read as undefined through `getGridOption`, matching the measured nullable source behavior. Omitted definitions use a stable immutable empty schema, so the component can commit its ref and ready lifecycle without a false structural replacement. Changed rows are forwarded individually; unrelated renders do not overwrite an imperative context or callback change.
+`gridOptions` supplies the same supported configuration as direct props. Defined props take precedence; an undefined prop preserves its option. Initially omitted rows and `rowData={null}` provide an empty resident projection and automatic loading, and read as undefined through `getGridOption`. Later null/undefined row options retain the existing resident rows and do not emit `rowDataUpdated`. Pass an actual empty array to clear records. Omitted definitions use a stable immutable empty schema, so the component can commit its ref and ready lifecycle without a false structural replacement. Changed rows are forwarded individually; unrelated renders do not overwrite an imperative context or callback change.
 
 Supported configuration includes `getRowId`, `rowData`, `columnDefs`, `defaultColDef`, `context`, React `components`, native `initialModelState`, height/rowHeight, className/ariaLabel, multiple row selection, custom group display, filtered group selection, complete tree rendering and the native row-group panel. Measured false-only grouping policies and reactive-component mode are validated rather than silently approximated.
 
@@ -67,6 +67,16 @@ Source filter getters and set key creators receive original owned records/column
 
 Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.
 
+`api.setAdvancedFilterModel(null | undefined)` clears an existing native advanced expression while preserving column models and selection. An already-clear call does not refresh the model. `getAdvancedFilterModel()` returns null when clear and rejects serialization of an active native expression. Non-null source advanced expressions require a separate translator and fail explicitly; this is the clearing path used by saved-view helpers, not advanced-filter model parity.
+
+## Loading and empty overlays
+
+Initial nullable rows show loading; an explicit empty array shows the empty state, and loaded rows hide it. `api.showLoadingOverlay()`, `showNoRowsOverlay()` and `hideOverlay()` control the same owned state. `suppressLoadingOverlay` and `suppressNoRowsOverlay` apply to automatic and manual operations. `api.overlayService.isAlive()` reflects this owner's lifetime so deferred helpers can avoid destroyed overlays. It is a narrow lifetime contract, not access to AG Grid's internal services.
+
+`loadingOverlayComponent`, `noRowsOverlayComponent` and their `...Params` accept React components or names in `components`. Parameter records/functions receive owned API, column API and context; configured parameters follow them. Components unmount on hide or destruction and remain responsible for their own styling and accessible content. Imperative replacement of overlay component registrations is not supported. `localeText.loadingOoo` and `localeText.noRowsToShow` localize the built-in messages; other source interface strings require their respective adapters.
+
+Loading covers the grid viewport, including headers and pinned cells, blocks pointer input and sets `aria-busy` without taking keyboard focus. Empty overlays do not block grid pointer input. These operations subscribe independently of resident cells: showing/hiding/loading-label changes do not refresh mutated record values. Deferred application work still needs an explicit loading call; assigning null does not automatically restart loading after data has arrived. HTML template overlays and row fade animations are separate contracts. Open the collapsed loading example in the public bridge lab for manual loading, localization, custom content, nullable options and host resizing.
+
 ## Declared query and column reset
 
 Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup` defaults initialize the source query. Native `initialModelState` can explicitly override these native query fields; it is distinct from AG Grid `initialState`.
@@ -75,7 +85,7 @@ Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup`
 
 Filters, row selection and provided-header group state remain independent. Candidate groups are staged while query callbacks run and become committed owned nodes only after successful model preparation; a rejected grouping retains the prior graph and emits no group-change notification. The collapsed original demo changes a local layout and resets it through the public ref.
 
-This is a static resident column-state contract. Full saved state, loading overlays, content autosizing and viewport service restoration remain separate unfinished requirements. It does not establish complete saved-view compatibility.
+This is a static resident column-state contract. Full saved state, content autosizing and viewport service restoration remain separate unfinished requirements. It does not establish complete saved-view compatibility.
 
 ## Provided header groups
 
@@ -107,4 +117,4 @@ Selection, column width/order/visibility/pinning, pagination and group expansion
 
 AG Grid `initialState`/`getState` translation, complete filter models and custom-filter hooks, business editors/value setters, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. The bridge does not enable editing or backend writes. A source callback retained in metadata is not proof that its feature is implemented.
 
-Original regression fixtures cover public imports/ref lifecycle, nullable options, event ordering and filtering. Private read-only source fixtures additionally compare unchanged consumer components and the installed reference implementation; those source files and application data are not published. Full application compatibility remains **unverified**.
+Original regression fixtures cover public imports/ref lifecycle, nullable options, event ordering and filtering. Private read-only source fixtures additionally compare unchanged consumer components and the installed reference implementation; those source files and application data are not published. The unchanged complete application is **not supported yet**: the explicit gaps above prevent a complete replacement, independently of the pending authenticated acceptance.

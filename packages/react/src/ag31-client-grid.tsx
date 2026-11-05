@@ -1,4 +1,9 @@
 import {
+  Ag31SourceOverlay,
+  type Ag31OverlayComponentOptions,
+} from "./ag31-source-overlay.js";
+import { assertAg31LocaleText, type Ag31LocaleText } from "./ag31-overlays.js";
+import {
   forwardRef,
   memo,
   useEffect,
@@ -41,7 +46,7 @@ export interface Ag31ClientGridEvent<T> extends Ag31ClientGridHandle<T> {
   context: unknown;
   [key: string]: unknown;
 }
-export interface Ag31ClientGridConfig<T> {
+export interface Ag31ClientGridConfig<T> extends Ag31OverlayComponentOptions {
   rowData: T[] | null;
   columnDefs: readonly Ag31ColumnDefinition<T>[];
   defaultColDef?: Ag31ColumnDefinition<T>;
@@ -54,6 +59,10 @@ export interface Ag31ClientGridConfig<T> {
   groupHeaderHeight?: number | null;
   floatingFiltersHeight?: number | null;
   rowHeight?: number;
+  suppressLoadingOverlay?: boolean | null;
+  suppressNoRowsOverlay?: boolean | null;
+  localeText?: Ag31LocaleText | null;
+
   className?: string;
   ariaLabel?: string;
   /** A complete tree renderer includes its own indentation/disclosure controls. */
@@ -89,6 +98,13 @@ export interface Ag31ClientGridProps<T> extends Partial<
 }
 const configKeys = new Set([
   "rowData",
+  "suppressLoadingOverlay",
+  "suppressNoRowsOverlay",
+  "localeText",
+  "loadingOverlayComponent",
+  "loadingOverlayComponentParams",
+  "noRowsOverlayComponent",
+  "noRowsOverlayComponentParams",
   "columnDefs",
   "defaultColDef",
   "getRowId",
@@ -194,6 +210,11 @@ export function resolveAg31ClientGridConfig<T>(
     )
   )
     throw new TypeError("Unsupported source row group panel policy");
+  for (const name of ["suppressLoadingOverlay", "suppressNoRowsOverlay"]) {
+    if (result[name] != null && typeof result[name] !== "boolean")
+      throw new TypeError("Source overlay suppression must be boolean");
+  }
+  assertAg31LocaleText(result.localeText);
   for (const name of AG31_HEADER_METRICS)
     assertAg31HeaderMetric(result[name], name);
   return result as unknown as Ag31ClientGridConfig<T>;
@@ -506,6 +527,7 @@ function ResidentView<T>({
       className={`og-source-client ${props.className ?? ""}`}
       data-og-fluid-height={props.height === undefined ? "true" : undefined}
       style={{
+        position: "relative",
         minWidth: 0,
         minHeight: 0,
         overflow: props.height === undefined ? "auto" : undefined,
@@ -627,6 +649,7 @@ function ResidentView<T>({
           ) : undefined
         }
       />
+      <Ag31SourceOverlay owner={owner} host={container} config={props} />
     </div>
   );
 }
@@ -648,6 +671,10 @@ function ClientGrid<T>(
     doesExternalFilterPass: Ag31ClientGridConfig<T>["doesExternalFilterPass"];
     getRowStyle: Ag31ClientGridConfig<T>["getRowStyle"];
     headerMetrics: Record<Ag31HeaderMetricName, number | null | undefined>;
+    overlayOptions: Pick<
+      Ag31ClientGridConfig<T>,
+      "suppressLoadingOverlay" | "suppressNoRowsOverlay" | "localeText"
+    >;
   }>({
     owner: null,
     context: props.context,
@@ -657,12 +684,22 @@ function ClientGrid<T>(
     doesExternalFilterPass: props.doesExternalFilterPass,
     getRowStyle: props.getRowStyle,
     headerMetrics: headerMetricValues(props),
+    overlayOptions: {
+      suppressLoadingOverlay: props.suppressLoadingOverlay,
+      suppressNoRowsOverlay: props.suppressNoRowsOverlay,
+      localeText: props.localeText,
+    },
   });
   useLayoutEffect(() => {
     const options = initial.current;
     const next = createAg31ClientController({
       rows: options.rowData ?? [],
       rowData: options.rowData,
+      initialOverlayLoading:
+        options.rowData === null || options.columnDefs === emptyDefinitions,
+      suppressLoadingOverlay: options.suppressLoadingOverlay,
+      suppressNoRowsOverlay: options.suppressNoRowsOverlay,
+      localeText: options.localeText,
       definitions: options.columnDefs,
       defaultColDef: options.defaultColDef,
       getRowId: (row) => options.getRowId({ data: row }),
@@ -700,6 +737,11 @@ function ClientGrid<T>(
         doesExternalFilterPass: initial.current.doesExternalFilterPass,
         getRowStyle: initial.current.getRowStyle,
         headerMetrics: headerMetricValues(initial.current),
+        overlayOptions: {
+          suppressLoadingOverlay: initial.current.suppressLoadingOverlay,
+          suppressNoRowsOverlay: initial.current.suppressNoRowsOverlay,
+          localeText: initial.current.localeText,
+        },
       };
     for (const [name] of AG31_EVENT_OPTIONS) {
       if (forwarded.current.callbacks[name] !== props[name]) {
@@ -731,6 +773,19 @@ function ClientGrid<T>(
         forwarded.current = { ...forwarded.current, [name]: props[name] };
       }
     }
+    for (const name of [
+      "suppressLoadingOverlay",
+      "suppressNoRowsOverlay",
+      "localeText",
+    ] as const) {
+      if (!Object.is(forwarded.current.overlayOptions[name], props[name])) {
+        owner.api.setGridOption(name, props[name]);
+        forwarded.current.overlayOptions = {
+          ...forwarded.current.overlayOptions,
+          [name]: props[name],
+        };
+      }
+    }
     if (forwarded.current.rowData !== props.rowData) {
       owner.api.setGridOption("rowData", props.rowData);
       forwarded.current.rowData = props.rowData;
@@ -754,6 +809,9 @@ function ClientGrid<T>(
     props.headerHeight,
     props.groupHeaderHeight,
     props.floatingFiltersHeight,
+    props.suppressLoadingOverlay,
+    props.suppressNoRowsOverlay,
+    props.localeText,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

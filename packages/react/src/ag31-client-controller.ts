@@ -1,3 +1,8 @@
+import {
+  createAg31Overlays,
+  assertAg31LocaleText,
+  type Ag31LocaleText,
+} from "./ag31-overlays.js";
 import { ag31DeclaredQuery } from "./ag31-column-defaults.js";
 import {
   createAg31ColumnGroups,
@@ -72,6 +77,10 @@ export interface Ag31ClientControllerOptions<T> {
   getRowId(row: T): string;
   context?: unknown;
   rowHeight?: number;
+  initialOverlayLoading?: boolean;
+  suppressLoadingOverlay?: boolean | null;
+  suppressNoRowsOverlay?: boolean | null;
+  localeText?: Ag31LocaleText | null;
   headerHeight?: number | null;
   groupHeaderHeight?: number | null;
   floatingFiltersHeight?: number | null;
@@ -157,6 +166,17 @@ export function createAg31ClientController<T>(
       "Source getRowStyle must be a function, null or undefined",
     );
   settings.set("getRowStyle", options.getRowStyle);
+  for (const key of [
+    "suppressLoadingOverlay",
+    "suppressNoRowsOverlay",
+  ] as const) {
+    if (options[key] != null && typeof options[key] !== "boolean")
+      throw new TypeError("Source overlay suppression must be boolean");
+    settings.set(key, options[key]);
+  }
+  assertAg31LocaleText(options.localeText);
+  settings.set("localeText", options.localeText);
+
   for (const name of AG31_HEADER_METRICS) {
     assertAg31HeaderMetric(options[name], name);
     settings.set(name, options[name]);
@@ -197,6 +217,16 @@ export function createAg31ClientController<T>(
     viewRevision++;
     for (const listener of [...viewListeners]) listener();
   }
+  const overlays = createAg31Overlays({
+    rowCount: options.rows.length,
+    initiallyLoading:
+      options.initialOverlayLoading ??
+      (Object.hasOwn(options, "rowData") && options.rowData == null),
+    flags: () => ({
+      suppressLoadingOverlay: settings.get("suppressLoadingOverlay") === true,
+      suppressNoRowsOverlay: settings.get("suppressNoRowsOverlay") === true,
+    }),
+  });
   const groups = createAg31ColumnGroups(
     options.definitions,
     () => refreshCells(),
@@ -263,7 +293,11 @@ export function createAg31ClientController<T>(
     sourceSortIndexes: true,
   });
   schema.bind({ model, nodes, columns });
-  const emit = (event: Ag31Event) => events.dispatchEvent(event);
+  const emit = (event: Ag31Event) => {
+    if (event.type === "rowDataUpdated")
+      overlays.dataUpdated(model.getRows().length);
+    events.dispatchEvent(event);
+  };
   const modelUpdated = () =>
     emit({
       type: "modelUpdated",
@@ -356,6 +390,18 @@ export function createAg31ClientController<T>(
       refreshCells();
       return;
     }
+    if (key === "suppressLoadingOverlay" || key === "suppressNoRowsOverlay") {
+      if (value != null && typeof value !== "boolean")
+        throw new TypeError("Source overlay suppression must be boolean");
+      settings.set(key, value);
+      return;
+    }
+    if (key === "localeText") {
+      assertAg31LocaleText(value);
+      settings.set(key, value);
+      overlays.invalidate();
+      return;
+    }
     if (callbackNames.has(key)) {
       if (value != null && typeof value !== "function")
         throw new TypeError(
@@ -379,9 +425,13 @@ export function createAg31ClientController<T>(
       return;
     }
     if (key === "rowData") {
-      if (value !== null && !Array.isArray(value))
-        throw new TypeError("rowData must be an array or null");
-      const nextRows = (value ?? []) as T[];
+      if (value != null && !Array.isArray(value))
+        throw new TypeError("rowData must be an array, null or undefined");
+      if (value == null) {
+        settings.set(key, value);
+        return;
+      }
+      const nextRows = value as T[];
       const previousRows = settings.get(key);
       settings.set(key, value);
       try {
@@ -449,6 +499,23 @@ export function createAg31ClientController<T>(
         ]),
       );
     });
+  }
+  function getAdvancedFilterModel(): null | undefined {
+    return active(() => {
+      if (model.getState().advancedFilter != null)
+        throw new TypeError(
+          "Native advanced filter serialization requires the source expression adapter",
+        );
+      return null;
+    });
+  }
+  function setAdvancedFilterModel(input: unknown) {
+    if (destroyed) return;
+    if (input != null)
+      throw new TypeError(
+        "Non-null source advanced filters require the source expression adapter",
+      );
+    if (model.getState().advancedFilter != null) model.setAdvancedFilter(null);
   }
   function setFilterModel(input: unknown) {
     if (destroyed) return;
@@ -772,6 +839,7 @@ export function createAg31ClientController<T>(
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    overlays.destroy();
     unsubscribe();
     events.destroy();
     nodes.destroy();
@@ -783,11 +851,24 @@ export function createAg31ClientController<T>(
     viewListeners.clear();
   }
   const methods = {
+    overlayService: overlays.service,
+    showLoadingOverlay() {
+      if (!destroyed) overlays.showLoading();
+    },
+    showNoRowsOverlay() {
+      if (!destroyed) overlays.showNoRows();
+    },
+    hideOverlay() {
+      if (!destroyed) overlays.hide();
+    },
+
     getGridOption,
     setGridOption,
     onFilterChanged,
     getFilterModel,
     setFilterModel,
+    getAdvancedFilterModel,
+    setAdvancedFilterModel,
     applyTransaction,
     setRowNodeExpanded,
     applyColumnState,
@@ -858,7 +939,7 @@ export function createAg31ClientController<T>(
     },
     addEventListener: events.addEventListener,
     removeEventListener: events.removeEventListener,
-    dispatchEvent: events.dispatchEvent,
+    dispatchEvent: emit,
   };
   Object.assign(api, methods);
   const columnMethods = {
@@ -895,6 +976,7 @@ export function createAg31ClientController<T>(
       };
     },
     getLifecycleSnapshot: () => destroyed,
+    overlays,
     subscribeViewRefresh(listener: () => void) {
       viewListeners.add(listener);
       return () => {
