@@ -45,6 +45,7 @@ async function touchDrag(
   from: { x: number; y: number },
   to: { x: number; y: number },
   cancel = false,
+  beforeEnd?: () => Promise<void>,
 ) {
   await session.send("Input.dispatchTouchEvent", {
     type: "touchStart",
@@ -62,14 +63,45 @@ async function touchDrag(
     });
     await page.waitForTimeout(25);
   }
+  await beforeEnd?.();
   await session.send("Input.dispatchTouchEvent", {
     type: cancel ? "touchCancel" : "touchEnd",
     touchPoints: [],
   });
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
 }
 async function sessionFor(context: BrowserContext, page: Page) {
   return context.newCDPSession(page);
 }
+
+test("brief touch input survives delayed click delivery after pointer-up", async ({
+  page,
+}) => {
+  const grid = await openLab(page);
+  // Keep real browser touch input, but model a busy main thread between up/click.
+  await grid.evaluate((element) => {
+    element.addEventListener(
+      "pointerup",
+      () => {
+        const until = performance.now() + 650;
+        while (performance.now() < until) {
+          /* controlled delivery delay */
+        }
+      },
+      { capture: true, once: true },
+    );
+  });
+  const target = cell(grid, "rtl1", "amount");
+  await target.tap();
+  await expect(target).toHaveAttribute("aria-selected", "true");
+  await expect(target).toBeFocused();
+  await expect(grid.getByRole("gridcell", { selected: true })).toHaveCount(1);
+});
 
 test("native touch pan works on both axes without editing or applying a range drag", async ({
   page,
@@ -222,13 +254,29 @@ test("touch fill grip supports series and cancellation without data writes", asy
     const editor = cell(grid, row, "amount").getByRole("spinbutton");
     await editor.fill(value);
     await editor.press("Enter");
+    await expect(editor).toHaveCount(0);
+    await expect(cell(grid, row, "amount")).toContainText(value);
   }
   await cell(grid, "rtl1", "amount").tap();
+  await expect(cell(grid, "rtl1", "amount")).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
   await root.getByRole("button", { name: "Extend range", exact: true }).tap();
+  await expect(
+    root.getByRole("button", { name: "Extend range", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await cell(grid, "rtl2", "amount").tap();
+  await expect(grid.getByRole("gridcell", { selected: true })).toHaveCount(2);
   await root
     .getByRole("combobox", { name: "Fill mode", exact: true })
     .selectOption("series");
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
   const handle = grid.getByRole("button", { name: /Drag to fill cells/ }),
     grip = (await handle.boundingBox())!,
     target = (await cell(grid, "rtl5", "amount").boundingBox())!;
@@ -236,7 +284,17 @@ test("touch fill grip supports series and cancellation without data writes", asy
   expect(grip.height).toBeGreaterThanOrEqual(24);
   const from = { x: grip.x + grip.width / 2, y: grip.y + grip.height / 2 },
     to = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
-  await touchDrag(session, page, from, to, true);
+  await touchDrag(session, page, from, to, true, async () => {
+    await expect(cell(grid, "rtl1", "amount")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(cell(grid, "rtl5", "amount")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(cell(grid, "rtl3", "amount")).toContainText("12");
+  });
   await expect(cell(grid, "rtl3", "amount")).toContainText("12");
   await expect(grid.getByRole("gridcell", { selected: true })).toHaveCount(2);
   const again = (await handle.boundingBox())!,

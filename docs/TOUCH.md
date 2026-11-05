@@ -6,6 +6,8 @@ Touch behavior is implemented in the React client grid, with native browser scro
 
 Pan on ordinary cell backgrounds to scroll either axis; pinch zoom remains available. A touch-down does not start mouse-style range dragging or immediately move cell focus. A completed tap focuses/selects a cell. Double-tap the same editable cell, or tap **Edit cell**, to open its configured editor. Native buttons, checkboxes, selects, links and custom interactive renderers retain their own actions.
 
+Gesture timing uses input-event timestamps, so a brief tap remains valid when rendering delays click delivery. Matching pointer identity is checked when the click provides it. Missing or invalid timestamps use the existing wall-clock fallback. Genuine long presses and stale clicks remain excluded.
+
 Movement, scrolling, cancellation, another contact and changes to the model/view invalidate an unfinished tap sequence. A compatibility double-click following a recognized touch sequence does not open a duplicate editor. Native editor input, validation, commit/cancel and data undo retain their existing contracts. This does not establish virtual-keyboard behavior on a physical iOS or Android device.
 
 ## Select and fill

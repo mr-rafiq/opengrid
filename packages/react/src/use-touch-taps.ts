@@ -6,6 +6,32 @@ const key = (position: CellPosition) =>
   JSON.stringify([position.rowId, position.columnId]);
 const interactive =
   'dialog,[role="dialog"],button,input,select,textarea,a,summary,[contenteditable="true"],[role="button"],[role="link"],[role="checkbox"],[role="combobox"],[role="switch"],[data-og-no-edit]';
+interface InputTime {
+  at: number;
+  stamp: number | undefined;
+}
+function inputStamp(event: { timeStamp: number }): number | undefined {
+  return Number.isFinite(event.timeStamp) && event.timeStamp >= 0
+    ? event.timeStamp
+    : undefined;
+}
+function inputTime(event: { timeStamp: number }): InputTime {
+  return { at: Date.now(), stamp: inputStamp(event) };
+}
+function recent(
+  previous: InputTime | null,
+  event: { timeStamp: number },
+  maximum: number,
+): boolean {
+  if (!previous) return false;
+  const stamp = inputStamp(event);
+  // Input timestamps describe the gesture; handler wall time includes rendering delays.
+  const elapsed =
+    stamp !== undefined && previous.stamp !== undefined
+      ? stamp - previous.stamp
+      : Date.now() - previous.at;
+  return elapsed >= 0 && elapsed <= maximum;
+}
 /** Recognizes completed touch clicks without capturing or cancelling native pan/pinch. */
 export function useTouchTaps({
   viewport,
@@ -29,17 +55,17 @@ export function useTouchTaps({
     position: CellPosition;
     x: number;
     y: number;
-    started: number;
+    clock: InputTime;
     top: number;
     left: number;
   } | null>(null);
-  const previous = useRef<{ position: CellPosition; at: number } | null>(null);
-  const pending = useRef<{
-    position: CellPosition;
-    at: number;
-    double: boolean;
-  } | null>(null);
-  const lastTouch = useRef(-Infinity);
+  const previous = useRef<(InputTime & { position: CellPosition }) | null>(
+    null,
+  );
+  const pending = useRef<
+    (InputTime & { id: number; position: CellPosition; double: boolean }) | null
+  >(null);
+  const lastTouch = useRef<InputTime | null>(null);
   const blockedContacts = useRef(new Set<number>());
   function cancel() {
     active.current = null;
@@ -70,7 +96,7 @@ export function useTouchTaps({
       if (active.current && event.pointerId !== active.current.id) {
         blockedContacts.current.add(active.current.id);
         blockedContacts.current.add(event.pointerId);
-        lastTouch.current = Date.now();
+        lastTouch.current = inputTime(event);
         cancel();
       }
     };
@@ -101,10 +127,10 @@ export function useTouchTaps({
     onPointerDown(event: PointerEvent<HTMLElement>) {
       if (event.pointerType !== "touch") {
         cancel();
-        lastTouch.current = -Infinity;
+        lastTouch.current = null;
         return;
       }
-      lastTouch.current = Date.now();
+      lastTouch.current = inputTime(event);
       const position = positionAt(event.target),
         node = viewport.current;
       if (
@@ -123,7 +149,7 @@ export function useTouchTaps({
         position,
         x: event.clientX,
         y: event.clientY,
-        started: Date.now(),
+        clock: inputTime(event),
         top: node.scrollTop,
         left: node.scrollLeft,
       };
@@ -141,7 +167,7 @@ export function useTouchTaps({
       const contact = active.current;
       if (!contact || contact.id !== event.pointerId) return;
       active.current = null;
-      const now = Date.now(),
+      const now = inputTime(event),
         node = viewport.current,
         position = positionAt(event.target);
       if (
@@ -149,7 +175,7 @@ export function useTouchTaps({
         !position ||
         event.isPrimary === false ||
         key(position) !== key(contact.position) ||
-        now - contact.started > 500 ||
+        !recent(contact.clock, event, 500) ||
         Math.hypot(event.clientX - contact.x, event.clientY - contact.y) > 10 ||
         node.scrollTop !== contact.top ||
         node.scrollLeft !== contact.left
@@ -160,13 +186,13 @@ export function useTouchTaps({
       const double =
         !!previous.current &&
         key(previous.current.position) === key(position) &&
-        now - previous.current.at <= 350;
-      pending.current = { position, at: now, double };
-      previous.current = double ? null : { position, at: now };
+        recent(previous.current, event, 350);
+      pending.current = { position, ...now, id: contact.id, double };
+      previous.current = double ? null : { position, ...now };
     },
     onPointerCancel(event: PointerEvent<HTMLElement>) {
       if (event.pointerType === "touch") {
-        lastTouch.current = Date.now();
+        lastTouch.current = inputTime(event);
         cancel();
       }
     },
@@ -176,17 +202,20 @@ export function useTouchTaps({
     onContextMenu: cancel,
     consumeClick(event: MouseEvent<HTMLElement>, position: CellPosition) {
       if (event.detail === 0) return false;
-      const nativeType = (event.nativeEvent as globalThis.PointerEvent)
-        .pointerType;
+      const native = event.nativeEvent as globalThis.PointerEvent,
+        nativeType = native.pointerType;
       const completion = pending.current;
       const touch =
         nativeType === "touch" ||
-        (!nativeType && Date.now() - lastTouch.current < 800);
+        (!nativeType && recent(lastTouch.current, event, 800));
       if (!touch) return false;
       pending.current = null;
       if (
         !completion ||
-        Date.now() - completion.at > 500 ||
+        !recent(completion, event, 500) ||
+        (Number.isFinite(native.pointerId) &&
+          native.pointerId >= 0 &&
+          native.pointerId !== completion.id) ||
         key(completion.position) !== key(position) ||
         !positionAt(event.target)
       )
@@ -198,7 +227,7 @@ export function useTouchTaps({
     suppressDoubleClick(event: MouseEvent<HTMLElement>) {
       return (
         (event.nativeEvent as globalThis.PointerEvent).pointerType !==
-          "mouse" && Date.now() - lastTouch.current < 800
+          "mouse" && recent(lastTouch.current, event, 800)
       );
     },
   };

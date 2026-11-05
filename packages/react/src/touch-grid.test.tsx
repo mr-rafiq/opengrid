@@ -51,6 +51,7 @@ function pointer(
     x?: number;
     y?: number;
     pointerType?: string;
+    stamp?: number;
   } = {},
 ) {
   const event = new MouseEvent(type, {
@@ -64,15 +65,27 @@ function pointer(
     pointerType: { value: patch.pointerType ?? "touch" },
     isPrimary: { value: patch.isPrimary ?? true },
   });
+  Object.defineProperty(event, "timeStamp", {
+    value: patch.stamp ?? Date.now(),
+  });
   return fireEvent(target, event);
 }
-function click(target: Element, detail = 1) {
+function click(
+  target: Element,
+  detail = 1,
+  patch: { stamp?: number; pointerId?: number } = {},
+) {
   const event = new MouseEvent("click", {
     bubbles: true,
     cancelable: true,
     detail,
   });
   Object.defineProperty(event, "pointerType", { value: "touch" });
+  Object.defineProperty(event, "timeStamp", {
+    value: patch.stamp ?? Date.now(),
+  });
+  if (patch.pointerId !== undefined)
+    Object.defineProperty(event, "pointerId", { value: patch.pointerId });
   fireEvent(target, event);
 }
 function tap(target: Element, id = 1) {
@@ -86,6 +99,53 @@ afterEach(() => {
 });
 
 describe("native-friendly touch grid interaction", () => {
+  it("keeps a brief completed tap when its click is delivered after a slow render", () => {
+    let now = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const changed = vi.fn();
+    render(<DataGrid model={make()} onCellRangeChange={changed} />);
+    pointer(cell("b", "amount"), "pointerdown", { pointerId: 7, stamp: 100 });
+    pointer(cell("b", "amount"), "pointerup", { pointerId: 7, stamp: 110 });
+    now = 1800;
+    click(cell("b", "amount"), 1, { pointerId: 7, stamp: 110 });
+    expect(changed.mock.calls.at(-1)?.[0]).toEqual({
+      anchor: { rowId: "b", columnId: "amount" },
+      focus: { rowId: "b", columnId: "amount" },
+    });
+  });
+  it("does not accept a stale input timestamp merely because its handler runs promptly", () => {
+    vi.spyOn(Date, "now").mockReturnValue(1000);
+    const changed = vi.fn();
+    render(<DataGrid model={make()} onCellRangeChange={changed} />);
+    changed.mockClear(); // Ignore the initial empty-range notification.
+    pointer(cell(), "pointerdown", { pointerId: 7, stamp: 100 });
+    pointer(cell(), "pointerup", { pointerId: 7, stamp: 110 });
+    click(cell(), 1, { pointerId: 7, stamp: 800 });
+    expect(changed).not.toHaveBeenCalled();
+  });
+  it("rejects a different pointer's click even when its target and timestamp match", () => {
+    const changed = vi.fn();
+    render(<DataGrid model={make()} onCellRangeChange={changed} />);
+    changed.mockClear(); // Ignore the initial empty-range notification.
+    pointer(cell(), "pointerdown", { pointerId: 7, stamp: 100 });
+    pointer(cell(), "pointerup", { pointerId: 7, stamp: 110 });
+    click(cell(), 1, { pointerId: 8, stamp: 110 });
+    expect(changed).not.toHaveBeenCalled();
+  });
+  it("recognizes physical double-tap spacing independently from delayed handler delivery", () => {
+    let now = 1000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    render(<DataGrid model={make()} />);
+    pointer(cell(), "pointerdown", { pointerId: 7, stamp: 100 });
+    pointer(cell(), "pointerup", { pointerId: 7, stamp: 110 });
+    click(cell(), 1, { pointerId: 7, stamp: 110 });
+    now = 3000;
+    pointer(cell(), "pointerdown", { pointerId: 8, stamp: 300 });
+    pointer(cell(), "pointerup", { pointerId: 8, stamp: 310 });
+    click(cell(), 1, { pointerId: 8, stamp: 310 });
+    expect(within(cell()).getByRole("textbox")).toBeTruthy();
+  });
+
   it("allows a real mouse double-click immediately after touch on a hybrid device", () => {
     render(<DataGrid model={make()} />);
     tap(cell());

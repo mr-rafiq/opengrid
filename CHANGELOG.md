@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.25.1 - 2026-11-05
+
+Touch input timing correction. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Recognize brief taps and double taps using input timestamps rather than callback delivery delay. Preserve pointer identity, stale-input, long-press, scroll, cancellation and model/view guards.
+- Add a real-touch delayed-click regression and strengthen range setup and active-preview assertions before cancellation. Keep the two-cell restoration and atomic fill/Undo checks.
+- The known source Order-header sizing discrepancy and remaining full Kalkverse integration gaps are unchanged. This patch does not establish physical-device or full application compatibility.
+
 ## 0.25.0 - 2026-11-05
 
 Explicit resident viewport fit. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.
