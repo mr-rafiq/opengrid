@@ -46,6 +46,8 @@ export interface Ag31ClientControllerOptions<T> {
   readOnly?: boolean;
   groupSelectsFiltered?: boolean;
   callbacks?: Partial<Record<Ag31EventOptionName, unknown>>;
+  isExternalFilterPresent?: (() => boolean) | null;
+  doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
   writeCell?(
     node: Ag31RowNode<T>,
     column: unknown,
@@ -112,6 +114,15 @@ export function createAg31ClientController<T>(
     columnApi,
     context: getGridOption("context"),
   });
+  for (const name of [
+    "isExternalFilterPresent",
+    "doesExternalFilterPass",
+  ] as const) {
+    const callback = options[name];
+    if (callback != null && typeof callback !== "function")
+      throw new TypeError("External filter callbacks must be functions");
+    settings.set(name, callback);
+  }
   const optionForEvent = new Map<string, Ag31EventOptionName>();
   const callbackNames = new Set<string>();
   for (const [name, type] of AG31_EVENT_OPTIONS) {
@@ -292,7 +303,9 @@ export function createAg31ClientController<T>(
     if (key === "isExternalFilterPresent" || key === "doesExternalFilterPass") {
       if (value != null && typeof value !== "function")
         throw new TypeError("External filter callbacks must be functions");
+      if (settings.get(key) === value) return;
       settings.set(key, value);
+      onFilterChanged();
       return;
     }
     throw new TypeError(
@@ -306,13 +319,10 @@ export function createAg31ClientController<T>(
       predicate = settings.get("doesExternalFilterPass") as
         ((node: Ag31RowNode<T>) => boolean) | undefined;
     const isPresent = present?.() === true;
-    if (isPresent && !predicate)
-      throw new TypeError(
-        "An active external filter needs doesExternalFilterPass",
-      );
     model.setExternalFilter(
       isPresent
-        ? (row) => predicate!(nodes.getRowNode(options.getRowId(row))!)
+        ? (row) =>
+            predicate?.(nodes.getRowNode(options.getRowId(row))!) ?? false
         : undefined,
     );
     emit({ type: "filterChanged", source: "api", columns: [] });
@@ -539,6 +549,11 @@ export function createAg31ClientController<T>(
     getColumnState: methods.getColumnState,
   };
   Object.assign(columnApi, columnMethods);
+  if (
+    settings.get("isExternalFilterPresent") != null ||
+    settings.get("doesExternalFilterPass") != null
+  )
+    onFilterChanged();
   return Object.freeze({
     api: api as typeof methods,
     columnApi: columnApi as typeof columnMethods,

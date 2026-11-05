@@ -81,6 +81,8 @@ The lab offers English/Deutsch without replacing its model, source records or hi
 
 ## Replacement readiness matrix
 
+The [experimental legacy React bridge](LEGACY_REACT_BRIDGE.md) now exposes selected measured source-style React/ref/API contracts publicly. It preserves resident class records, option precedence, supported callback lifetimes, nullable loading rows, external filtering and responsive pinned layouts. It remains read-only and does not close the application integration gaps below.
+
 This matrix describes native capabilities and remaining integration work, not a certification of an unseen application screen.
 
 | Requirement                           | Status and boundary                                                                                                                                                                                        |

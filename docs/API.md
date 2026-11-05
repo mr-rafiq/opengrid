@@ -1,5 +1,7 @@
 # API guide
 
+For selected source-style resident React/ref/API contracts, see the separate [experimental legacy React bridge](LEGACY_REACT_BRIDGE.md). Its read-only boundary and unsupported contracts are explicit; native APIs below are not automatically translated.
+
 See [client view commands](GRID_VIEW.md) for the lifecycle-safe `viewRef` controller:
 focus/reveal/scroll, cell editing, validation, cancellation and current-view limits.
 

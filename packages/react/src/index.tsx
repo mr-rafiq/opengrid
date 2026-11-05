@@ -1,4 +1,17 @@
 export * from "./data-grid.js";
+export { Ag31ClientGrid } from "./ag31-client-grid.js";
+export type {
+  Ag31ClientGridProps,
+  Ag31ClientGridConfig,
+  Ag31ClientGridHandle,
+  Ag31ClientGridEvent,
+} from "./ag31-client-grid.js";
+export type {
+  Ag31ColumnDefinition,
+  Ag31LeafColumn,
+} from "./ag31-leaf-columns.js";
+export type { Ag31RowNode } from "./ag31-row-nodes.js";
+export type { Ag31ValueParams } from "./ag31-value-columns.js";
 export type {
   DataGridViewController,
   GridViewFocusOptions,

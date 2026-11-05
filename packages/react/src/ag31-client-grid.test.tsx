@@ -14,9 +14,95 @@ import {
   resolveAg31ClientGridConfig,
   type Ag31ClientGridHandle,
 } from "./ag31-client-grid.js";
+import { Ag31ClientGrid as PublicGrid } from "./index.js";
 afterEach(cleanup);
 type Row = { id: string; amount: number };
 const getRowId = ({ data }: { data: Row }) => data.id;
+it("keeps omitted columns and rows stable through the public ref lifecycle and unrelated prop changes", async () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>(),
+    ready = vi.fn();
+  const view = render(
+    <StrictMode>
+      <PublicGrid<Row> ref={ref} getRowId={getRowId} onGridReady={ready} />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
+  const api = ref.current!.api;
+  expect(api.getDisplayedRowCount()).toBe(0);
+  expect(api.getGridOption("rowData")).toBeUndefined();
+  view.rerender(
+    <StrictMode>
+      <PublicGrid<Row>
+        ref={ref}
+        getRowId={getRowId}
+        onGridReady={ready}
+        context={{ label: "changed" }}
+      />
+    </StrictMode>,
+  );
+  expect(ref.current!.api).toBe(api);
+  expect(api.getGridOption("context")).toEqual({ label: "changed" });
+  expect(ready).toHaveBeenCalledTimes(1);
+  view.unmount();
+  expect(api.isDestroyed()).toBe(true);
+});
+it("forwards external-filter props while preserving imperative overrides on unrelated row updates", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>();
+  const definitions = [{ field: "amount" }],
+    present = () => true;
+  const pass = (node: { data?: Row }) => node.data!.amount > 5;
+  const rows = [
+    { id: "a", amount: 1 },
+    { id: "b", amount: 8 },
+  ];
+  const options = {
+    getRowId,
+    isExternalFilterPresent: present,
+    doesExternalFilterPass: pass,
+  };
+  const view = render(
+    <Ag31ClientGrid
+      ref={ref}
+      gridOptions={options}
+      rowData={rows}
+      columnDefs={definitions}
+    />,
+  );
+  expect(ref.current!.api.getDisplayedRowCount()).toBe(1);
+  act(() => ref.current!.api.setGridOption("isExternalFilterPresent", null));
+  view.rerender(
+    <Ag31ClientGrid
+      ref={ref}
+      gridOptions={options}
+      rowData={[...rows]}
+      columnDefs={definitions}
+    />,
+  );
+  expect(ref.current!.api.getDisplayedRowCount()).toBe(2);
+  view.rerender(
+    <Ag31ClientGrid
+      ref={ref}
+      gridOptions={options}
+      isExternalFilterPresent={present}
+      doesExternalFilterPass={() => false}
+      rowData={rows}
+      columnDefs={definitions}
+    />,
+  );
+  expect(ref.current!.api.getDisplayedRowCount()).toBe(2);
+  // Only a changed presence prop replaces the deliberate imperative clear.
+  view.rerender(
+    <Ag31ClientGrid
+      ref={ref}
+      gridOptions={options}
+      isExternalFilterPresent={() => true}
+      doesExternalFilterPass={() => false}
+      rowData={rows}
+      columnDefs={definitions}
+    />,
+  );
+  expect(ref.current!.api.getDisplayedRowCount()).toBe(0);
+});
 
 it("binds explicit event props over gridOptions and preserves imperative callback changes across unrelated row updates", async () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>(),

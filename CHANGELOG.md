@@ -1,5 +1,16 @@
 # Release notes
 
+## 0.15.0 - 2026-11-05
+
+Experimental public resident React/ref bridge. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Export `Ag31ClientGrid` and its typed ref, configuration, event, column, row-node and value contracts. The new original demo uses public package imports, class-backed synthetic records, nullable loading, grouping, selection and external filtering.
+- Keep omitted columns and rows stable through the public ref/ready lifecycle, including StrictMode and unrelated prop changes.
+- Preserve measured `gridOptions`/defined-prop precedence and imperative option changes across unrelated React updates. Deliver supported event options after API listeners, resolving current handlers at delivery and canceling queued work on destruction.
+- Apply changed external-filter callbacks immediately, including constructor and React-prop paths, nullable clearing and missing-predicate behavior. Unchanged callback identities do not reapply the filter; stable closures can request `onFilterChanged` explicitly.
+- Release pinned bands under narrow-viewport pressure with a reserved center and no automatic repinning. Keep short inline-end pin bands aligned in LTR/RTL, including merged/grouped headers and selection gutters. Isolate source component controls from native input/button styles.
+- The bridge remains read-only and experimental. Saved-state/filter translation, business editors/backend transactions, menu/status/panel registries, complete source-theme compatibility and authenticated application acceptance remain unfinished. This release does not certify full replacement readiness.
+
 Created by Mohamed Rafiq.
 
 ## 0.14.0 - 2026-11-05

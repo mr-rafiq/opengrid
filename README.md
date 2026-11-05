@@ -14,6 +14,8 @@ The long-term goal covers Community and Enterprise feature families in AG Grid *
 
 For estimating screens, see [calculation workspaces](docs/CALCULATION_WORKSPACES.md): row-dependent policies, nested value setters, locked utility columns, custom headers/status content and responsive application panels, with an explicit replacement-readiness matrix.
 
+The [experimental legacy React bridge](docs/LEGACY_REACT_BRIDGE.md) exposes selected measured read-only resident React/ref/API contracts. It is available as `Ag31ClientGrid`; it does not yet support full application replacement.
+
 Requires Node.js 24.14+ and npm 11+. No account or license key is needed.
 
 ```sh

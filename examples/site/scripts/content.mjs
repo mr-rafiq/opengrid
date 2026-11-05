@@ -40,6 +40,7 @@ export const slugify = (value) =>
     .replace(/[\s_]+/g, "-");
 const labels = {
   "calculation-workspaces": "Calculation workspaces",
+  "legacy-react-bridge": "Legacy React bridge (experimental)",
   "getting-started": "Getting started",
   themes: "Themes & appearance",
   grouping: "Row grouping & totals",
@@ -93,6 +94,7 @@ const labels = {
 };
 const order = [
   "calculation-workspaces",
+  "legacy-react-bridge",
   "showcase",
   "client-pivot",
   "getting-started",

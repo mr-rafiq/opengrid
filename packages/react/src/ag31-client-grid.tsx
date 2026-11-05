@@ -58,6 +58,8 @@ export interface Ag31ClientGridConfig<T> {
   showOpenedGroup?: false;
   reactiveCustomComponents?: true;
   rowGroupPanelShow?: "always" | "onlyWhenGrouping" | "never";
+  isExternalFilterPresent?: (() => boolean) | null;
+  doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
   onGridReady?(
     event: Ag31ClientGridHandle<T> & { context: unknown; type: "gridReady" },
   ): void;
@@ -98,8 +100,11 @@ const configKeys = new Set([
   "showOpenedGroup",
   "reactiveCustomComponents",
   "rowGroupPanelShow",
+  "isExternalFilterPresent",
+  "doesExternalFilterPass",
   ...AG31_EVENT_OPTIONS.map(([name]) => name),
 ]);
+const emptyDefinitions: readonly never[] = Object.freeze([]);
 const optionCallbacks = <T,>(
   config: Ag31ClientGridConfig<T>,
 ): Partial<Record<Ag31EventOptionName, unknown>> =>
@@ -127,8 +132,8 @@ export function resolveAg31ClientGridConfig<T>(
       if (descriptor.value !== undefined) result[key] = descriptor.value;
     }
   }
-  if (result.rowData === undefined) result.rowData = [];
-  if (result.columnDefs === undefined) result.columnDefs = [];
+  if (result.rowData === undefined) result.rowData = null;
+  if (result.columnDefs === undefined) result.columnDefs = emptyDefinitions;
   if (
     (result.rowData !== null && !Array.isArray(result.rowData)) ||
     !Array.isArray(result.columnDefs)
@@ -460,7 +465,7 @@ function ResidentView<T>({
   );
 }
 
-/** Internal, read-only resident React bridge. It deliberately does not advertise complete AgGridReact compatibility. */
+/** Experimental read-only resident React bridge; not a complete AgGridReact replacement. */
 function ClientGrid<T>(
   input: Ag31ClientGridProps<T>,
   ref: Ref<Ag31ClientGridHandle<T>>,
@@ -473,11 +478,15 @@ function ClientGrid<T>(
     context: unknown;
     rowData: T[] | null;
     callbacks: Partial<Record<Ag31EventOptionName, unknown>>;
+    isExternalFilterPresent: Ag31ClientGridConfig<T>["isExternalFilterPresent"];
+    doesExternalFilterPass: Ag31ClientGridConfig<T>["doesExternalFilterPass"];
   }>({
     owner: null,
     context: props.context,
     rowData: props.rowData,
     callbacks: optionCallbacks(props),
+    isExternalFilterPresent: props.isExternalFilterPresent,
+    doesExternalFilterPass: props.doesExternalFilterPass,
   });
   useLayoutEffect(() => {
     const options = initial.current;
@@ -493,6 +502,8 @@ function ClientGrid<T>(
       readOnly: true,
       groupSelectsFiltered: options.groupSelectsFiltered,
       callbacks: optionCallbacks(options),
+      isExternalFilterPresent: options.isExternalFilterPresent,
+      doesExternalFilterPass: options.doesExternalFilterPass,
     });
     setOwner(next);
     return () => next.api.destroy();
@@ -505,7 +516,7 @@ function ClientGrid<T>(
       props.groupSelectsFiltered !== initial.current.groupSelectsFiltered
     )
       throw new Error(
-        "Structural source column replacement requires remounting this internal bridge",
+        "Structural source column replacement requires remounting this resident bridge",
       );
     if (forwarded.current.owner !== owner)
       forwarded.current = {
@@ -513,6 +524,8 @@ function ClientGrid<T>(
         context: initial.current.context,
         rowData: initial.current.rowData,
         callbacks: optionCallbacks(initial.current),
+        isExternalFilterPresent: initial.current.isExternalFilterPresent,
+        doesExternalFilterPass: initial.current.doesExternalFilterPass,
       };
     for (const [name] of AG31_EVENT_OPTIONS) {
       if (forwarded.current.callbacks[name] !== props[name]) {
@@ -524,6 +537,15 @@ function ClientGrid<T>(
       owner.api.setGridOption("context", props.context);
       forwarded.current.context = props.context;
       owner.api.refreshCells();
+    }
+    for (const name of [
+      "isExternalFilterPresent",
+      "doesExternalFilterPass",
+    ] as const) {
+      if (forwarded.current[name] !== props[name]) {
+        owner.api.setGridOption(name, props[name]);
+        forwarded.current = { ...forwarded.current, [name]: props[name] };
+      }
     }
     if (forwarded.current.rowData !== props.rowData) {
       owner.api.setGridOption("rowData", props.rowData);
@@ -542,6 +564,8 @@ function ClientGrid<T>(
     props.onModelUpdated,
     props.onRowDataUpdated,
     props.onColumnRowGroupChanged,
+    props.isExternalFilterPresent,
+    props.doesExternalFilterPass,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

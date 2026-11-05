@@ -1,5 +1,17 @@
 # Verification record
 
+## Experimental public resident bridge (0.15.0)
+
+The local full checkpoint passed formatting and version consistency, strict TypeScript in **291.64 seconds**, **2,137 unit tests across 144 files** in **420.53 seconds**, all package ESM/declaration/CSS and demo builds in **197.36 seconds**, and **209 browser scenarios without retries** in **11.8 minutes**. This checkpoint preceded a narrowly scoped public-default correction described below; it is not reported as an unchanged-source final run.
+
+An additional public-import regression reproduced a lifecycle error with omitted column definitions. Stable immutable empty definitions and nullable empty rows correct that error. The affected controller/event/React suites then passed **40 tests in 4.42 seconds**, including StrictMode, ref destruction and unrelated prop updates. Four final desktop/phone light/dark browser flows passed in **15.1 seconds** and verify complete currency-cell geometry in the small demo, loading, class methods, selection, filtering and remount. Actual phone-light and desktop-dark screenshots were inspected.
+
+A private read-only comparison uses unchanged consumer definitions, selected components and synthetic instances of original domain classes on installed **React/ReactDOM 18.3.1 and AG Grid 31.3.4**. All **seven scenarios passed in 1.4 minutes**, through the new public React entry: event-option ordering and replacement, immediate external filtering and nullable clearing, short pinned totals, nullable loading via gridOptions, context updates, nine narrow pin-pressure configurations with no automatic repinning, and an explicit runtime-version assertion. These are bounded source-contract checks, not an unchanged full application or backend acceptance run. Private source and data are excluded from the repository.
+
+After the default correction, the recovered final gate passed strict TypeScript in **274.65 seconds**, rebuilt all packages/declarations/CSS and the demo in **208.71 seconds**, and passed the built public ESM/SSR smoke on React **19.3.1** with no owner/ref, callback or source-read effects during server rendering. Formatting and version consistency passed again. The earlier interrupted gate is retained separately as interrupted evidence.
+
+The bridge remains experimental and read-only. Saved-state/filter translation, business editing and backend transactions, complete menus/panels, source-theme compatibility and authenticated application acceptance remain open. Automated and emulated browser checks do not establish physical-device or manual screen-reader verification.
+
 ## Balanced groups and source traversal (0.12.1)
 
 The native optional `groupBlanksLast` fallback preserves existing default group order and original source rows; explicit comparisons can still distinguish blank groups. Internal consumer helpers now keep complete group leaf lists in source insertion order and separate custom-group sort inputs from displayed values. They remain internal prerequisites, not an exported compatibility component.

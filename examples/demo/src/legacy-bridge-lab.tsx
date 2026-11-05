@@ -1,0 +1,141 @@
+import { useMemo, useRef, useState } from "react";
+import {
+  Ag31ClientGrid,
+  type Ag31ClientGridHandle,
+  type Ag31ColumnDefinition,
+  type Ag31RowNode,
+  type Ag31ValueParams,
+} from "@opengrid/react";
+
+class EstimateLine {
+  constructor(
+    public id: string,
+    public phase: string,
+    public amount: number,
+  ) {}
+  caption() {
+    return `Line ${this.id}`;
+  }
+}
+const money = new Intl.NumberFormat("de-DE", {
+  style: "currency",
+  currency: "EUR",
+});
+const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
+  {
+    headerName: "Estimate",
+    children: [
+      { field: "phase", headerName: "Phase", enableRowGroup: true, hide: true },
+      {
+        colId: "item",
+        headerName: "Item",
+        showRowGroup: true,
+        pinned: "left",
+        width: 150,
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+        valueGetter: (p: Ag31ValueParams<EstimateLine>) =>
+          p.node.group ? p.node.key : p.data!.caption(),
+      },
+    ],
+  },
+  {
+    headerName: "Values",
+    children: [
+      {
+        field: "amount",
+        headerName: "Amount",
+        width: 110,
+        cellDataType: "number",
+        valueFormatter: (p: Ag31ValueParams<EstimateLine>) =>
+          p.value == null ? "" : money.format(Number(p.value)),
+      },
+    ],
+  },
+];
+const active = () => true;
+const expensive = (node: Ag31RowNode<EstimateLine>) => node.data!.amount >= 100;
+
+export function LegacyBridgeLab() {
+  const grid = useRef<Ag31ClientGridHandle<EstimateLine>>(null);
+  const source = useMemo(
+    () => [
+      new EstimateLine("A", "Planning", 80),
+      new EstimateLine("B", "Planning", 240),
+      new EstimateLine("C", "Build", 1900),
+    ],
+    [],
+  );
+  const options = useMemo(
+    () => ({
+      getRowId: ({ data }: { data: EstimateLine }) => data.id,
+      rowSelection: "multiple" as const,
+      groupSelectsChildren: true,
+      suppressRowClickSelection: true,
+    }),
+    [],
+  );
+  const [rows, setRows] = useState<EstimateLine[] | null>(null);
+  const [filtered, setFiltered] = useState(false);
+  const [summary, setSummary] = useState("Waiting for rows");
+  const update = () => {
+    const api = grid.current?.api;
+    if (api && !api.isDestroyed())
+      setSummary(
+        `${api.getDisplayedRowCount()} displayed rows | ${api.getSelectedRows()?.length ?? 0} selected`,
+      );
+  };
+  return (
+    <article
+      aria-label="Experimental legacy React bridge"
+      className="legacy-bridge-lab"
+    >
+      <h2>Resident React bridge</h2>
+      <p>
+        Experimental, read-only API/ref compatibility for resident rows. This is
+        not a complete AG Grid replacement. Original class records retain their
+        methods.
+      </p>
+      <div className="grouping-lab-controls">
+        <button type="button" onClick={() => setRows([...source])}>
+          Load source records
+        </button>
+        <button type="button" onClick={() => setRows(null)}>
+          Clear records
+        </button>
+        <button
+          type="button"
+          aria-pressed={filtered}
+          onClick={() => setFiltered(!filtered)}
+        >
+          Amounts at least EUR 100
+        </button>
+        <button type="button" onClick={() => grid.current?.api.deselectAll()}>
+          Clear selection
+        </button>
+      </div>
+      <p role="status" aria-label="Source summary">
+        {summary}
+      </p>
+      <Ag31ClientGrid
+        ref={grid}
+        gridOptions={options}
+        rowData={rows}
+        columnDefs={definitions}
+        initialModelState={{ groupBy: ["phase"] }}
+        height={300}
+        ariaLabel="Legacy source estimate"
+        onGridReady={update}
+        onModelUpdated={update}
+        onSelectionChanged={update}
+        isExternalFilterPresent={filtered ? active : null}
+        doesExternalFilterPass={expensive}
+      />
+      <p>
+        <a href="../docs/legacy-react-bridge/">
+          Supported options and remaining contracts
+        </a>
+      </p>
+    </article>
+  );
+}

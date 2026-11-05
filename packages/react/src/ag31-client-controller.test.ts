@@ -44,6 +44,52 @@ function setup(definitions?: readonly Ag31ColumnDefinition<Row>[]) {
   return { ...controller, rows, context };
 }
 afterEach(() => vi.useRealTimers());
+it("applies measured external-filter option changes immediately, excludes leaves with missing predicates and skips unchanged callbacks", () => {
+  vi.useFakeTimers();
+  const c = createAg31ClientController({
+    rows: [new Row("a", "All", 1), new Row("b", "All", 8)],
+    definitions: [{ field: "amount" }],
+    getRowId: (row) => row.id,
+  });
+  const changed = vi.fn(),
+    present = () => true;
+  c.api.addEventListener("filterChanged", changed);
+  c.api.setGridOption("isExternalFilterPresent", present);
+  expect(c.api.getDisplayedRowCount()).toBe(0);
+  const pass = (node: Ag31RowNode<Row>) => node.data!.amount > 5;
+  c.api.setGridOption("doesExternalFilterPass", pass);
+  expect(c.api.getDisplayedRowCount()).toBe(1);
+  expect(c.api.getDisplayedRowAtIndex(0)!.data!.id).toBe("b");
+  c.api.setGridOption("doesExternalFilterPass", pass);
+  vi.runOnlyPendingTimers();
+  expect(changed).toHaveBeenCalledTimes(2);
+  expect(changed.mock.calls[0][0]).toMatchObject({
+    type: "filterChanged",
+    source: "api",
+    columns: [],
+  });
+  c.api.setGridOption("isExternalFilterPresent", null);
+  expect(c.api.getDisplayedRowCount()).toBe(2);
+  expect(c.api.getGridOption("isExternalFilterPresent")).toBeUndefined();
+  c.api.destroy();
+});
+it("filters initial resident class instances using constructor callbacks and the same owned API", () => {
+  let api: unknown;
+  const row = new Row("a", "All", 8);
+  const c = createAg31ClientController({
+    rows: [row],
+    definitions: [{ field: "amount" }],
+    getRowId: (r) => r.id,
+    isExternalFilterPresent: () => true,
+    doesExternalFilterPass: (node) => {
+      api = node.data;
+      return node.data!.label() === "Line a";
+    },
+  });
+  expect(c.api.getDisplayedRowCount()).toBe(1);
+  expect(api).toBe(row);
+  c.api.destroy();
+});
 it("matches measured live grid-option callback lookup after API listeners and clears nullable handlers", () => {
   vi.useFakeTimers();
   const owner = setup(),
