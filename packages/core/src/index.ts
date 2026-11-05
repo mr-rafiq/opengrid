@@ -286,6 +286,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const objectKeys = new Map<unknown, number>();
   let rowIdCache: Set<string> | undefined;
   let filteredCache: T[] | undefined, modelCache: RowNode<T>[] | undefined;
+  let hierarchyCache = new Map<GridHierarchyStage, RowNode<T>[]>();
   function freezeSnapshot(snapshot: GridState): GridState {
     for (const filter of Object.values(snapshot.filters)) {
       if (Array.isArray(filter.value)) Object.freeze(filter.value);
@@ -296,11 +297,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       if (value && typeof value === "object") Object.freeze(value);
     return Object.freeze(snapshot);
   }
-  function emit() {
+  function emit(preserveProjection = false) {
     syncValueCache();
-    filteredCache = undefined;
-    modelCache = undefined;
-    rowIdCache = undefined;
+    if (!preserveProjection) {
+      filteredCache = undefined;
+      modelCache = undefined;
+      rowIdCache = undefined;
+      hierarchyCache = new Map();
+    }
     state = freezeSnapshot({ ...state });
     for (const listener of [...listeners]) listener();
   }
@@ -845,6 +849,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     return visit(root);
   }
   function hierarchyForest(stage: GridHierarchyStage): RowNode<T>[] {
+    const cache = hierarchyCache;
+    const cached = cache.get(stage);
+    if (cached) return cached;
+    const result = buildHierarchyForest(stage);
+    if (hierarchyCache === cache) cache.set(stage, result);
+    return result;
+  }
+  function buildHierarchyForest(stage: GridHierarchyStage): RowNode<T>[] {
     if (!["source", "filtered", "sorted"].includes(stage))
       throw new TypeError("Unknown hierarchy projection stage");
     if (
@@ -958,14 +970,22 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     modelCache = flat;
     return flat;
   }
+  function selectionOnly(patch: Partial<GridState>) {
+    const keys = Object.keys(patch);
+    return keys.length > 0 && keys.every((key) => key === "selected");
+  }
   function updateState(patch: Partial<GridState>) {
     const candidate = sanitize({ ...state, ...patch });
     const previousState = state,
       previousFiltered = filteredCache,
       previousModel = modelCache,
-      previousIds = rowIdCache;
+      previousIds = rowIdCache,
+      previousHierarchy = hierarchyCache;
     state = candidate;
-    filteredCache = modelCache = undefined;
+    if (!selectionOnly(patch)) {
+      filteredCache = modelCache = undefined;
+      hierarchyCache = new Map();
+    }
     try {
       state = {
         ...state,
@@ -979,12 +999,13 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       filteredCache = previousFiltered;
       modelCache = previousModel;
       rowIdCache = previousIds;
+      hierarchyCache = previousHierarchy;
       throw failure;
     }
   }
   function setState(patch: Partial<GridState>) {
     updateState(patch);
-    emit();
+    emit(selectionOnly(patch));
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
     if (readOnly) return "Grid is read only";

@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.16.1 - 2026-11-05
+
+Retain computed resident projections during selection. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Selecting or clearing source rows no longer reruns existing sort/filter/group projections after retained class records change. Live cell reads and presentation refresh remain available. Explicit query/data/cache-refresh operations still recompute the model.
+- Cache source, filtered and sorted hierarchy projections with rollback after failed query preparation. Returned hierarchy snapshots remain detached and frozen.
+- This corrects the measured selection-only defect; complete independent processing stages, business editing and authenticated application acceptance remain unfinished.
+
 ## 0.16.0 - 2026-11-05
 
 Resident source presentation callbacks. Created by Mohamed Rafiq. Source release only; no npm publication.

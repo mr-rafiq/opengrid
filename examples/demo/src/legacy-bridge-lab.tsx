@@ -140,6 +140,45 @@ export function LegacyBridgeLab() {
           Highlight sample changes
         </button>
       </div>
+      <details>
+        <summary>Retained-record refresh example</summary>
+        <p>
+          Local synthetic records only. Set Line A to EUR 300, then select Line
+          B. Selection keeps the existing order; reapply sorting to move Line A.
+        </p>
+        <div className="grouping-lab-controls">
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => {
+              const api = grid.current?.api;
+              if (!api) return;
+              api.applyColumnState({
+                state: [{ colId: "amount", sort: "asc" }],
+              });
+              api.forEachNode((node) => {
+                if (node.group && node.key === "Planning")
+                  node.setExpanded(true);
+              });
+              source[0].amount = 300;
+              api.refreshCells({ force: true });
+            }}
+          >
+            Set sample A to EUR 300
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() =>
+              grid.current?.api.applyColumnState({
+                state: [{ colId: "amount", sort: "asc" }],
+              })
+            }
+          >
+            Reapply amount sort
+          </button>
+        </div>
+      </details>
       <p role="status" aria-label="Source summary">
         {summary}
       </p>

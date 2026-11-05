@@ -58,7 +58,7 @@ Column `cellStyle` records or callbacks, `cellClass` strings/arrays/callbacks an
 
 ## Remaining replacement gaps
 
-A measured retained-record stage gap remains: after mutating a class-backed value and calling `refreshCells`, a subsequent selection update can rerun sorting in OpenGrid while the reference keeps its previous order. Do not rely on full staged-refresh equivalence until this contract is corrected and verified.
+Selection-only updates preserve computed sort/filter/group projections after a retained class record changes and a view-only refresh. Direct cell values remain live. Explicit native query/data/cache-refresh operations recompute projections. This bounded correction does not implement the reference's complete independent stage-processing API; layout changes and partial-stage refresh still need their own compatibility work.
 
 AG Grid `initialState`/`getState` translation, complete filter models and custom-filter hooks, business editors/value setters, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. The bridge does not enable editing or backend writes. A source callback retained in metadata is not proof that its feature is implemented.
 

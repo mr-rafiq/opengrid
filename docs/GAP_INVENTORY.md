@@ -104,4 +104,4 @@ Internal row/column/value adapters have separate original regressions and privat
 
 ## Resident source stage boundary
 
-A private reference comparison reproduced selection invalidating the sorted projection after a retained class value changes and a view-only refresh. The reference retains its prior sort order until explicit model processing. This remains an open compatibility defect, independent of the tested source-decoration callbacks. Full application replacement is not verified.
+A private reference comparison reproduced selection invalidating a computed sorted projection after a retained class value changes and a view-only refresh. Selection-only updates now retain computed sort/filter/group projections while ordinary cell reads remain live. Complete independent reference processing stages, partial aggregate refresh and layout-only equivalence remain open. Full application replacement is not verified.

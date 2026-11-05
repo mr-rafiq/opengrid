@@ -1,5 +1,13 @@
 # Verification record
 
+## Selection retains resident projections (0.16.1)
+
+The serial local gate passed formatting/version checks, strict TypeScript in **189.68 seconds**, **2,152 unit tests in 147 files** in **290.50 seconds**, package ESM/declaration/CSS and demo builds in **188.51 seconds**, and **213 Chromium scenarios without retries in 10.3 minutes**. Built public ESM/SSR smoke passed again.
+
+A private synthetic reference comparison first reproduced selection unexpectedly rerunning a sort after an original class value changed and `refreshCells` refreshed the view. The same comparison passed after the correction on installed React/ReactDOM 18.3.1 and AG Grid 31.3.4 through the public React entry. The complete affected core/controller slice passed **950 tests in 46 files** before the full gate. Original regressions cover preserved filter membership, source/filtered/sorted hierarchy and aggregate snapshots, explicit data/query invalidation, reentrant selection notifications and rollback after query preparation fails.
+
+Four new original browser flows at 320px/1440px in light/dark change a local class record, select and clear selection without moving it, then explicitly reapply sorting and verify the new order. Actual mobile-light and desktop-dark screenshots were inspected. This fixes selection-only invalidation; complete independent source processing stages, layout-only equivalence, source-theme compatibility and authenticated full application acceptance remain open. No target application source or backend data is changed.
+
 ## Resident source presentation (0.16.0)
 
 The complete serial local gate passed formatting and version consistency, strict TypeScript in **228.00 seconds**, **2,145 unit tests in 145 files** in **403.68 seconds**, package ESM/declaration/CSS and production demo builds in **223.06 seconds**, and **209 Chromium scenarios without retries in 13.4 minutes**. Built public ESM/SSR smoke checks passed on React 19.3.1 without owner/ref creation, callback execution or source reads during server rendering.
