@@ -286,6 +286,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   const objectKeys = new Map<unknown, number>();
   let rowIdCache: Set<string> | undefined;
   let filteredCache: T[] | undefined, modelCache: RowNode<T>[] | undefined;
+  let groupedCache: RowNode<T>[] | undefined;
+  let grandAggregateCache: Record<string, unknown> | undefined;
   let hierarchyCache = new Map<GridHierarchyStage, RowNode<T>[]>();
   function freezeSnapshot(snapshot: GridState): GridState {
     for (const filter of Object.values(snapshot.filters)) {
@@ -302,6 +304,8 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     if (!preserveProjection) {
       filteredCache = undefined;
       modelCache = undefined;
+      groupedCache = undefined;
+      grandAggregateCache = undefined;
       rowIdCache = undefined;
       hierarchyCache = new Map();
     }
@@ -925,7 +929,9 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
   function rowModel() {
     if (modelCache) return modelCache;
     const filtered = sortedFiltered();
-    const nodes = options.getTreePath ? tree(filtered) : group(filtered, 0, []);
+    const nodes = (groupedCache ??= options.getTreePath
+      ? tree(filtered)
+      : group(filtered, 0, []));
     const expanded = new Set(state.expanded),
       flat: RowNode<T>[] = [];
     const visit = (items: RowNode<T>[]) => {
@@ -960,7 +966,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
           kind: "total",
           total: "grand",
           depth: 0,
-          aggregates: aggregates(filtered),
+          aggregates: (grandAggregateCache ??= aggregates(filtered)),
           leafCount: filtered.length,
         }
       : undefined;
@@ -970,22 +976,39 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     modelCache = flat;
     return flat;
   }
-  function selectionOnly(patch: Partial<GridState>) {
+  function viewOnly(patch: Partial<GridState>) {
     const keys = Object.keys(patch);
-    return keys.length > 0 && keys.every((key) => key === "selected");
+    return (
+      keys.length > 0 &&
+      keys.every((key) =>
+        [
+          "selected",
+          "columnWidths",
+          "columnOrder",
+          "columnVisibility",
+          "columnPinning",
+          "page",
+          "pageSize",
+          "expanded",
+        ].includes(key),
+      )
+    );
   }
-  function updateState(patch: Partial<GridState>) {
+  function updateState(patch: Partial<GridState>, forceQuery = false) {
     const candidate = sanitize({ ...state, ...patch });
     const previousState = state,
       previousFiltered = filteredCache,
       previousModel = modelCache,
       previousIds = rowIdCache,
-      previousHierarchy = hierarchyCache;
+      previousHierarchy = hierarchyCache,
+      previousGrouped = groupedCache,
+      previousGrand = grandAggregateCache;
     state = candidate;
-    if (!selectionOnly(patch)) {
+    if (forceQuery || !viewOnly(patch)) {
       filteredCache = modelCache = undefined;
+      groupedCache = grandAggregateCache = undefined;
       hierarchyCache = new Map();
-    }
+    } else if (Object.hasOwn(patch, "expanded")) modelCache = undefined;
     try {
       state = {
         ...state,
@@ -1000,12 +1023,14 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       modelCache = previousModel;
       rowIdCache = previousIds;
       hierarchyCache = previousHierarchy;
+      groupedCache = previousGrouped;
+      grandAggregateCache = previousGrand;
       throw failure;
     }
   }
   function setState(patch: Partial<GridState>) {
     updateState(patch);
-    emit(selectionOnly(patch));
+    emit(viewOnly(patch));
   }
   function editBatch(edits: Edit<T>[]): string | undefined {
     if (readOnly) return "Grid is read only";
@@ -1430,10 +1455,13 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       const previous = externalFilter;
       externalFilter = predicate;
       try {
-        updateState({
-          ...(columnFilters === undefined ? {} : { filters: columnFilters }),
-          page: 0,
-        });
+        updateState(
+          {
+            ...(columnFilters === undefined ? {} : { filters: columnFilters }),
+            page: 0,
+          },
+          true,
+        );
       } catch (failure) {
         externalFilter = previous;
         throw failure;

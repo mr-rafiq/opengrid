@@ -43,7 +43,7 @@ it("source node selection retains an explicitly sorted projection after view ref
   expect(c.api.getDisplayedRowAtIndex(0)).toBe(a);
   expect(c.api.getCellValue({ rowNode: a, colKey: "amount" })).toBe(99);
   expect(c.api.getSelectedRows()).toEqual([c.rows[1]]);
-  c.api.applyColumnState({ state: [{ colId: "amount", sort: "asc" }] });
+  c.api.refreshClientSideRowModel();
   expect(c.order()).toEqual(["b", "c", "a"]);
   c.api.destroy();
 });

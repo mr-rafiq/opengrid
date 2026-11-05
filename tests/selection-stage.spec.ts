@@ -33,13 +33,36 @@ for (const width of [320, 1440])
           )
           .allTextContents();
       await expect.poll(order).toEqual(["Line A", "Line B"]);
+      const resize = grid.getByRole("separator", {
+        name: "Resize Amount",
+        exact: true,
+      });
+      await resize.focus();
+      await resize.press("ArrowRight");
+      await expect.poll(order).toEqual(["Line A", "Line B"]);
+      const menuTrigger = grid.getByRole("button", {
+        name: "Column menu for Amount",
+        exact: true,
+      });
+      await menuTrigger.click();
+      await page
+        .getByRole("menu")
+        .getByRole("menuitem", { name: "Pin right", exact: true })
+        .click();
+      await expect.poll(order).toEqual(["Line A", "Line B"]);
+      await menuTrigger.click();
+      await page
+        .getByRole("menu")
+        .getByRole("menuitem", { name: "Unpin column", exact: true })
+        .click();
+      await expect.poll(order).toEqual(["Line A", "Line B"]);
       await grid
         .getByRole("checkbox", { name: "Select B", exact: true })
         .check();
       await expect.poll(order).toEqual(["Line A", "Line B"]);
       await lab.getByRole("button", { name: "Clear selection" }).click();
       await expect.poll(order).toEqual(["Line A", "Line B"]);
-      await lab.getByRole("button", { name: "Reapply amount sort" }).click();
+      await lab.getByRole("button", { name: "Refresh source model" }).click();
       await expect.poll(order).toEqual(["Line B", "Line A"]);
       await expect(amount).toContainText("300,00");
       expect(

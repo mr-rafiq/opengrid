@@ -464,3 +464,7 @@ See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `
 ### Atomic external and column filter replacement
 
 `model.setExternalFilter(predicate, { columnFilters })` replaces the external predicate and the complete native column-filter map in one query publication. Omit the second argument to retain current column conditions; pass `{ columnFilters: {} }` to clear them. Failed preparation restores both query halves and their prior cached result. This native API does not interpret source/AG JSON models.
+
+### Resident view projections
+
+Native selection, column layout, pagination and expansion updates reuse the existing query results. Expansion rebuilds the displayed flat list while retaining group membership, child sorting and aggregate snapshots. Explicit sort/filter/data/cache operations invalidate those projections. External-predicate replacement remains a query operation even when it only resets the page.

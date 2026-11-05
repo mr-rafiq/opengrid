@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.18.0 - 2026-11-05
+
+Resident view-stage refresh correction. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Retain resident sort/filter/group and aggregate projections during column resizing, pinning, hiding, reordering, pagination and expansion after an original class record changes.
+- Applying unchanged source sort/group state preserves the existing query. Add explicit complete `refreshClientSideRowModel()` with full/group stages; partial source stages remain explicitly unsupported.
+- Preserve atomic external-filter invalidation and rollback. The public bridge example distinguishes view refresh from explicit model refresh.
+- Full saved state, source group visibility, custom filter/editor/panel contracts and authenticated application acceptance remain open.
+
 ## 0.17.0 - 2026-11-05
 
 Resident source filter-model APIs. Created by Mohamed Rafiq. Source release only; no npm publication.

@@ -194,7 +194,8 @@ export function LegacyBridgeLab() {
         <summary>Retained-record refresh example</summary>
         <p>
           Local synthetic records only. Set Line A to EUR 300, then select Line
-          B. Selection keeps the existing order; reapply sorting to move Line A.
+          B. Selection keeps the existing order; refresh the model to move Line
+          A.
         </p>
         <div className="grouping-lab-controls">
           <button
@@ -219,13 +220,9 @@ export function LegacyBridgeLab() {
           <button
             type="button"
             disabled={!rows?.length}
-            onClick={() =>
-              grid.current?.api.applyColumnState({
-                state: [{ colId: "amount", sort: "asc" }],
-              })
-            }
+            onClick={() => grid.current?.api.refreshClientSideRowModel()}
           >
-            Reapply amount sort
+            Refresh source model
           </button>
         </div>
       </details>

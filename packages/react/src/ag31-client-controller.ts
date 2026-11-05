@@ -588,7 +588,29 @@ export function createAg31ClientController<T>(
       throw new TypeError(
         "Flex/aggregate changes require a matching column registry contract",
       );
-    model.setState(plan.layout);
+    const patch: Partial<GridState> = { ...plan.layout };
+    const requested = [
+      ...(params.state ?? []),
+      ...(params.defaultState ? [params.defaultState] : []),
+    ];
+    const has = (keys: string[]) =>
+      requested.some((record) =>
+        keys.some(
+          (key) =>
+            Object.getOwnPropertyDescriptor(record, key)?.value !== undefined,
+        ),
+      );
+    if (
+      !has(["sort", "sortIndex"]) ||
+      equal(model.getState().sorting, plan.layout.sorting)
+    )
+      delete patch.sorting;
+    if (
+      !has(["rowGroup", "rowGroupIndex"]) ||
+      equal(model.getState().groupBy, plan.layout.groupBy)
+    )
+      delete patch.groupBy;
+    model.setState(patch);
     return plan.unknownColumnIds.length === 0;
   }
   function getColumnState() {
@@ -622,6 +644,17 @@ export function createAg31ClientController<T>(
         };
       });
     });
+  }
+  function refreshClientSideRowModel(
+    stage: "everything" | "group" = "everything",
+  ) {
+    if (destroyed) return;
+    if (stage !== "everything" && stage !== "group")
+      throw new TypeError(
+        "Partial source processing stages require their own staged query contract",
+      );
+    model.expireValueCache();
+    modelUpdated();
   }
   function setSelection(ids: string[], source: string) {
     const previousSource = selectionSource;
@@ -719,6 +752,7 @@ export function createAg31ClientController<T>(
     getCellValue: (params: Ag31GetCellValueParams<T>) =>
       active(() => schema.getCellValue(params)),
     refreshCells,
+    refreshClientSideRowModel,
     addEventListener: events.addEventListener,
     removeEventListener: events.removeEventListener,
     dispatchEvent: events.dispatchEvent,
