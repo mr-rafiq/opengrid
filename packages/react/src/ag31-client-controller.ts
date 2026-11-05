@@ -1,4 +1,5 @@
 import { createAg31ViewServices } from "./ag31-view-services.js";
+import { createAg31SizingServices } from "./ag31-sizing-services.js";
 import {
   createAg31Overlays,
   assertAg31LocaleText,
@@ -219,6 +220,10 @@ export function createAg31ClientController<T>(
     for (const listener of [...viewListeners]) listener();
   }
   const viewServices = createAg31ViewServices();
+  const sizingServices = createAg31SizingServices(
+    (key) => columns.getColumn(key),
+    () => columns.getAllDisplayedColumns(),
+  );
   const overlays = createAg31Overlays({
     rowCount: options.rows.length,
     initiallyLoading:
@@ -842,6 +847,7 @@ export function createAg31ClientController<T>(
     if (destroyed) return;
     destroyed = true;
     viewServices.destroy();
+    sizingServices.destroy();
     overlays.destroy();
     unsubscribe();
     events.destroy();
@@ -854,6 +860,8 @@ export function createAg31ClientController<T>(
     viewListeners.clear();
   }
   const methods = {
+    autoSizeColumns: sizingServices.autoSizeColumns,
+    autoSizeAllColumns: sizingServices.autoSizeAllColumns,
     ctrlsService: viewServices.ctrlsService,
     overlayService: overlays.service,
     showLoadingOverlay() {
@@ -947,6 +955,8 @@ export function createAg31ClientController<T>(
   };
   Object.assign(api, methods);
   const columnMethods = {
+    autoSizeColumns: methods.autoSizeColumns,
+    autoSizeAllColumns: methods.autoSizeAllColumns,
     getColumn: methods.getColumn,
     getColumns: methods.getColumns,
     getAllDisplayedColumns: methods.getAllDisplayedColumns,
@@ -982,6 +992,7 @@ export function createAg31ClientController<T>(
     getLifecycleSnapshot: () => destroyed,
     overlays,
     viewServices,
+    sizingServices,
     subscribeViewRefresh(listener: () => void) {
       viewListeners.add(listener);
       return () => {

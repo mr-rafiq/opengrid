@@ -92,7 +92,24 @@ grid.current?.api.ctrlsService.params?.gridBodyCtrl.bodyScrollFeature.setScrollP
 
 Both offsets must be finite nonnegative pixel values. Fractions are preserved until the browser applies its own pixel rounding; browser geometry clamps values beyond the available scroll range. Commands do not rerun the source query, change selection or move keyboard focus. The original collapsed scroll lab uses 500 synthetic records, both axes, fractional offsets, host resizing and a deferred loading/restore/hide example. The final logical header's resize handle stays inside its content edge, including under virtualization, so its hit area does not add phantom scroll width.
 
-This does not implement source `getState` / `initialState`, source logical-focus APIs, every viewport service method or content autosizing. Native row-ID focus/reveal semantics are different from the measured source numeric focus contract; do not substitute one for the other. Complete saved-view compatibility remains unfinished.
+This does not implement source `getState` / `initialState`, source logical-focus APIs or every viewport service method. Native row-ID focus/reveal semantics are different from the measured source numeric focus contract; do not substitute one for the other. Complete saved-view compatibility remains unfinished.
+
+## Mounted renderer sizing
+
+`api.autoSizeColumns(keys, skipHeader?)` and `api.autoSizeAllColumns(skipHeader?)`, also available through `columnApi`, measure currently mounted leaf headers and ordinary/group cells. Keys resolve through the owned source column registry: IDs, source column objects and original definition identities are accepted; duplicates collapse and unknown keys are ignored. The all-columns command targets displayed columns. `skipHeader: true` omits leaf headers.
+
+```tsx
+const report = await grid.current?.api.autoSizeAllColumns(true);
+if (report?.cancelled) {
+  // Retry deliberately after the reported model/view/font activity settles.
+}
+```
+
+The commands return OpenGrid's sizing-report promise as an extension to the measured legacy call shape; AG Grid 31 declares these calls as returning void. Existing callers can ignore the result, while OpenGrid callers can inspect cancellation and skipped columns. Sizing uses passive owned DOM plans, preserves flex/grid flow, adds the measured 20px source padding, applies column constraints and publishes widths atomically. It does not invoke application renderers, clone event handlers or instantiate custom elements for measurement. Normal React updates still occur when widths change; renderer state remains mounted. Each source request has an owned abort signal revoked immediately on destruction, detach, replacement or supersession; invalid commands do not cancel valid pending work.
+
+Only mounted content participates. Unrendered/hidden columns, full-width/detail rows and multicolumn span owners do not supply samples. Media, SVG, inputs and custom elements contribute their existing rendered box, rather than a new intrinsic-resource measurement. The bounded controller can cancel for stale model/view/DOM, gestures, fonts or limits; it does not silently scan all resident rows or retry another viewport. Source `autoSizePadding`, initial sizing strategies and `sizeColumnsToFit` are not exposed by this bridge yet. See [column sizing](COLUMN_SIZING.md) for budgets and report details.
+
+Adopted hosts use their horizontal-padding/widget/icon tokens. Alpine hosts also retain the measured one-pixel body-font adjustment; ordinary source group rows use normal weight unless explicitly styled. Host header checkboxes retain their inset and original checked/mixed drawing; native input semantics, focus and coarse-pointer targets remain intact. This is scoped geometry adoption, not complete source-theme DOM compatibility. A private read-only React 18.3.1 fixture asserts equal widths for six mounted columns against installed AG Grid 31.3.4 using unchanged calculation renderers. That profile does not establish all-column, all-theme or full-application sizing parity. The collapsed public sizing lab uses original local records, a stateful renderer, heading inclusion and a deferred reset example.
 
 ## Declared query and column reset
 
@@ -102,7 +119,7 @@ Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup`
 
 Filters, row selection and provided-header group state remain independent. Candidate groups are staged while query callbacks run and become committed owned nodes only after successful model preparation; a rejected grouping retains the prior graph and emits no group-change notification. The collapsed original demo changes a local layout and resets it through the public ref.
 
-This is a static resident column-state contract. Full saved state, content autosizing and complete viewport/focus services remain separate unfinished requirements. It does not establish complete saved-view compatibility.
+This is a static resident column-state contract. Full saved state, automatic sizing strategies and complete viewport/focus services remain separate unfinished requirements. It does not establish complete saved-view compatibility.
 
 ## Provided header groups
 

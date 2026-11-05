@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.24.0 - 2026-11-05
+
+Resident mounted-renderer autosizing. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.
+
+- Add source ref/column API autosizing for mounted headers and ordinary/group cells, with source key identities, header omission and the measured 20px padding. Return an explicit OpenGrid report promise for cancellation and skipped samples.
+- Build bounded passive layout plans without invoking application renderers or cloning resource attributes/listeners/custom constructors. Preserve root flex/grid flow and renderer state; cancel stale work before atomic width publication, including immediate in-flight lifetime revocation. Default native text sizing remains conservative.
+- Adopt host cell/widget geometry and the measured Alpine body font policy. Preserve coarse-pointer selection targets and explicit row styles; inset adopted host header checkboxes and draw original accessible checked/mixed controls. A private unchanged-renderer fixture asserts equal widths for six mounted columns against AG Grid 31.3.4; this is not full sizing or application parity.
+- Add an original responsive sizing example with stateful controls, heading inclusion and deferred reset. Complete saved state, source fit/automatic sizing strategies, custom filters/editors/panels, business persistence and authenticated calculation-page acceptance remain open. The unchanged complete application is not supported yet.
+
 ## 0.23.0 - 2026-11-05
 
 Resident mounted scroll restoration. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.

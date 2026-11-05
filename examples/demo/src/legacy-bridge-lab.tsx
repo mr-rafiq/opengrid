@@ -1,4 +1,5 @@
 import { LegacyScrollLab } from "./legacy-scroll-lab.js";
+import { LegacySizingLab } from "./legacy-sizing-lab.js";
 import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
@@ -117,6 +118,7 @@ export function LegacyBridgeLab() {
   const [hostOpen, setHostOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [scrollOpen, setScrollOpen] = useState(false);
+  const [sizingOpen, setSizingOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -313,6 +315,10 @@ export function LegacyBridgeLab() {
       <details onToggle={(event) => setScrollOpen(event.currentTarget.open)}>
         <summary>Source scroll restoration example</summary>
         {scrollOpen && <LegacyScrollLab />}
+      </details>
+      <details onToggle={(event) => setSizingOpen(event.currentTarget.open)}>
+        <summary>Source rendered sizing example</summary>
+        {sizingOpen && <LegacySizingLab />}
       </details>
       <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
         <summary>Source host layout example</summary>

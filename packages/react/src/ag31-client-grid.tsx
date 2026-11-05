@@ -6,6 +6,7 @@ import { assertAg31LocaleText, type Ag31LocaleText } from "./ag31-overlays.js";
 import {
   forwardRef,
   memo,
+  useCallback,
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
@@ -17,7 +18,12 @@ import {
   type ReactElement,
   type Ref,
 } from "react";
-import { DataGrid, type GridHeaderControlsContext } from "./data-grid.js";
+import {
+  DataGrid,
+  type GridHeaderControlsContext,
+  type CellContext,
+  type GridNodeCellContext,
+} from "./data-grid.js";
 import {
   createAg31ClientController,
   AG31_EVENT_OPTIONS,
@@ -29,6 +35,7 @@ import {
 import type { Ag31ColumnDefinition } from "./ag31-leaf-columns.js";
 import type { Ag31RowNode } from "./ag31-row-nodes.js";
 import type { DataGridViewController } from "./grid-view.js";
+import type { DataGridSizingController } from "./column-sizing.js";
 import type { GridState } from "@opengrid/core";
 import { planAg31PinPressure } from "./ag31-pin-pressure.js";
 import {
@@ -298,11 +305,16 @@ function ResidentView<T>({
     owner.getViewSnapshot,
   );
   const view = useRef<DataGridViewController>(null);
+  const sizing = useRef<DataGridSizingController>(null);
   const container = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
   const [automaticHeight, setAutomaticHeight] = useState(480);
   const [hostHeaderHeight, setHostHeaderHeight] = useState(38);
   useLayoutEffect(() => owner.viewServices.attach(() => view.current), [owner]);
+  useLayoutEffect(
+    () => owner.sizingServices.attach(() => sizing.current),
+    [owner],
+  );
   useLayoutEffect(() => {
     if (destroyed || props.height !== undefined) return;
     const host = container.current;
@@ -468,34 +480,47 @@ function ResidentView<T>({
       if (retry !== undefined) clearTimeout(retry);
     };
   }, [owner, destroyed]);
-  function cell(node: Ag31RowNode<T>, id: string) {
-    const column = owner.columns.getColumn(id)!;
-    const colDef = column.getColDef();
-    const Renderer = component(colDef.cellRenderer, props.components);
-    const value = owner.schema.read(node, column);
-    if (!Renderer) return owner.schema.format(node, column);
-    const params = {
-      api: owner.api,
-      columnApi: owner.columnApi,
-      context: owner.api.getGridOption("context"),
-      column,
-      colDef,
-      node,
-      data: node.data,
-      value,
-      valueFormatted: owner.schema.getValueFormatted(node, column),
-      getValue: () => owner.schema.read(node, column),
-    };
-    const extra =
-      typeof colDef.cellRendererParams === "function"
-        ? colDef.cellRendererParams(params)
-        : colDef.cellRendererParams;
-    return (
-      <span data-og-source-component style={{ display: "contents" }}>
-        <Renderer {...params} {...(extra as object)} />
-      </span>
-    );
-  }
+  const cell = useCallback(
+    (node: Ag31RowNode<T>, id: string) => {
+      const column = owner.columns.getColumn(id)!;
+      const colDef = column.getColDef();
+      const Renderer = component(colDef.cellRenderer, props.components);
+      const value = owner.schema.read(node, column);
+      if (!Renderer) return owner.schema.format(node, column);
+      const params = {
+        api: owner.api,
+        columnApi: owner.columnApi,
+        context: owner.api.getGridOption("context"),
+        column,
+        colDef,
+        node,
+        data: node.data,
+        value,
+        valueFormatted: owner.schema.getValueFormatted(node, column),
+        getValue: () => owner.schema.read(node, column),
+      };
+      const extra =
+        typeof colDef.cellRendererParams === "function"
+          ? colDef.cellRendererParams(params)
+          : colDef.cellRendererParams;
+      return (
+        <span data-og-source-component style={{ display: "contents" }}>
+          <Renderer {...params} {...(extra as object)} />
+        </span>
+      );
+    },
+    [owner, props.components],
+  );
+  const renderSourceCell = useCallback(
+    ({ row, column }: CellContext<T>) =>
+      cell(owner.nodes.getRowNode(props.getRowId({ data: row }))!, column.id),
+    [owner, props.getRowId, cell],
+  );
+  const renderSourceGroup = useCallback(
+    ({ node, column }: GridNodeCellContext<T>) =>
+      cell(owner.nodes.getRowNodeByNativeId(node.id)!, column.id),
+    [owner, cell],
+  );
   const checkboxColumns = owner.columns
     .getColumns()
     .filter((column) => column.getColDef().checkboxSelection === true);
@@ -545,6 +570,7 @@ function ResidentView<T>({
           toggle: owner.groups.toggle,
         }}
         viewRef={view}
+        sizingRef={sizing}
         toolbar={false}
         pagination={false}
         statusBar={false}
@@ -630,15 +656,8 @@ function ResidentView<T>({
             : undefined
         }
         renderTreePrefix={props.completeTreeRenderer ? () => null : undefined}
-        renderCell={({ row, column }) =>
-          cell(
-            owner.nodes.getRowNode(props.getRowId({ data: row }))!,
-            column.id,
-          )
-        }
-        renderGroupCell={({ node, column }) =>
-          cell(owner.nodes.getRowNodeByNativeId(node.id)!, column.id)
-        }
+        renderCell={renderSourceCell}
+        renderGroupCell={renderSourceGroup}
         renderHeaderControls={(control) =>
           owner.columns.getColumn(control.column.id)!.getColDef()
             .headerComponent ? (

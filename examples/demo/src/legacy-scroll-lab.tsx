@@ -53,7 +53,8 @@ export function LegacyScrollLab() {
       <p>
         Original local records. Scroll restoration moves the real viewport
         without selecting another cell or moving keyboard focus. Complete source
-        saved state, focus APIs and content sizing remain separate requirements.
+        saved state, focus APIs and automatic sizing strategies remain separate
+        requirements.
       </p>
       <div className="grouping-lab-controls">
         <button type="button" disabled={!ready} onClick={() => move(0, 0)}>

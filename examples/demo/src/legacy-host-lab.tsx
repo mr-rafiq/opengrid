@@ -5,7 +5,14 @@ const columns: Ag31ColumnDefinition<Record>[] = [
   {
     headerName: "Estimate",
     children: [
-      { field: "item", headerName: "Item", width: 160, pinned: "left" },
+      {
+        field: "item",
+        headerName: "Item",
+        width: 160,
+        pinned: "left",
+        checkboxSelection: true,
+        headerCheckboxSelection: true,
+      },
     ],
   },
   {
@@ -105,6 +112,7 @@ export function LegacyHostLab() {
           rowData={rows}
           columnDefs={columns}
           getRowId={getRowId}
+          rowSelection="multiple"
           ariaLabel="Source host records"
         />
       </div>

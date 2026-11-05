@@ -133,6 +133,57 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+it("measures mounted custom and grouped content passively, respecting header policy and column constraints", async () => {
+  const f = fixture([
+    { id: "value", field: "value", width: 160, maxWidth: 180 },
+  ]);
+  f.custom();
+  const row = document.createElement("div");
+  row.className = "og-group-row";
+  f.root.append(row);
+  f.sample("value", "group value", "cell", row);
+  f.sample("value", "a considerably longer heading", "header");
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
+    function (this: HTMLElement) {
+      return (this.textContent?.length ?? 0) * factor;
+    },
+  );
+  const first = await f.controller.autoSizeColumns(["value"], {
+    contentMode: "rendered-dom",
+    extraPadding: 20,
+    includeHeader: false,
+  });
+  expect(first.cancelled).toBe(false);
+  expect(first.measured[0]).toMatchObject({
+    width: 108,
+    cellSamples: 1,
+    headerSamples: 0,
+  });
+  const second = await f.controller.autoSizeColumns(["value"], {
+    contentMode: "rendered-dom",
+    extraPadding: 20,
+  });
+  expect(second.measured[0]).toMatchObject({
+    width: 180,
+    cellSamples: 1,
+    headerSamples: 1,
+  });
+  expect(document.querySelector("[inert]")).toBeNull();
+});
+it("does not publish stale passive measurements or leave measurement DOM after source content changes", async () => {
+  const f = fixture();
+  f.custom();
+  const sample = f.sample("value", "before");
+  const write = vi.spyOn(f.model, "setState");
+  const pending = f.controller.autoSizeColumns(["value"], {
+    contentMode: "rendered-dom",
+  });
+  sample.label.textContent = "after";
+  expect((await pending).cancelled).toBe(true);
+  expect(write).not.toHaveBeenCalled();
+  expect(document.querySelector("[inert]")).toBeNull();
+});
+
 describe("explicit size-to-fit controller", () => {
   function setup() {
     const f = fixture([

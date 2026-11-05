@@ -28,6 +28,22 @@ for (const width of [320, 1440])
           exact: true,
         });
       await expect(grid).toBeVisible();
+      const headerCheckbox = grid.getByRole("checkbox", {
+        name: "Select all rows",
+        exact: true,
+      });
+      const firstCheckbox = grid.getByRole("checkbox", {
+        name: "Select 1",
+        exact: true,
+      });
+      await expect
+        .poll(async () =>
+          Math.abs(
+            (await headerCheckbox.boundingBox())!.x -
+              (await firstCheckbox.boundingBox())!.x,
+          ),
+        )
+        .toBeLessThanOrEqual(1);
       const root = host.locator(".og-root");
       await lab
         .getByRole("combobox", { name: "Host grid palette", exact: true })
@@ -86,7 +102,7 @@ for (const width of [320, 1440])
         rootFits: true,
         filled: true,
       });
-      await grid.getByRole("gridcell", { name: "Line 1", exact: true }).click();
+      await grid.getByText("Line 1", { exact: true }).click();
       await page.keyboard.press("Control+End");
       await expect(grid.getByText("Line 50", { exact: true })).toBeVisible();
       expect(

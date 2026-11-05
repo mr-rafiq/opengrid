@@ -1,4 +1,10 @@
 import {
+  createPassiveContentPlan,
+  createPassiveContentClone,
+  PassiveContentLimitError,
+  type PassiveContentPlan,
+} from "./passive-content.js";
+import {
   clampColumnWidth,
   fitColumnWidths,
   type FittedColumnWidths,
@@ -7,6 +13,10 @@ import {
 } from "@opengrid/core";
 
 export interface AutoSizeOptions {
+  /** Plain text is the default; rendered-dom creates passive layout probes for mounted content. */
+  contentMode?: "text" | "rendered-dom";
+  /** Additional CSS pixels after the natural measurement, before column constraints. */
+  extraPadding?: number;
   includeHeader?: boolean;
   /** Cancels only this request; an already-aborted request never supersedes current work. */
   signal?: AbortSignal;
@@ -77,6 +87,7 @@ export interface ColumnSizingSnapshot<T> {
   readonly customRenderer?: boolean;
 }
 interface Sample {
+  passive?: PassiveContentPlan;
   element: HTMLElement;
   owner: HTMLElement;
   lang: string;
@@ -271,6 +282,33 @@ function sampleFrom(
   };
 }
 
+function passiveSampleFrom(
+  owner: HTMLElement,
+  kind: Sample["kind"],
+  columnId: string,
+): Sample | undefined {
+  const window = owner.ownerDocument.defaultView;
+  if (!window || !owner.getClientRects().length || hasTransformedMetrics(owner))
+    return;
+  const style = window.getComputedStyle(owner);
+  if (style.display === "none" || style.visibility === "hidden") return;
+  const passive = createPassiveContentPlan(owner);
+  if (!passive) return;
+  return {
+    element: owner,
+    owner,
+    kind,
+    columnId,
+    passive,
+    text: owner.textContent ?? "",
+    extra: 0,
+    typography: [],
+    lang:
+      owner.closest("[lang]")?.getAttribute("lang") ??
+      owner.ownerDocument.documentElement.lang,
+  };
+}
+
 /** One bounded metric cache and at most one operation per mounted DataGrid. */
 export function createColumnSizingController<T>(
   getSnapshot: () => ColumnSizingSnapshot<T>,
@@ -451,6 +489,23 @@ export function createColumnSizingController<T>(
         typeof options.includeHeader !== "boolean"
       )
         throw new TypeError("includeHeader must be boolean");
+      if (
+        options.contentMode !== undefined &&
+        options.contentMode !== "text" &&
+        options.contentMode !== "rendered-dom"
+      )
+        throw new TypeError("Unknown content measurement mode");
+      const passiveMode = options.contentMode === "rendered-dom",
+        padding = options.extraPadding ?? 0;
+      if (
+        typeof padding !== "number" ||
+        !Number.isFinite(padding) ||
+        padding < 0 ||
+        padding > 4096
+      )
+        throw new RangeError(
+          "extraPadding must be finite and between 0 and 4096 pixels",
+        );
       const signal = options.signal;
       if (
         signal !== undefined &&
@@ -506,7 +561,9 @@ export function createColumnSizingController<T>(
       );
       const nodes = [
         ...root.querySelectorAll<HTMLElement>(
-          '[data-og-size-text="cell"],[data-og-size-text="header"]',
+          passiveMode
+            ? '[data-column-id][role="gridcell"],[data-column-id][role="columnheader"],[data-og-size-column-id][role="columnheader"]'
+            : '[data-og-size-text="cell"],[data-og-size-text="header"]',
         ),
       ].filter((element) => ownerGrid(element) === root);
       const renderedIds = [
@@ -531,7 +588,7 @@ export function createColumnSizingController<T>(
         if (!column) skipped.push({ columnId: id, reason: "unknown" });
         else if (column.hidden || !Object.hasOwn(context.widths, id))
           skipped.push({ columnId: id, reason: "hidden" });
-        else if (context.customRenderer)
+        else if (context.customRenderer && !passiveMode)
           skipped.push({ columnId: id, reason: "custom-renderer" });
         else eligible.add(id);
       }
@@ -571,6 +628,7 @@ export function createColumnSizingController<T>(
       resize?.observe(root);
       root.addEventListener("scroll", changedView, { passive: true });
       let probe: HTMLSpanElement | undefined;
+      let passiveHost: HTMLDivElement | undefined;
       let releaseWork = () => {};
       let cleaned = false;
       const aborted = () => invalidate("aborted");
@@ -584,6 +642,7 @@ export function createColumnSizingController<T>(
         resize?.disconnect();
         root.removeEventListener("scroll", changedView);
         probe?.remove();
+        passiveHost?.remove();
       };
       function invalidate(reason: AutoSizeCancelReason) {
         if (!operation.reason) {
@@ -654,7 +713,11 @@ export function createColumnSizingController<T>(
             '[data-column-id][role="gridcell"],[data-column-id][role="columnheader"],[data-og-size-column-id][role="columnheader"]',
           );
           const id = owner?.dataset.columnId ?? owner?.dataset.ogSizeColumnId,
-            kind = element.dataset.ogSizeText;
+            kind = passiveMode
+              ? element.getAttribute("role") === "columnheader"
+                ? "header"
+                : "cell"
+              : element.dataset.ogSizeText;
           if (
             !owner ||
             !id ||
@@ -666,7 +729,9 @@ export function createColumnSizingController<T>(
           if (
             Number(owner.getAttribute("aria-colspan") ?? 1) !== 1 ||
             owner.closest(
-              '.og-group-row,.og-detail-row,[data-full-width="true"]',
+              passiveMode
+                ? '.og-detail-row,[data-full-width="true"]'
+                : '.og-group-row,.og-detail-row,[data-full-width="true"]',
             )
           )
             continue;
@@ -680,8 +745,27 @@ export function createColumnSizingController<T>(
           candidates.push({ element, owner, kind, id });
         }
         // Reject oversized commands before expensive computed-style/layout reads.
+        let passiveCharacters = 0,
+          passiveNodes = 0;
         for (const { element, owner, kind, id } of candidates) {
-          const sample = sampleFrom(element, owner, kind, id);
+          let sample: Sample | undefined;
+          try {
+            sample = passiveMode
+              ? passiveSampleFrom(owner, kind, id)
+              : sampleFrom(element, owner, kind, id);
+          } catch (error) {
+            if (!(error instanceof PassiveContentLimitError)) throw error;
+            cancel("limits");
+            return frozenReport([], [], skipped, operation.reason);
+          }
+          if (sample?.passive) {
+            passiveCharacters += sample.passive.characters;
+            passiveNodes += sample.passive.nodes;
+            if (passiveCharacters > 4000000 || passiveNodes > 20000) {
+              cancel("limits");
+              return frozenReport([], [], skipped, operation.reason);
+            }
+          }
           if (sample) samples.push(sample);
         }
         probe = document.createElement("span");
@@ -702,6 +786,26 @@ export function createColumnSizingController<T>(
         }))
           probe.style.setProperty(property, value, "important");
         document.body.append(probe);
+        if (passiveMode) {
+          passiveHost = document.createElement("div");
+          passiveHost.inert = true;
+          passiveHost.setAttribute("aria-hidden", "true");
+          passiveHost.dir = root.dir || window.getComputedStyle(root).direction;
+          Object.assign(passiveHost.style, {
+            position: "fixed",
+            left: "-100000px",
+            top: "-100000px",
+            width: "max-content",
+            maxWidth: "none",
+            height: "auto",
+            visibility: "hidden",
+            pointerEvents: "none",
+            contain: "layout style paint",
+            animation: "none",
+            transition: "none",
+          });
+          (root.closest(".og-root") ?? document.body).append(passiveHost);
+        }
         const measuredById = new Map<
           string,
           { width: number; cellSamples: number; headerSamples: number }
@@ -720,8 +824,16 @@ export function createColumnSizingController<T>(
               sample.typography,
               sample.text,
             ]);
-          let intrinsic = metrics.get(signature);
-          if (intrinsic === undefined) {
+          let intrinsic = sample.passive ? undefined : metrics.get(signature);
+          if (sample.passive) {
+            const clone = createPassiveContentClone(document, sample.passive);
+            passiveHost!.append(clone);
+            intrinsic = clone.offsetWidth;
+            clone.remove();
+            if (!valid())
+              return frozenReport([], [], skipped, operation.reason);
+            if (!Number.isFinite(intrinsic) || intrinsic < 0) continue;
+          } else if (intrinsic === undefined) {
             for (const [property, value] of sample.typography)
               probe.style.setProperty(property, value, "important");
             probe.lang = sample.lang;
@@ -742,7 +854,9 @@ export function createColumnSizingController<T>(
           };
           entry.width = Math.max(
             entry.width,
-            Math.ceil(intrinsic + sample.extra + 1),
+            Math.ceil(
+              intrinsic + sample.extra + padding + (passiveMode ? 0 : 1),
+            ),
           );
           if (sample.kind === "cell") entry.cellSamples++;
           else entry.headerSamples++;
@@ -756,6 +870,21 @@ export function createColumnSizingController<T>(
           ) {
             cancel("view");
             break;
+          }
+          if (sample.passive) {
+            let current: PassiveContentPlan | undefined;
+            try {
+              current = createPassiveContentPlan(sample.owner);
+            } catch (error) {
+              if (!(error instanceof PassiveContentLimitError)) throw error;
+              cancel("limits");
+              break;
+            }
+            if (!current || current.signature !== sample.passive.signature) {
+              cancel("view");
+              break;
+            }
+            continue;
           }
           const current = sampleFrom(
             sample.element,
