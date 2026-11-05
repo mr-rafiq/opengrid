@@ -44,6 +44,33 @@ function setup(definitions?: readonly Ag31ColumnDefinition<Row>[]) {
   return { ...controller, rows, context };
 }
 afterEach(() => vi.useRealTimers());
+it("matches measured live grid-option callback lookup after API listeners and clears nullable handlers", () => {
+  vi.useFakeTimers();
+  const owner = setup(),
+    calls: string[] = [];
+  const old = () => calls.push("old"),
+    next = () => calls.push("next");
+  owner.api.setGridOption("onSelectionChanged", old);
+  expect(owner.api.getGridOption("onSelectionChanged")).toBe(old);
+  owner.api.addEventListener("selectionChanged", () => calls.push("api"));
+  owner.api.getRowNode("one")!.setSelected(true);
+  calls.push("after-call");
+  owner.api.setGridOption("onSelectionChanged", next);
+  vi.runOnlyPendingTimers();
+  expect(calls).toEqual(["after-call", "api", "next"]);
+  calls.length = 0;
+  owner.api.setGridOption("onSelectionChanged", undefined);
+  owner.api.getRowNode("one")!.setSelected(false);
+  owner.api.setGridOption("onSelectionChanged", next);
+  vi.runOnlyPendingTimers();
+  expect(calls).toEqual(["api", "next"]);
+  owner.api.setGridOption("onSelectionChanged", null);
+  expect(owner.api.getGridOption("onSelectionChanged")).toBeUndefined();
+  expect(() => owner.api.setGridOption("onSelectionChanged", true)).toThrow(
+    /must be a function/,
+  );
+  owner.api.destroy();
+});
 it("keeps group mixed state over all descendants, applies filtered group actions and selects all source rows from the header API", async () => {
   const owner = createAg31ClientController({
     rows: [

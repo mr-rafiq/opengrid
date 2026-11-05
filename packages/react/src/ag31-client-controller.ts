@@ -23,6 +23,16 @@ export interface Ag31RowTransaction<T> {
   update?: T[];
   remove?: T[];
 }
+export const AG31_EVENT_OPTIONS = [
+  ["onGridReady", "gridReady"],
+  ["onSortChanged", "sortChanged"],
+  ["onFilterChanged", "filterChanged"],
+  ["onSelectionChanged", "selectionChanged"],
+  ["onModelUpdated", "modelUpdated"],
+  ["onRowDataUpdated", "rowDataUpdated"],
+  ["onColumnRowGroupChanged", "columnRowGroupChanged"],
+] as const;
+export type Ag31EventOptionName = (typeof AG31_EVENT_OPTIONS)[number][0];
 export interface Ag31ClientControllerOptions<T> {
   rows: T[];
   /** Original nullable component option; rows remains the resident projection. */
@@ -35,6 +45,7 @@ export interface Ag31ClientControllerOptions<T> {
   initialState?: Partial<GridState>;
   readOnly?: boolean;
   groupSelectsFiltered?: boolean;
+  callbacks?: Partial<Record<Ag31EventOptionName, unknown>>;
   writeCell?(
     node: Ag31RowNode<T>,
     column: unknown,
@@ -101,7 +112,23 @@ export function createAg31ClientController<T>(
     columnApi,
     context: getGridOption("context"),
   });
-  const events = createAg31EventHub(commonParams);
+  const optionForEvent = new Map<string, Ag31EventOptionName>();
+  const callbackNames = new Set<string>();
+  for (const [name, type] of AG31_EVENT_OPTIONS) {
+    const callback = options.callbacks?.[name];
+    if (callback != null && typeof callback !== "function")
+      throw new TypeError(
+        `Source ${name} must be a function, null or undefined`,
+      );
+    settings.set(name, callback);
+    optionForEvent.set(type, name);
+    callbackNames.add(name);
+  }
+  const events = createAg31EventHub(commonParams, (event) => {
+    const name = optionForEvent.get(event.type),
+      callback = name ? settings.get(name) : undefined;
+    if (typeof callback === "function") callback(event);
+  });
   const lifecycle = new Set<() => void>();
   const viewListeners = new Set<() => void>();
   let viewRevision = 0;
@@ -229,6 +256,14 @@ export function createAg31ClientController<T>(
   }
   function setGridOption(key: string, value: unknown) {
     if (destroyed) return;
+    if (callbackNames.has(key)) {
+      if (value != null && typeof value !== "function")
+        throw new TypeError(
+          `Source ${key} must be a function, null or undefined`,
+        );
+      settings.set(key, value);
+      return;
+    }
     if (key === "context") {
       settings.set(key, value);
       return;

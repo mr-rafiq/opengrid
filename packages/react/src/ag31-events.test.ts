@@ -2,6 +2,33 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { createAg31EventHub, type Ag31Event } from "./ag31-events.js";
 afterEach(() => vi.useRealTimers());
 describe("AG 31 asynchronous event boundary", () => {
+  it("delivers current grid-option callbacks after captured API listeners, including handlers installed after dispatch", () => {
+    vi.useFakeTimers();
+    const calls: string[] = [];
+    let current: ((event: Ag31Event) => void) | undefined;
+    const hub = createAg31EventHub(
+      () => ({ api: {} }),
+      (event) => current?.(event),
+    );
+    hub.addEventListener("selectionChanged", () => calls.push("api"));
+    current = () => calls.push("old");
+    hub.dispatchEvent({ type: "selectionChanged" });
+    calls.push("after-call");
+    current = () => calls.push("new");
+    vi.runOnlyPendingTimers();
+    expect(calls).toEqual(["after-call", "api", "new"]);
+    calls.length = 0;
+    current = undefined;
+    hub.dispatchEvent({ type: "selectionChanged" });
+    current = () => calls.push("installed-later");
+    vi.runOnlyPendingTimers();
+    expect(calls).toEqual(["api", "installed-later"]);
+    calls.length = 0;
+    hub.dispatchEvent({ type: "selectionChanged" });
+    hub.destroy();
+    vi.runOnlyPendingTimers();
+    expect(calls).toEqual([]);
+  });
   it("delivers after the microtask phase with stable API and dispatch context", async () => {
     vi.useFakeTimers();
     const api = {},

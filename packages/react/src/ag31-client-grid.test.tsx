@@ -18,6 +18,96 @@ afterEach(cleanup);
 type Row = { id: string; amount: number };
 const getRowId = ({ data }: { data: Row }) => data.id;
 
+it("binds explicit event props over gridOptions and preserves imperative callback changes across unrelated row updates", async () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>(),
+    option = vi.fn(),
+    explicit = vi.fn(),
+    imperative = vi.fn(),
+    calls: string[] = [];
+  const base = {
+    ref,
+    getRowId,
+    columnDefs: [
+      { field: "id", checkboxSelection: true, headerCheckboxSelection: true },
+      { field: "amount" },
+    ],
+    rowSelection: "multiple" as const,
+    suppressRowClickSelection: true,
+  };
+  const options = { onSelectionChanged: option };
+  const view = render(
+    <Ag31ClientGrid
+      {...base}
+      rowData={[{ id: "a", amount: 1 }]}
+      gridOptions={options}
+      onSelectionChanged={explicit}
+    />,
+  );
+  const api = ref.current!.api;
+  api.addEventListener("selectionChanged", () => calls.push("api"));
+  expect(api.getGridOption("onSelectionChanged")).toBe(explicit);
+  act(() => api.getRowNode("a")!.setSelected(true));
+  await waitFor(() => expect(explicit).toHaveBeenCalledTimes(1));
+  expect(option).not.toHaveBeenCalled();
+  expect(calls).toEqual(["api"]);
+  expect(explicit.mock.calls[0][0]).toMatchObject({
+    type: "selectionChanged",
+    source: "api",
+    api,
+    columnApi: ref.current!.columnApi,
+  });
+  act(() => api.setGridOption("onSelectionChanged", imperative));
+  view.rerender(
+    <Ag31ClientGrid
+      {...base}
+      rowData={[{ id: "a", amount: 2 }]}
+      gridOptions={options}
+      onSelectionChanged={explicit}
+    />,
+  );
+  expect(api.getGridOption("onSelectionChanged")).toBe(imperative);
+  act(() => api.getRowNode("a")!.setSelected(false));
+  await waitFor(() => expect(imperative).toHaveBeenCalledTimes(1));
+});
+
+it("notifies committed gridReady API listeners before the configured option and cancels queued ready delivery on unmount", async () => {
+  const calls: string[] = [],
+    listener = () => calls.push("api"),
+    option = () => calls.push("option");
+  const ref = (handle: Ag31ClientGridHandle<Row> | null) =>
+    handle?.api.addEventListener("gridReady", listener);
+  const view = render(
+    <StrictMode>
+      <Ag31ClientGrid
+        ref={ref}
+        getRowId={getRowId}
+        rowData={[{ id: "a", amount: 1 }]}
+        columnDefs={[{ field: "amount" }]}
+        onGridReady={option}
+      />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(calls).toEqual(["api", "option"]));
+  view.unmount();
+  vi.useFakeTimers();
+  try {
+    const cancelled = vi.fn(),
+      next = render(
+        <Ag31ClientGrid
+          getRowId={getRowId}
+          rowData={[]}
+          columnDefs={[{ field: "amount" }]}
+          onGridReady={cancelled}
+        />,
+      );
+    next.unmount();
+    vi.runOnlyPendingTimers();
+    expect(cancelled).not.toHaveBeenCalled();
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
 it("matches measured defined-prop precedence without mutating source options or losing false/null", () => {
   const context = { from: "options" };
   const rows = [{ id: "a", amount: 3 }];
@@ -62,7 +152,7 @@ it("matches measured defined-prop precedence without mutating source options or 
   ).toThrow(/Unsupported source gridOptions option: sideBar/);
 });
 
-it("mounts a source identity and callbacks supplied through gridOptions while explicit context wins", () => {
+it("mounts a source identity and callbacks supplied through gridOptions while explicit context wins", async () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>();
   const ready = vi.fn();
   render(
@@ -78,7 +168,7 @@ it("mounts a source identity and callbacks supplied through gridOptions while ex
       }}
     />,
   );
-  expect(ready).toHaveBeenCalledTimes(1);
+  await waitFor(() => expect(ready).toHaveBeenCalledTimes(1));
   expect(ready.mock.calls[0][0].api).toBe(ref.current!.api);
   expect(ref.current!.api.getRowNode("a")!.data!.amount).toBe(3);
   expect(ref.current!.api.getGridOption("context")).toEqual({ from: "props" });
@@ -217,7 +307,7 @@ it("embeds source checkboxes in the data column with distinct filtered group and
   expect(api.getSelectedRows()).toEqual([]);
 });
 
-it("commits a live API/ref before ready and revokes it on StrictMode unmount", () => {
+it("commits a live API/ref before ready and revokes it on StrictMode unmount", async () => {
   const ref = createRef<Ag31ClientGridHandle<Row>>();
   const callbacks: Ag31ClientGridHandle<Row>[] = [];
   const view = render(
@@ -236,7 +326,7 @@ it("commits a live API/ref before ready and revokes it on StrictMode unmount", (
       />
     </StrictMode>,
   );
-  expect(callbacks).toHaveLength(1);
+  await waitFor(() => expect(callbacks).toHaveLength(1));
   const api = ref.current!.api;
   expect(screen.getByRole("grid")).toBeTruthy();
   view.unmount();

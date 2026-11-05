@@ -13,7 +13,11 @@ import {
   type Ref,
 } from "react";
 import { DataGrid, type GridHeaderControlsContext } from "./data-grid.js";
-import { createAg31ClientController } from "./ag31-client-controller.js";
+import {
+  createAg31ClientController,
+  AG31_EVENT_OPTIONS,
+  type Ag31EventOptionName,
+} from "./ag31-client-controller.js";
 import type { Ag31ColumnDefinition } from "./ag31-leaf-columns.js";
 import type { Ag31RowNode } from "./ag31-row-nodes.js";
 import type { DataGridViewController } from "./grid-view.js";
@@ -24,6 +28,11 @@ type Owner<T> = ReturnType<typeof createAg31ClientController<T>>;
 export interface Ag31ClientGridHandle<T> {
   api: Owner<T>["api"];
   columnApi: Owner<T>["columnApi"];
+}
+export interface Ag31ClientGridEvent<T> extends Ag31ClientGridHandle<T> {
+  type: string;
+  context: unknown;
+  [key: string]: unknown;
 }
 export interface Ag31ClientGridConfig<T> {
   rowData: T[] | null;
@@ -52,6 +61,12 @@ export interface Ag31ClientGridConfig<T> {
   onGridReady?(
     event: Ag31ClientGridHandle<T> & { context: unknown; type: "gridReady" },
   ): void;
+  onSortChanged?(event: Ag31ClientGridEvent<T>): void;
+  onFilterChanged?(event: Ag31ClientGridEvent<T>): void;
+  onSelectionChanged?(event: Ag31ClientGridEvent<T>): void;
+  onModelUpdated?(event: Ag31ClientGridEvent<T>): void;
+  onRowDataUpdated?(event: Ag31ClientGridEvent<T>): void;
+  onColumnRowGroupChanged?(event: Ag31ClientGridEvent<T>): void;
 }
 
 export interface Ag31ClientGridProps<T> extends Partial<
@@ -83,7 +98,12 @@ const configKeys = new Set([
   "showOpenedGroup",
   "reactiveCustomComponents",
   "rowGroupPanelShow",
+  ...AG31_EVENT_OPTIONS.map(([name]) => name),
 ]);
+const optionCallbacks = <T,>(
+  config: Ag31ClientGridConfig<T>,
+): Partial<Record<Ag31EventOptionName, unknown>> =>
+  Object.fromEntries(AG31_EVENT_OPTIONS.map(([name]) => [name, config[name]]));
 /** Shallow source option precedence: defined component props win; undefined preserves the option. */
 export function resolveAg31ClientGridConfig<T>(
   props: Ag31ClientGridProps<T>,
@@ -288,18 +308,13 @@ function ResidentView<T>({
         return;
       }
       ready.current = true;
-      props.onGridReady?.({
-        type: "gridReady",
-        api: owner.api,
-        columnApi: owner.columnApi,
-        context: owner.api.getGridOption("context"),
-      });
+      owner.api.dispatchEvent({ type: "gridReady" });
     }
     notify();
     return () => {
       if (retry !== undefined) clearTimeout(retry);
     };
-  }, [owner, destroyed, props.onGridReady]);
+  }, [owner, destroyed]);
   function cell(node: Ag31RowNode<T>, id: string) {
     const column = owner.columns.getColumn(id)!;
     const colDef = column.getColDef();
@@ -457,10 +472,12 @@ function ClientGrid<T>(
     owner: Owner<T> | null;
     context: unknown;
     rowData: T[] | null;
+    callbacks: Partial<Record<Ag31EventOptionName, unknown>>;
   }>({
     owner: null,
     context: props.context,
     rowData: props.rowData,
+    callbacks: optionCallbacks(props),
   });
   useLayoutEffect(() => {
     const options = initial.current;
@@ -475,6 +492,7 @@ function ClientGrid<T>(
       rowHeight: options.rowHeight,
       readOnly: true,
       groupSelectsFiltered: options.groupSelectsFiltered,
+      callbacks: optionCallbacks(options),
     });
     setOwner(next);
     return () => next.api.destroy();
@@ -494,7 +512,14 @@ function ClientGrid<T>(
         owner,
         context: initial.current.context,
         rowData: initial.current.rowData,
+        callbacks: optionCallbacks(initial.current),
       };
+    for (const [name] of AG31_EVENT_OPTIONS) {
+      if (forwarded.current.callbacks[name] !== props[name]) {
+        owner.api.setGridOption(name, props[name]);
+        forwarded.current.callbacks[name] = props[name];
+      }
+    }
     if (forwarded.current.context !== props.context) {
       owner.api.setGridOption("context", props.context);
       forwarded.current.context = props.context;
@@ -510,6 +535,13 @@ function ClientGrid<T>(
     props.context,
     props.columnDefs,
     props.defaultColDef,
+    props.onGridReady,
+    props.onSortChanged,
+    props.onFilterChanged,
+    props.onSelectionChanged,
+    props.onModelUpdated,
+    props.onRowDataUpdated,
+    props.onColumnRowGroupChanged,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

@@ -10,7 +10,10 @@ export interface Ag31CommonEventParams {
 }
 
 /** Legacy adapter events retain dispatch-time listener snapshots and run in a later timer turn. */
-export function createAg31EventHub(commonParams: () => Ag31CommonEventParams) {
+export function createAg31EventHub(
+  commonParams: () => Ag31CommonEventParams,
+  afterListeners?: (event: Ag31Event) => void,
+) {
   const listeners = new Map<string, Set<Ag31EventListener>>();
   let pending: (() => void)[] = [];
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -51,8 +54,11 @@ export function createAg31EventHub(commonParams: () => Ag31CommonEventParams) {
       });
     // Removing a listener does not revoke an already queued notification.
     const captured = [...(listeners.get(event.type) ?? [])];
-    if (!captured.length) return;
+    if (!captured.length && !afterListeners) return;
     for (const listener of captured) pending.push(() => listener(event));
+    // Grid-option handlers are global listeners. Their current option is read
+    // during delivery, after the dispatch-time API listener snapshot.
+    if (afterListeners) pending.push(() => afterListeners(event));
     if (timer === undefined) timer = setTimeout(flush, 0);
   }
   function destroy() {
