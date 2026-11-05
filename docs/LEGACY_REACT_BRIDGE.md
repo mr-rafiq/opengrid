@@ -9,8 +9,11 @@ import { useRef } from "react";
 import { Ag31ClientGrid, type Ag31ClientGridHandle } from "@opengrid/react";
 import "@opengrid/react/styles.css";
 
-type Line = { id: string; amount: number };
-const columns = [{ field: "amount", cellDataType: "number" }];
+type Line = { id: string; phase: string; amount: number };
+const columns = [
+  { field: "phase", filter: "agSetColumnFilter" },
+  { field: "amount", cellDataType: "number", filter: "agNumberColumnFilter" },
+];
 const getRowId = ({ data }: { data: Line }) => data.id;
 
 export function Estimate({ rows }: { rows: Line[] | null }) {
