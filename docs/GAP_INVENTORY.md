@@ -4,6 +4,8 @@ Initial audit baseline: `e3f5247fafc08e143562b6a0dacd4d397fe62641`, reviewed on 
 
 ## Completed bounded capabilities
 
+The resident column-reset checkpoint restores static declared layout/query defaults with measured regular/initial precedence, retained unspecified widths and raw sort indices. Candidate source groups are staged during query preparation. All 23 original saved column layouts plus reset match reference metadata over empty data; full saved-state, overlay, scroll, sizing, filter/editor/panel and authenticated acceptance remain separate requirements. This does not change broad ledger counts.
+
 The resident host-layout checkpoint fills constrained flex workspaces, adopts selected inherited host theme tokens, measures header density and supports accessible spanning headers. Mixed pin release follows measured reference layouts. This is bounded styling/layout support; complete source DOM/CSS compatibility and authenticated application acceptance remain open. See [host layout](HOST_LAYOUT.md) and the [verification record](VERIFICATION.md).
 
 The resident presentation checkpoint applies source row/cell styles, function class rules and basic tooltip callbacks with original records and current context. It does not translate AG Grid DOM/theme selectors or implement custom tooltip components, and it does not promote the broad styling family to complete.
