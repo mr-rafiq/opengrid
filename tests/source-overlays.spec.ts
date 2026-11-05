@@ -27,7 +27,12 @@ for (const width of [320, 1440]) {
       });
       const grid = example.getByRole("grid");
       const overlay = example.locator("[data-og-source-overlay]");
+      const visibleMessages = example
+        .locator(".og-source-client")
+        .getByRole("status")
+        .filter({ hasText: /\S/ });
       await expect(overlay).toHaveText("Loading estimate...");
+      await expect(visibleMessages).toHaveCount(1);
       await expect(grid).toHaveAttribute("aria-busy", "true");
       await example
         .getByRole("button", { name: "Load overlay records" })
@@ -112,6 +117,13 @@ for (const width of [320, 1440]) {
         example.getByRole("status", { name: "Overlay record summary" }),
       ).toHaveText("0 resident rows");
       await expect(overlay).toHaveCSS("pointer-events", "none");
+      await expect(visibleMessages).toHaveCount(1);
+      await hide.click();
+      await expect(overlay).toHaveCount(0);
+      await expect(visibleMessages).toHaveCount(0);
+      await example.screenshot({
+        path: info.outputPath(`empty-hidden-${width}-${theme}.png`),
+      });
       await example
         .getByRole("button", { name: "Load overlay records" })
         .click();

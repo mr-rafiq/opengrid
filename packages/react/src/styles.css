@@ -2471,3 +2471,8 @@
   max-width: calc(100% - 24px);
   overflow-wrap: anywhere;
 }
+
+/* Source overlays own empty-state visibility, including explicit hide/suppression. */
+.og-source-client .og-empty {
+  display: none;
+}

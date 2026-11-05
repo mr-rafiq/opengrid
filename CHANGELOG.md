@@ -5,7 +5,7 @@
 Resident loading and empty overlays. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.
 
 - Render owned automatic/manual overlays, suppression flags, localized messages, registered React components and parameter functions. Reflect real destruction through the narrow overlay lifetime service.
-- Cover the actual viewport including headers and pinned cells, block loading pointer input, preserve keyboard focus and expose busy state without refreshing resident cell values.
+- Cover the actual viewport including headers and pinned cells, block loading pointer input, preserve keyboard focus and expose busy state without refreshing resident cell values. Suppress the native source-empty fallback so hiding the overlay really leaves the grid blank.
 - Correct nullable runtime row updates to retain resident records; an explicit empty array clears them. Update the original demo and document initial versus runtime behavior.
 - Support the saved-view helper's null advanced-filter clearing path. Non-null source expressions and native-expression serialization fail explicitly pending the expression adapter.
 - Add an original responsive overlay lab with language, custom-content, null/empty, manual control and host-resize interactions. Complete state, sizing/scroll APIs, custom filter hooks, business editing, menus/panels and authenticated calculation-page acceptance remain open; the unchanged application is not supported yet.
