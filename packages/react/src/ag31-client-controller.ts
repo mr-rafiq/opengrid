@@ -1,3 +1,4 @@
+import { createAg31ViewServices } from "./ag31-view-services.js";
 import {
   createAg31Overlays,
   assertAg31LocaleText,
@@ -217,6 +218,7 @@ export function createAg31ClientController<T>(
     viewRevision++;
     for (const listener of [...viewListeners]) listener();
   }
+  const viewServices = createAg31ViewServices();
   const overlays = createAg31Overlays({
     rowCount: options.rows.length,
     initiallyLoading:
@@ -839,6 +841,7 @@ export function createAg31ClientController<T>(
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    viewServices.destroy();
     overlays.destroy();
     unsubscribe();
     events.destroy();
@@ -851,6 +854,7 @@ export function createAg31ClientController<T>(
     viewListeners.clear();
   }
   const methods = {
+    ctrlsService: viewServices.ctrlsService,
     overlayService: overlays.service,
     showLoadingOverlay() {
       if (!destroyed) overlays.showLoading();
@@ -977,6 +981,7 @@ export function createAg31ClientController<T>(
     },
     getLifecycleSnapshot: () => destroyed,
     overlays,
+    viewServices,
     subscribeViewRefresh(listener: () => void) {
       viewListeners.add(listener);
       return () => {

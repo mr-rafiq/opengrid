@@ -77,6 +77,23 @@ Initial nullable rows show loading; an explicit empty array shows the empty stat
 
 Loading covers the grid viewport, including headers and pinned cells, blocks pointer input and sets `aria-busy` without taking keyboard focus. Empty overlays do not block grid pointer input. The source bridge suppresses the native empty-message fallback, so manual hide and suppression leave a blank grid instead of a second message. These operations subscribe independently of resident cells: showing/hiding/loading-label changes do not refresh mutated record values. Deferred application work still needs an explicit loading call; assigning null does not automatically restart loading after data has arrived. HTML template overlays and row fade animations are separate contracts. Open the collapsed loading example in the public bridge lab for manual loading, localization, custom content, nullable options and host resizing.
 
+## Mounted scroll restoration
+
+The measured legacy scroll helper path now delegates to the real mounted `DataGridViewController`:
+
+```tsx
+grid.current?.api.ctrlsService.params?.gridBodyCtrl.bodyScrollFeature.setScrollPosition(
+  800,
+  140,
+);
+```
+
+`params` is available only while this owner's actual view is active. It is undefined before attachment and after detach/destruction. A previously captured service cannot scroll a retired owner. This is a narrow compatibility path for the measured helper, not a general registry of AG Grid internals.
+
+Both offsets must be finite nonnegative pixel values. Fractions are preserved until the browser applies its own pixel rounding; browser geometry clamps values beyond the available scroll range. Commands do not rerun the source query, change selection or move keyboard focus. The original collapsed scroll lab uses 500 synthetic records, both axes, fractional offsets, host resizing and a deferred loading/restore/hide example. The final logical header's resize handle stays inside its content edge, including under virtualization, so its hit area does not add phantom scroll width.
+
+This does not implement source `getState` / `initialState`, source logical-focus APIs, every viewport service method or content autosizing. Native row-ID focus/reveal semantics are different from the measured source numeric focus contract; do not substitute one for the other. Complete saved-view compatibility remains unfinished.
+
 ## Declared query and column reset
 
 Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup` defaults initialize the source query. Native `initialModelState` can explicitly override these native query fields; it is distinct from AG Grid `initialState`.
@@ -85,7 +102,7 @@ Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup`
 
 Filters, row selection and provided-header group state remain independent. Candidate groups are staged while query callbacks run and become committed owned nodes only after successful model preparation; a rejected grouping retains the prior graph and emits no group-change notification. The collapsed original demo changes a local layout and resets it through the public ref.
 
-This is a static resident column-state contract. Full saved state, content autosizing and viewport service restoration remain separate unfinished requirements. It does not establish complete saved-view compatibility.
+This is a static resident column-state contract. Full saved state, content autosizing and complete viewport/focus services remain separate unfinished requirements. It does not establish complete saved-view compatibility.
 
 ## Provided header groups
 

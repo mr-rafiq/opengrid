@@ -4750,6 +4750,9 @@ export function DataGrid<T>({
                               );
                             else columnHeaderControls.current.delete(column.id);
                           }}
+                          data-og-inline-end-column={
+                            index === columns.length - 1 ? "true" : undefined
+                          }
                           data-og-column-menus={
                             columnMenu !== false ? "true" : undefined
                           }

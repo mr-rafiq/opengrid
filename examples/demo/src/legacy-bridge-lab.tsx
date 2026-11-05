@@ -1,3 +1,4 @@
+import { LegacyScrollLab } from "./legacy-scroll-lab.js";
 import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
@@ -115,6 +116,7 @@ export function LegacyBridgeLab() {
   const [rows, setRows] = useState<EstimateLine[] | null>(null);
   const [hostOpen, setHostOpen] = useState(false);
   const [overlayOpen, setOverlayOpen] = useState(false);
+  const [scrollOpen, setScrollOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -307,6 +309,10 @@ export function LegacyBridgeLab() {
       <details onToggle={(event) => setOverlayOpen(event.currentTarget.open)}>
         <summary>Source loading overlay example</summary>
         {overlayOpen && <LegacyOverlayLab />}
+      </details>
+      <details onToggle={(event) => setScrollOpen(event.currentTarget.open)}>
+        <summary>Source scroll restoration example</summary>
+        {scrollOpen && <LegacyScrollLab />}
       </details>
       <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
         <summary>Source host layout example</summary>

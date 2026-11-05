@@ -2476,3 +2476,8 @@
 .og-source-client .og-empty {
   display: none;
 }
+
+/* Keep the outside resize hit area within the scrollable content edge. */
+.og-header-cell[data-og-inline-end-column="true"] .og-resizer {
+  inset-inline-end: 0;
+}

@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.23.0 - 2026-11-05
+
+Resident mounted scroll restoration. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.
+
+- Bind the source helper's narrow scroll-service path to the real committed viewport. Expose readiness only for an active owner, preserve fractional offsets and revoke retired attachments and captured services.
+- Preserve query, selection and keyboard focus while restoring both scroll axes; let actual browser geometry clamp oversized requests.
+- Keep the last logical column's resize hit area inside the content edge, avoiding phantom scroll width as virtual headers mount. Retain coarse touch menus, touch resizing and keyboard resize alternatives.
+- Add an original responsive 500-record scroll lab, deferred restoration, fractional offsets and compact-host controls. Compare all five stored preset offsets through an unchanged consumer helper against the installed reference.
+- Full source saved state, numeric logical focus, content sizing, custom filters/editors/panels, business persistence and authenticated calculation-page acceptance remain unfinished. The unchanged complete application is not supported yet.
+
 ## 0.22.0 - 2026-11-05
 
 Resident loading and empty overlays. Created by Mohamed Rafiq. Source release; npm publication is coordinated separately.

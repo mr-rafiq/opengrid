@@ -4,6 +4,8 @@ Initial audit baseline: `e3f5247fafc08e143562b6a0dacd4d397fe62641`, reviewed on 
 
 ## Completed bounded capabilities
 
+The resident mounted-scroll checkpoint delegates the measured legacy restoration helper to the actual attached viewport, preserving fractional requests, focus, selection and query state. All five stored preset offsets match the installed reference in a private original-helper comparison. Full source focus/state, sizing, filter hooks, panels and authenticated application acceptance remain unfinished. A final-header resize hit-area correction removes transient extra scroll width under column virtualization.
+
 The resident overlay checkpoint adds independent automatic/manual loading and empty states, custom React content, locale labels, suppression, pointer shielding and real lifetime checks. Nullable runtime updates retain records; explicit empty arrays clear them. Null advanced-filter clearing supports the measured saved-view path. Non-null expression translation, full state, source sizing/scroll, filter hooks, editors/panels and authenticated acceptance remain unfinished. This does not promote a broad feature family to full parity.
 
 The resident column-reset checkpoint restores static declared layout/query defaults with measured regular/initial precedence, retained unspecified widths and raw sort indices. Candidate source groups are staged during query preparation. All 23 original saved column layouts plus reset match reference metadata over empty data; full saved-state, scroll, sizing, filter/editor/panel and authenticated acceptance remain separate requirements. This does not change broad ledger counts.

@@ -302,6 +302,7 @@ function ResidentView<T>({
   const ready = useRef(false);
   const [automaticHeight, setAutomaticHeight] = useState(480);
   const [hostHeaderHeight, setHostHeaderHeight] = useState(38);
+  useLayoutEffect(() => owner.viewServices.attach(() => view.current), [owner]);
   useLayoutEffect(() => {
     if (destroyed || props.height !== undefined) return;
     const host = container.current;
