@@ -58,14 +58,12 @@ test("hierarchy checkboxes share the item column and preserve header sorting and
   await checkbox.click();
   await expect(checkbox).toBeChecked();
   await expect(article).toContainText("1 source records selected");
-  const header = grid
-    .getByRole("columnheader")
-    .filter({
-      has: page.getByRole("button", {
-        name: "Sort Item / section",
-        exact: true,
-      }),
-    });
+  const header = grid.getByRole("columnheader").filter({
+    has: page.getByRole("button", {
+      name: "Sort Item / section",
+      exact: true,
+    }),
+  });
   await header.getByRole("checkbox").click();
   await expect(article).toContainText("6 source records selected");
   await expect(header).not.toHaveAttribute("aria-sort", "ascending");
