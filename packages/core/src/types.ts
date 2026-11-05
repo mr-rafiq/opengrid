@@ -253,7 +253,11 @@ export interface GridModel<T> {
   ): void;
   setFilter(columnId: string, filter?: Filter): void;
   setAdvancedFilter(expression: FilterExpression | null): void;
-  setExternalFilter(predicate?: (row: T) => boolean): void;
+  /** Apply an external predicate and optional replacement column filters as one query update. */
+  setExternalFilter(
+    predicate?: (row: T) => boolean,
+    update?: { columnFilters?: Record<string, Filter> },
+  ): void;
   setQuickFilter(value: string): void;
   toggleSelection(id: string, multi?: boolean): void;
   selectRows(ids: string[]): void;

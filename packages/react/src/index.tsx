@@ -134,3 +134,11 @@ export type { PivotPanelProps, PivotPanelLabels } from "./pivot-panel.js";
 export { ServerSidePanel } from "./server-side-panel.js";
 export type { ServerSidePanelProps } from "./server-side-panel.js";
 export type { RowGroupPanelModel } from "./group-panel.js";
+
+export type {
+  Ag31SimpleFilterModel,
+  Ag31CombinedFilterModel,
+  Ag31SetFilterModel,
+  Ag31ColumnFilterModel,
+  Ag31FilterModel,
+} from "./ag31-filter-models.js";

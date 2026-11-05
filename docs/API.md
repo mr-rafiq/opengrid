@@ -460,3 +460,7 @@ See [row grouping](GROUPING.md) for `RowGroupPanel`, `DataGrid.rowGroupPanel`, `
 ## Provider sidebar
 
 `ServerSidePanel({ model, columns, onColumnsChange, className?, labels? })` binds a real `ServerSideRowModel` to controlled visibility and provider query grouping/values/typed conditions. `ServerDataGrid.onColumnsChange` optionally mirrors its chooser into that same schema. `RowGroupPanelModel<T>` exposes the narrower subscribed grouping/sorting contract; existing client models remain compatible. See [provider sidebar](SERVER_SIDEBAR.md) for ownership, formatting, composition and remaining partial scope.
+
+### Atomic external and column filter replacement
+
+`model.setExternalFilter(predicate, { columnFilters })` replaces the external predicate and the complete native column-filter map in one query publication. Omit the second argument to retain current column conditions; pass `{ columnFilters: {} }` to clear them. Failed preparation restores both query halves and their prior cached result. This native API does not interpret source/AG JSON models.

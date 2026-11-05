@@ -61,6 +61,7 @@ export interface Ag31LeafColumnsOptions<T> {
   ownsNode(node: Ag31RowNode<T>): boolean;
   renderedWidth?(columnId: string): number | undefined;
   eventSource?(): string;
+  sourceFilterActive?(columnId: string): boolean;
 }
 type Entry<T> = {
   id: string;
@@ -171,7 +172,9 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       getAggFunc: () => entry.definition.aggFunc ?? null,
       isFilterActive: () =>
         active
-          ? (assertSchema(), Object.hasOwn(model.getState().filters, id!))
+          ? (assertSchema(),
+            options.sourceFilterActive?.(id!) === true ||
+              Object.hasOwn(model.getState().filters, id!))
           : false,
       getSort: sort,
       getSortIndex: () => {

@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident source filter models (0.17.0)
+
+The complete serial local gate passed formatting/version consistency, strict TypeScript in **188.32 seconds**, **2,187 unit tests in 150 files** in **293.84 seconds**, all package ESM/declaration/CSS and production demo builds in **186.20 seconds**, and **217 Chromium scenarios without retries in 10.9 minutes**. The built public ESM/SSR smoke passed. The affected six-file source-filter slice separately passed **70 tests in 2.03 seconds**.
+
+Private read-only comparisons on installed React/ReactDOM 18.3.1 and AG Grid 31.3.4 verified **37 complete filter-model/membership cases**, **nine data-lifecycle phases**, and **nine exact API cases using unchanged consumer definitions and original synthetic domain classes**. They cover original filter getters/key creators, numeric/text/set models, legacy two-condition fields, external predicate composition, canonical case/blank keys, absent selections, all-key clearing, row replacement and canonical-key changes. An earlier inherited test-match accidentally executed older bridge cases; those are not counted as the new filter evidence. Private source and records are excluded from publication.
+
+Twelve original responsive browser flows passed before the full gate, including four new source-model examples. The compact lab keeps these controls behind a disclosure, exercises keyboard application/clearing and external-predicate intersections, and rebalances columns so the sorted Amount heading and currency fit a 320px viewport. Actual phone-light and desktop-dark screenshots were inspected. These checks do not establish physical-device or manual screen-reader certification.
+
+Custom filter hooks, supplied/tree value services, native-dialog serialization, matching source filter popup/sidebar UI, complete saved state/business editing and authenticated full application acceptance remain unfinished. The APIs and original example do not certify an unchanged application replacement.
+
 ## Selection retains resident projections (0.16.1)
 
 The serial local gate passed formatting/version checks, strict TypeScript in **189.68 seconds**, **2,152 unit tests in 147 files** in **290.50 seconds**, package ESM/declaration/CSS and demo builds in **188.51 seconds**, and **213 Chromium scenarios without retries in 10.3 minutes**. Built public ESM/SSR smoke passed again.

@@ -105,3 +105,7 @@ Internal row/column/value adapters have separate original regressions and privat
 ## Resident source stage boundary
 
 A private reference comparison reproduced selection invalidating a computed sorted projection after a retained class value changes and a view-only refresh. Selection-only updates now retain computed sort/filter/group projections while ordinary cell reads remain live. Complete independent reference processing stages, partial aggregate refresh and layout-only equivalence remain open. Full application replacement is not verified.
+
+## Resident source filter-model boundary
+
+The experimental public bridge accepts tested resident text/number/set JSON models, canonical set keys and two-condition snapshots, original filter getters/key creators and external-predicate composition. Whole-model updates are atomic and key selections reconcile after data changes. These are measured API contracts; matching source filter popup/sidebar UI, custom filter hooks, supplied/tree value services, native-dialog serialization and full saved-state/application integration remain unfinished. Broad filter families remain Partial.

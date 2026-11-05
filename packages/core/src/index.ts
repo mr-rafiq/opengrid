@@ -1408,13 +1408,32 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     },
     setAdvancedFilter: (advancedFilter) =>
       setState({ advancedFilter, page: 0 }),
-    setExternalFilter(predicate) {
+    setExternalFilter(predicate, update = {}) {
+      if (
+        !update ||
+        typeof update !== "object" ||
+        Array.isArray(update) ||
+        Object.keys(update).some((key) => key !== "columnFilters")
+      )
+        throw new TypeError(
+          "External filter updates accept only columnFilters",
+        );
+      const descriptor = Object.getOwnPropertyDescriptor(
+        update,
+        "columnFilters",
+      );
+      if (descriptor && !("value" in descriptor))
+        throw new TypeError("External filter updates cannot contain accessors");
+      const columnFilters = descriptor?.value;
       if (predicate !== undefined && typeof predicate !== "function")
         throw new TypeError("externalFilter must be a function");
       const previous = externalFilter;
       externalFilter = predicate;
       try {
-        updateState({ page: 0 });
+        updateState({
+          ...(columnFilters === undefined ? {} : { filters: columnFilters }),
+          page: 0,
+        });
       } catch (failure) {
         externalFilter = previous;
         throw failure;

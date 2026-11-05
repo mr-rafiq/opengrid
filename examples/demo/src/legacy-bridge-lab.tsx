@@ -26,13 +26,19 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
   {
     headerName: "Estimate",
     children: [
-      { field: "phase", headerName: "Phase", enableRowGroup: true, hide: true },
+      {
+        field: "phase",
+        headerName: "Phase",
+        enableRowGroup: true,
+        hide: true,
+        filter: "agSetColumnFilter",
+      },
       {
         colId: "item",
         headerName: "Item",
         showRowGroup: true,
         pinned: "left",
-        width: 150,
+        width: 130,
         checkboxSelection: true,
         headerCheckboxSelection: true,
         valueGetter: (p: Ag31ValueParams<EstimateLine>) =>
@@ -46,8 +52,9 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
       {
         field: "amount",
         headerName: "Amount",
-        width: 110,
+        width: 136,
         cellDataType: "number",
+        filter: "agNumberColumnFilter",
         cellStyle: { paddingRight: 10 },
         cellClassRules: {
           "legacy-source-change": (p: Ag31ValueParams<EstimateLine>) =>
@@ -140,6 +147,49 @@ export function LegacyBridgeLab() {
           Highlight sample changes
         </button>
       </div>
+      <details>
+        <summary>Source filter model example</summary>
+        <p>
+          Apply a built-in source model using the public ref. These filters
+          combine with the external amount rule above. The source filter UI
+          adapter is still a separate contract.
+        </p>
+        <div className="grouping-lab-controls">
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() =>
+              grid.current?.api.setFilterModel({
+                amount: {
+                  filterType: "number",
+                  type: "greaterThanOrEqual",
+                  filter: 100,
+                },
+              })
+            }
+          >
+            Apply source amount filter
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() =>
+              grid.current?.api.setFilterModel({
+                phase: { filterType: "set", values: ["Planning"] },
+              })
+            }
+          >
+            Apply Planning source filter
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => grid.current?.api.setFilterModel(null)}
+          >
+            Clear source filter model
+          </button>
+        </div>
+      </details>
       <details>
         <summary>Retained-record refresh example</summary>
         <p>

@@ -388,6 +388,36 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
         );
       binding = next;
     },
+    readFilter(node: Ag31RowNode<T>, key: unknown) {
+      const column = runtime().columns.getColumn(key);
+      if (!column)
+        throw new TypeError("Source filters require an owned column");
+      const definition = currentDefinition(column.colId);
+      const getter = callback(definition, "filterValueGetter");
+      return getter ? getter(params(node, column.colId)) : read(node, column);
+    },
+    filterKey(node: Ag31RowNode<T>, key: unknown, value: unknown) {
+      const column = runtime().columns.getColumn(key);
+      if (!column)
+        throw new TypeError("Source filters require an owned column");
+      const definition = currentDefinition(column.colId);
+      const filterParams = definition.filterParams;
+      if (
+        filterParams != null &&
+        (typeof filterParams !== "object" || Array.isArray(filterParams))
+      )
+        throw new TypeError(
+          "Dynamic source filter parameters require a separate adapter",
+        );
+      const creator =
+        (filterParams as Record<string, unknown> | undefined)?.keyCreator ??
+        definition.keyCreator;
+      if (creator != null && typeof creator !== "function")
+        throw new TypeError("Source filter key creators must be functions");
+      return typeof creator === "function"
+        ? creator(params(node, column.colId, value))
+        : value;
+    },
     groupIdentity(node: GridHierarchyNode<T>, parent: Ag31RowNode<T>) {
       const field = node.groupColumnId,
         key = String(node.groupKey ?? node.groupValue ?? "");

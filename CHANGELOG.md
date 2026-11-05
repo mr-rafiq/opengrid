@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.17.0 - 2026-11-05
+
+Resident source filter-model APIs. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Add typed experimental `getFilterModel`/`setFilterModel` for resident text, numeric and set JSON models, compatible two-condition legacy fields, original filter getters/key creators and external Smart Search composition.
+- Canonicalize resident set keys, discard absent selections, clear all-key models and reconcile key changes after row replacement/transactions without reviving removed selections. Snapshots are detached; query replacement rolls back on preparation failure.
+- Native external predicates can replace column conditions atomically in one query publication. The public bridge lab demonstrates source-model filtering alongside external predicates.
+- Custom filter hooks, supplied/tree set-value services, native-dialog serialization, complete saved-state/panel/editor contracts and authenticated application replacement remain unfinished. These API contracts do not certify matching source filter UI or full replacement readiness.
+
 ## 0.16.1 - 2026-11-05
 
 Retain computed resident projections during selection. Created by Mohamed Rafiq. Source release only; no npm publication.

@@ -48,6 +48,22 @@ The typed ref exposes resident row/node traversal and selection, value and forma
 
 Pinned columns release under viewport pressure with a 50px center reservation, right before left, and do not automatically repin when the viewport grows. Native explicit pin locks remain enforced. Short schemas keep the inline-end pin band at the viewport edge in LTR and RTL without adding data/ARIA columns. Custom source components are isolated from native button/input styling; they remain responsible for their own accessible controls and styling.
 
+## Resident source filter models
+
+The typed ref exposes `api.getFilterModel()` and `api.setFilterModel(modelOrNull)` for enabled resident text, number and set filters. Operands are owned JSON snapshots, not native OpenGrid `Filter` records. Combined text/number conditions preserve the measured two-condition `condition1`/`condition2` fields alongside `conditions`. Unsupported date/multi/custom-component contracts fail explicitly. Unknown column IDs are ignored; null clears the source model. A source column must have filtering enabled in its definition or defaults.
+
+```tsx
+grid.current?.api.setFilterModel({
+  amount: { filterType: "number", type: "greaterThanOrEqual", filter: 100 },
+  phase: { filterType: "set", values: ["Planning"] },
+});
+const savedFilters = grid.current?.api.getFilterModel();
+```
+
+Source filter getters and set key creators receive original owned records/columns and current context. Set models use canonical resident keys, discard absent keys, preserve requested key order and clear when every available key is selected. Row replacement/transactions reconcile existing selections; keys removed from an active model do not return merely because the data later reappears. An empty-data set request clears. Set processing is bounded to 100,000 source rows, 500,000 key evaluations and four million key-text characters per column; keys are at most 4,096 characters, and requests total at most 50,000 selected keys. Supplied/remote/tree value services and their refresh variants are separate unfinished contracts.
+
+Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.
+
 ## Source decorations
 
 `getRowStyle` receives the owned source node, original data, row index, API/column API and current context. It works in initial options, direct props and `api.setGridOption`; clearing it removes previous inline styles. An imperative callback change survives unrelated prop updates. `api.refreshCells()` reevaluates view decorations without explicitly rerunning sort/filter stages.
