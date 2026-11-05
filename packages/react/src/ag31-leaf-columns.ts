@@ -1,4 +1,5 @@
 import type { Column, GridModel, Pin } from "@opengrid/core";
+import type { Ag31ColumnStateParams } from "./ag31-column-state.js";
 import type { Ag31RowNode } from "./ag31-row-nodes.js";
 
 export interface Ag31ColumnDefinition<T> {
@@ -63,6 +64,8 @@ export interface Ag31LeafColumnsOptions<T> {
   eventSource?(): string;
   sourceFilterActive?(columnId: string): boolean;
   sourceColumnDisplayed?(columnId: string): boolean;
+  /** Preserve raw source indices independently from normalized native sort order. */
+  sourceSortIndexes?: boolean;
 }
 type Entry<T> = {
   id: string;
@@ -78,6 +81,8 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
   const { model } = options;
   const revision = model.getColumnRevision();
   let active = true;
+  let applyingSourceSort = false;
+  let sortIndexes = new Map<string, number | undefined>();
   const byId = new Map<string, Entry<T>>(),
     byObject = new WeakMap<object, Entry<T>>();
   function assertSchema() {
@@ -182,6 +187,7 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
         if (!active) return undefined;
         if (entry.localSortIndex) return entry.localSortIndex.value;
         assertSchema();
+        if (options.sourceSortIndexes) return sortIndexes.get(id!);
         const index = model
           .getState()
           .sorting.findIndex((item) => item.columnId === id);
@@ -236,6 +242,11 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       width: source.width!,
       listeners: new Map(),
     };
+    const index =
+      definition.sortIndex === undefined
+        ? definition.initialSortIndex
+        : definition.sortIndex;
+    sortIndexes.set(id, typeof index === "number" ? index : undefined);
     byId.set(id, entry);
     byObject.set(column, entry);
     byObject.set(definition, entry);
@@ -255,7 +266,13 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       const listeners = [...(entry.listeners.get("sortChanged") ?? [])];
       if (!listeners.length) continue;
       const previousOverride = entry.localSortIndex;
-      entry.localSortIndex = { value: oldIndex < 0 ? undefined : oldIndex };
+      entry.localSortIndex = {
+        value: options.sourceSortIndexes
+          ? sortIndexes.get(entry.id)
+          : oldIndex < 0
+            ? undefined
+            : oldIndex,
+      };
       const event = {
         ...options.commonParams(),
         type: "sortChanged",
@@ -268,6 +285,23 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
       } finally {
         entry.localSortIndex = previousOverride;
       }
+    }
+    if (
+      options.sourceSortIndexes &&
+      !applyingSourceSort &&
+      (before.length !== next.length ||
+        before.some(
+          (sort, index) =>
+            sort.columnId !== next[index]?.columnId ||
+            sort.direction !== next[index]?.direction,
+        ))
+    ) {
+      sortIndexes = new Map(
+        [...byId.keys()].map((id) => {
+          const index = next.findIndex((sort) => sort.columnId === id);
+          return [id, index < 0 ? undefined : index];
+        }),
+      );
     }
   });
   function getColumn(key: unknown): Ag31LeafColumn<T> | null {
@@ -287,6 +321,27 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
     return Array.from(byId.values(), (entry) => entry.column);
   }
   return Object.freeze({
+    getSortIndexes: () => new Map(sortIndexes),
+    withSortIndexes<R>(params: Ag31ColumnStateParams, operation: () => R): R {
+      const next = new Map(sortIndexes),
+        explicit = new Map(
+          (params.state ?? []).map((item) => [item.colId, item]),
+        );
+      for (const id of byId.keys()) {
+        const item = explicit.get(id) ?? params.defaultState;
+        if (item?.sortIndex !== undefined)
+          next.set(id, item.sortIndex ?? undefined);
+      }
+      const previousApplying = applyingSourceSort;
+      applyingSourceSort = true;
+      try {
+        const result = operation();
+        sortIndexes = next;
+        return result;
+      } finally {
+        applyingSourceSort = previousApplying;
+      }
+    },
     getColumn,
     getColumns: columns,
     getAllDisplayedColumns() {

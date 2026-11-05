@@ -67,6 +67,16 @@ Source filter getters and set key creators receive original owned records/column
 
 Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.
 
+## Declared query and column reset
+
+Resident `sort` / `initialSort`, sort indices and `rowGroup` / `initialRowGroup` defaults initialize the source query. Native `initialModelState` can explicitly override these native query fields; it is distinct from AG Grid `initialState`.
+
+`api.resetColumnState()` and `columnApi.resetColumnState()` restore declaration order, visibility, pins, sort and grouping using measured regular/initial attribute precedence. A declared reset width is restored; an unspecified width retains its current size. Null regular reset values can fall back to initial values. Raw source sort indices, including signed safe integers and indices on unsorted columns, remain separate from the native normalized sort order. A direct native sort replaces its active indices with native order.
+
+Filters, row selection and provided-header group state remain independent. Candidate groups are staged while query callbacks run and become committed owned nodes only after successful model preparation; a rejected grouping retains the prior graph and emits no group-change notification. The collapsed original demo changes a local layout and resets it through the public ref.
+
+This is a static resident column-state contract. Full saved state, loading overlays, content autosizing and viewport service restoration remain separate unfinished requirements. It does not establish complete saved-view compatibility.
+
 ## Provided header groups
 
 `api.getColumnGroupState()`, `setColumnGroupState([{ groupId, open }])`, `resetColumnGroupState()` and `setColumnGroupOpened(groupId, open)` control resident provided header groups. The same methods are available through `columnApi`. Explicit IDs remain stable; generated and padding IDs follow the measured construction order, and snapshots include nested groups in postorder. Reset restores `openByDefault`, while unknown IDs are ignored.

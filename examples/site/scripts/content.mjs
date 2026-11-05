@@ -41,6 +41,7 @@ export const slugify = (value) =>
 const labels = {
   "calculation-workspaces": "Calculation workspaces",
   "legacy-react-bridge": "Legacy React bridge (experimental)",
+  "host-layout": "Resident host layout",
   "getting-started": "Getting started",
   themes: "Themes & appearance",
   grouping: "Row grouping & totals",
@@ -95,6 +96,7 @@ const labels = {
 const order = [
   "calculation-workspaces",
   "legacy-react-bridge",
+  "host-layout",
   "showcase",
   "client-pivot",
   "getting-started",

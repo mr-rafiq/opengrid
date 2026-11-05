@@ -116,6 +116,9 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
     }),
   });
   let revision = 0;
+  let observedState = model.getState();
+  let pendingState: ReturnType<typeof model.getState> | undefined;
+  let stagedCreated: Entry<T>[] = [];
   let byId = new Map<string, Entry<T>>(),
     byNative = new Map<string, Entry<T>>();
   let sourceLeaves: Ag31RowNode<T>[] = [];
@@ -329,7 +332,15 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
   root.expanded = true;
 
   function sync() {
-    if (!dirty || syncing || destroyed) return;
+    if (syncing || destroyed) return;
+    const stateAtEntry = model.getState();
+    const preparing = stateAtEntry !== observedState;
+    if (pendingState && pendingState !== stateAtEntry) dirty = true;
+    if (!dirty && (!preparing || pendingState === stateAtEntry)) return;
+    const stagedById = pendingById,
+      stagedByNative = pendingByNative;
+    const previouslyCreated = stagedCreated;
+    let holdCandidate = false;
     syncing = true;
     const created: Entry<T>[] = [];
     const events: { entry: Entry<T>; type: string }[] = [];
@@ -362,7 +373,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           pendingById.has(id)
         )
           throw new TypeError("Duplicate/reserved source row identity");
-        const old = byId.get(id);
+        const old = stagedById?.get(id) ?? byId.get(id);
         const entry = old && !old.group ? old : create(id, id);
         if (entry !== old) created.push(entry);
         pendingById.set(id, entry);
@@ -405,7 +416,10 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
             throw new TypeError(
               "Duplicate/reserved compatibility row identity",
             );
-          const previous = byNative.get(node.id);
+          const previous = [
+            stagedByNative?.get(node.id),
+            byNative.get(node.id),
+          ].find((entry) => entry?.node.id === identity.id);
           const entry = !group
             ? pendingById!.get(identity.id)!
             : previous?.node.id === identity.id
@@ -543,7 +557,17 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       });
       if (revision !== expectedRevision)
         throw new Error("Grid changed during row-node projection");
-      for (const entry of byId.values())
+      // Query callbacks can read a candidate hierarchy before the native model
+      // commits it. Keep those owned nodes staged until its subscription fires.
+      // A rejected query leaves the committed graph and its events untouched.
+      if (preparing) {
+        pendingState = stateAtEntry;
+        stagedCreated = [...new Set([...previouslyCreated, ...created])];
+        dirty = false;
+        holdCandidate = true;
+        return;
+      }
+      for (const entry of new Set([...byId.values(), ...previouslyCreated]))
         if (nextById.get(entry.node.id) !== entry) {
           entry.live = false;
           entry.rowIndex = entry.rowTop = null;
@@ -572,14 +596,24 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       sourceLeaves = nextLeaves;
       dirty = false;
     } catch (error) {
-      for (const entry of created) entries.delete(entry.node);
+      for (const entry of new Set([...created, ...previouslyCreated])) {
+        if (byId.get(entry.node.id) === entry) continue;
+        entry.live = false;
+        entry.listeners.clear();
+        entries.delete(entry.node);
+      }
+      dirty = true;
       throw error;
     } finally {
-      pendingAssignments = undefined;
-      pendingById = undefined;
-      pendingLeaves = undefined;
-      pendingByNative = undefined;
-      pendingRoot = undefined;
+      if (!holdCandidate) {
+        pendingAssignments = undefined;
+        pendingById = undefined;
+        pendingLeaves = undefined;
+        pendingByNative = undefined;
+        pendingRoot = undefined;
+        pendingState = undefined;
+        stagedCreated = [];
+      }
       syncing = false;
     }
     for (const { entry, type } of events) {
@@ -590,6 +624,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
     }
   }
   const unsubscribe = model.subscribe(() => {
+    observedState = model.getState();
     revision++;
     dirty = true;
     sync();
@@ -661,6 +696,12 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       byId.clear();
       byNative.clear();
       sourceLeaves = [];
+      pendingAssignments = undefined;
+      pendingById = pendingByNative = undefined;
+      pendingLeaves = undefined;
+      pendingRoot = undefined;
+      pendingState = undefined;
+      stagedCreated = [];
     },
     isDestroyed: () => destroyed,
   });

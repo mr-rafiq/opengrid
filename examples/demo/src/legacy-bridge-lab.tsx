@@ -31,6 +31,7 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
       {
         field: "phase",
         headerName: "Phase",
+        rowGroup: true,
         enableRowGroup: true,
         hide: true,
         filter: "agSetColumnFilter",
@@ -261,6 +262,46 @@ export function LegacyBridgeLab() {
           </button>
         </div>
       </details>
+      <details>
+        <summary>Source column reset example</summary>
+        <p>
+          Apply an alternate local layout, then restore the declared columns and
+          grouping. Source filters, selection and header-group state remain
+          independent.
+        </p>
+        <div className="grouping-lab-controls">
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() =>
+              grid.current?.api.applyColumnState({
+                applyOrder: true,
+                state: [
+                  {
+                    colId: "amount",
+                    width: 180,
+                    pinned: "left",
+                    sort: "desc",
+                    sortIndex: -1,
+                  },
+                  { colId: "item", width: 180, pinned: null },
+                  { colId: "phase", hide: false, rowGroup: false },
+                  { colId: "amountRaw", hide: true },
+                ],
+              })
+            }
+          >
+            Apply sample layout
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => grid.current?.api.resetColumnState()}
+          >
+            Reset source columns
+          </button>
+        </div>
+      </details>
       <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
         <summary>Source host layout example</summary>
         {hostOpen && <LegacyHostLab />}
@@ -275,7 +316,6 @@ export function LegacyBridgeLab() {
         columnDefs={definitions}
         context={context}
         getRowStyle={rowStyle}
-        initialModelState={{ groupBy: ["phase"] }}
         height={300}
         ariaLabel="Legacy source estimate"
         onGridReady={update}

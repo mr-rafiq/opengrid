@@ -238,7 +238,7 @@ describe("AG 31 persisted-column-state boundary", () => {
     for (const input of [
       { state: [{ colId: "name", pivot: true }] },
       { state: [{ colId: "name", width: NaN }] },
-      { state: [{ colId: "name", sortIndex: -1 }] },
+      { state: [{ colId: "name", sortIndex: -0.5 }] },
       { state: [{ colId: "name" }, { colId: "name" }] },
     ])
       expect(() => applyAg31ColumnState(model, input as never)).toThrow();

@@ -97,7 +97,7 @@ function inspect(
     if (
       typeof value !== "number" ||
       !Number.isFinite(value) ||
-      value < 0 ||
+      (key !== "sortIndex" && value < 0) ||
       (key.endsWith("Index") && !Number.isSafeInteger(value))
     )
       throw new TypeError(`Invalid column-state ${key}`);
@@ -123,6 +123,7 @@ function inspect(
 export function planAg31ColumnState<T>(
   model: GridModel<T>,
   input: Ag31ColumnStateParams,
+  sourceSortIndexes?: ReadonlyMap<string, number | undefined>,
 ): Ag31ColumnStatePlan<T> {
   if (
     !input ||
@@ -245,7 +246,11 @@ export function planAg31ColumnState<T>(
         id: column.id,
         direction,
         index:
-          item?.sortIndex === undefined ? (old?.index ?? null) : item.sortIndex,
+          item?.sortIndex === undefined
+            ? sourceSortIndexes?.has(column.id)
+              ? (sourceSortIndexes.get(column.id) ?? null)
+              : (old?.index ?? null)
+            : item.sortIndex,
         order: declaration,
       });
     let grouped = oldGroups.has(column.id),

@@ -263,12 +263,17 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
           hidden:
             definition.hide === true ||
             (definition.hide == null && definition.initialHide === true),
-          pinned:
-            definition.pinned === true
+          pinned: (() => {
+            const pin =
+              definition.pinned === undefined
+                ? definition.initialPinned
+                : definition.pinned;
+            return pin === true
               ? "left"
-              : definition.pinned === "left" || definition.pinned === "right"
-                ? definition.pinned
-                : null,
+              : pin === "left" || pin === "right"
+                ? pin
+                : null;
+          })(),
           lockPosition:
             definition.lockPosition === true
               ? "left"

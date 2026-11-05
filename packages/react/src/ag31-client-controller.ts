@@ -1,3 +1,4 @@
+import { ag31DeclaredQuery } from "./ag31-column-defaults.js";
 import {
   createAg31ColumnGroups,
   type Ag31ColumnGroupState,
@@ -215,6 +216,11 @@ export function createAg31ClientController<T>(
     getRowId: options.getRowId,
     commonParams,
   });
+  const declaredQuery = ag31DeclaredQuery(
+    schema.columns,
+    schema.leafDefinitions,
+    options.defaultColDef,
+  );
   const baseVisibility = new Map(
     schema.columns.map((column) => [column.id, !column.hidden]),
   );
@@ -225,6 +231,7 @@ export function createAg31ClientController<T>(
     readOnly: options.readOnly ?? !options.writeCell,
     initialState: {
       pageSize: HIERARCHY_SELECTION_LIMITS.maxNodes,
+      ...declaredQuery,
       ...options.initialState,
     },
   });
@@ -253,6 +260,7 @@ export function createAg31ClientController<T>(
     ownsNode: (node) => nodes.getRowNode(node.id) === node,
     sourceFilterActive: (id) => Object.hasOwn(sourceFilters, id),
     sourceColumnDisplayed: groups.isColumnDisplayed,
+    sourceSortIndexes: true,
   });
   schema.bind({ model, nodes, columns });
   const emit = (event: Ag31Event) => events.dispatchEvent(event);
@@ -631,7 +639,7 @@ export function createAg31ClientController<T>(
   }
   function applyColumnState(params: Ag31ColumnStateParams) {
     if (destroyed) return;
-    const plan = planAg31ColumnState(model, params),
+    const plan = planAg31ColumnState(model, params, columns.getSortIndexes()),
       before = model.getColumnDefinitions();
     if (
       plan.definitions.some(
@@ -664,8 +672,31 @@ export function createAg31ClientController<T>(
       equal(model.getState().groupBy, plan.layout.groupBy)
     )
       delete patch.groupBy;
-    model.setState(patch);
+    columns.withSortIndexes(params, () => model.setState(patch));
     return plan.unknownColumnIds.length === 0;
+  }
+  function resetColumnState() {
+    if (destroyed) return;
+    applyColumnState({
+      applyOrder: true,
+      state: schema.columns.map((column) => {
+        const definition = columns.getColumn(column.id)!.getColDef();
+        const regular = (name: string) =>
+          definition[name] ??
+          definition["initial" + name[0].toUpperCase() + name.slice(1)] ??
+          null;
+        return {
+          colId: column.id,
+          width: regular("width"),
+          hide: regular("hide"),
+          pinned: regular("pinned"),
+          sort: regular("sort"),
+          sortIndex: regular("sortIndex"),
+          rowGroup: regular("rowGroup"),
+          rowGroupIndex: regular("rowGroupIndex"),
+        };
+      }) as Ag31ColumnStateParams["state"],
+    });
   }
   function getColumnState() {
     return active(() => {
@@ -754,6 +785,7 @@ export function createAg31ClientController<T>(
     setRowNodeExpanded,
     applyColumnState,
     getColumnState,
+    resetColumnState,
     selectAll,
     deselectAll,
     destroy,
@@ -829,6 +861,7 @@ export function createAg31ClientController<T>(
     getRowGroupColumns: methods.getRowGroupColumns,
     applyColumnState: methods.applyColumnState,
     getColumnState: methods.getColumnState,
+    resetColumnState: methods.resetColumnState,
     getColumnGroupState: methods.getColumnGroupState,
     setColumnGroupState: methods.setColumnGroupState,
     resetColumnGroupState: methods.resetColumnGroupState,
