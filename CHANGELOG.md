@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.20.0 - 2026-11-05
+
+Resident host layout and theme. Created by Mohamed Rafiq. Source release only; no npm publication.
+
+- Put the consumer class on the source root, measure implicit flex height and retain explicit viewport sizing. Native viewport/body floors remain defaults with optional constrained-host overrides.
+- Adopt inherited host theme/font/header tokens within the source component, handle live metric props/ref APIs and clearing, and restore the OpenGrid palette when overrides disappear.
+- Span balanced padding leaf headers across header tiers, keep accessible header metadata and correct mixed-pin release order through measured right/left alternation.
+- Add an original responsive host-layout/palette example. The source view omits the unrelated native count bar; native status/pager behavior remains enabled by default.
+- Complete saved state, custom filters/editors/menus/status/tool panels, partial source processing and authenticated full application acceptance remain open.
+
 ## 0.19.0 - 2026-11-05
 
 Resident provided header groups. Created by Mohamed Rafiq. Source release only; no npm publication.

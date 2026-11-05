@@ -472,3 +472,7 @@ Native selection, column layout, pagination and expansion updates reuse the exis
 ### Controlled provided headers
 
 `DataGrid.headerGroupController` supplies keyed caption paths, display predicates and actual group-toggle/expanded state. Leaf visibility remains model-owned. This optional controller is distinct from native collapse-by-hiding; without it existing native behavior is unchanged. The source resident bridge uses it for conditional provided groups. See [the legacy bridge contracts](LEGACY_REACT_BRIDGE.md#provided-header-groups).
+
+### Constrained source hosts
+
+`Ag31ClientGrid` places the consumer class on its outer flex child and derives an implicit viewport from available host space. Scoped legacy theme tokens, live source header metrics and padding-header spans are described in [resident host layout](HOST_LAYOUT.md). Native `DataGrid` exposes independent header-row/body/viewport metrics and an optional `statusBar` flag while retaining its defaults.

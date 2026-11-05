@@ -43,6 +43,25 @@ export const AG31_EVENT_OPTIONS = [
   ["onColumnRowGroupChanged", "columnRowGroupChanged"],
 ] as const;
 export type Ag31EventOptionName = (typeof AG31_EVENT_OPTIONS)[number][0];
+export const AG31_HEADER_METRICS = [
+  "headerHeight",
+  "groupHeaderHeight",
+  "floatingFiltersHeight",
+] as const;
+export type Ag31HeaderMetricName = (typeof AG31_HEADER_METRICS)[number];
+export function assertAg31HeaderMetric(
+  value: unknown,
+  name: string,
+): asserts value is number | null | undefined {
+  if (
+    value != null &&
+    (typeof value !== "number" ||
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      value > 1_000_000)
+  )
+    throw new RangeError(`Source ${name} must be positive and bounded`);
+}
 export interface Ag31ClientControllerOptions<T> {
   rows: T[];
   /** Original nullable component option; rows remains the resident projection. */
@@ -52,6 +71,9 @@ export interface Ag31ClientControllerOptions<T> {
   getRowId(row: T): string;
   context?: unknown;
   rowHeight?: number;
+  headerHeight?: number | null;
+  groupHeaderHeight?: number | null;
+  floatingFiltersHeight?: number | null;
   initialState?: Partial<GridState>;
   readOnly?: boolean;
   groupSelectsFiltered?: boolean;
@@ -134,6 +156,10 @@ export function createAg31ClientController<T>(
       "Source getRowStyle must be a function, null or undefined",
     );
   settings.set("getRowStyle", options.getRowStyle);
+  for (const name of AG31_HEADER_METRICS) {
+    assertAg31HeaderMetric(options[name], name);
+    settings.set(name, options[name]);
+  }
   for (const name of [
     "isExternalFilterPresent",
     "doesExternalFilterPass",
@@ -315,6 +341,13 @@ export function createAg31ClientController<T>(
   }
   function setGridOption(key: string, value: unknown) {
     if (destroyed) return;
+    if ((AG31_HEADER_METRICS as readonly string[]).includes(key)) {
+      assertAg31HeaderMetric(value, key);
+      if (Object.is(settings.get(key), value)) return;
+      settings.set(key, value);
+      refreshCells();
+      return;
+    }
     if (callbackNames.has(key)) {
       if (value != null && typeof value !== "function")
         throw new TypeError(

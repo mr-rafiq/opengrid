@@ -4,7 +4,7 @@ export interface Ag31PinnedWidth {
   width: number;
 }
 
-/** Internal resident source policy: retain a 50px center, release right columns before left. */
+/** Internal resident source policy: retain a 50px center, alternate right and left candidates. */
 export function planAg31PinPressure(
   columns: readonly Ag31PinnedWidth[],
   viewportWidth: number,
@@ -20,13 +20,14 @@ export function planAg31PinPressure(
   }
   const available = Math.max(0, viewportWidth - 50),
     release: string[] = [];
-  for (const side of ["right", "left"] as const) {
-    for (const column of columns) {
+  const right = columns.filter((column) => column.pinned === "right"),
+    left = columns.filter((column) => column.pinned === "left");
+  for (let index = 0; index < Math.max(right.length, left.length); index++) {
+    for (const column of [right[index], left[index]]) {
       if (pinnedWidth <= available) return release;
-      if (column.pinned === side) {
-        release.push(column.colId);
-        pinnedWidth -= column.width;
-      }
+      if (!column) continue;
+      release.push(column.colId);
+      pinnedWidth -= column.width;
     }
   }
   return release;

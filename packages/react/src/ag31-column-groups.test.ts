@@ -49,7 +49,7 @@ it("includes balanced padding groups and stable distinct identities for equal ca
     { groupId: "0", open: false },
     { groupId: "other", open: true },
   ]);
-  expect(g.getPath("id")).toEqual([{ key: "1", label: "" }]);
+  expect(g.getPath("id")).toEqual([{ key: "1", label: "", padding: true }]);
   expect(g.getPath("a")).toEqual([{ key: "0", label: "Details" }]);
   expect(g.getPath("d")).toEqual([{ key: "other", label: "Details" }]);
   expect(g.canToggle(["1"])).toBe(false);

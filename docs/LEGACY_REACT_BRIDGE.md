@@ -49,7 +49,7 @@ The supported event options are `onGridReady`, `onSortChanged`, `onFilterChanged
 
 The typed ref exposes resident row/node traversal and selection, value and formatted-value reads, row transactions, column lookup/state, sorting/grouping state, refresh, supported option getters/setters, event listeners and destruction. Methods operate on this component's owned model. Transactions are local; they do not save backend changes. `refreshCells` refreshes the view without explicitly rerunning sort/filter stages.
 
-Pinned columns release under viewport pressure with a 50px center reservation, right before left, and do not automatically repin when the viewport grows. Native explicit pin locks remain enforced. Short schemas keep the inline-end pin band at the viewport edge in LTR and RTL without adding data/ARIA columns. Custom source components are isolated from native button/input styling; they remain responsible for their own accessible controls and styling.
+Pinned columns release under viewport pressure with a 50px center reservation, alternating right/left candidates in current order, and do not automatically repin when the viewport grows. Native explicit pin locks remain enforced. Short schemas keep the inline-end pin band at the viewport edge in LTR and RTL without adding data/ARIA columns. Custom source components are isolated from native button/input styling; they remain responsible for their own accessible controls and styling.
 
 ## Resident source filter models
 
@@ -76,6 +76,10 @@ Models intersect with the external Smart Search predicate. Whole-model applicati
 The source group methods update the actual header/cell view without rerunning row queries. Keyboard toggle focus survives expansion, and pin pressure is reconciled for newly displayed columns. The original bridge example reveals an optional raw-value column and resets the group independently of leaf visibility.
 
 This is bounded to static resident definitions, at most eight header levels, 1,000 source leaves and 9,000 header-tree nodes. Full source group objects/events, group drag/resize constraints, dynamic definition migration and complete saved-state restoration remain unfinished. Source host CSS/theme translation is separate.
+
+## Host layout and theme
+
+The consumer `className` now belongs to the actual outer source component. Omitted `height` follows a constrained flex host; explicit viewport heights retain their existing meaning. Host token adoption, live header metrics, accessible padding-header spans and exact limitations are documented in [resident host layout](HOST_LAYOUT.md). The source view omits native count/pager chrome; complete source custom status panels remain unfinished.
 
 ## Source decorations
 

@@ -2417,3 +2417,45 @@
   outline: 2px solid var(--og-focus);
   outline-offset: -2px;
 }
+
+/* Optional legacy host tokens stay scoped to the resident source component. */
+.og-source-client[data-og-host-theme] {
+  --og-bg: var(--ag-background-color);
+  --og-text: var(--ag-foreground-color);
+  --og-surface: var(--ag-header-background-color, var(--ag-background-color));
+  --og-raised: var(
+    --ag-control-panel-background-color,
+    var(--ag-background-color)
+  );
+  --og-muted: var(--ag-secondary-foreground-color, var(--ag-foreground-color));
+  --og-border: var(--ag-border-color, var(--ag-foreground-color));
+  --og-control-border: var(
+    --ag-input-border-color,
+    var(--ag-border-color, var(--ag-foreground-color))
+  );
+  --og-accent: var(--ag-alpine-active-color, var(--ag-foreground-color));
+  --og-on-accent: var(--ag-background-color);
+  --og-focus: var(
+    --ag-range-selection-border-color,
+    var(--ag-alpine-active-color, var(--ag-foreground-color))
+  );
+  --og-selected: var(
+    --ag-selected-row-background-color,
+    var(--ag-background-color)
+  );
+  --og-hover: var(--ag-row-hover-color, var(--ag-background-color));
+  --og-font: var(--ag-font-family, system-ui, sans-serif);
+  --og-color-scheme: var(--ag-browser-color-scheme, normal);
+}
+.og-source-client[data-og-host-theme] .og-root {
+  font-family: var(--og-font);
+  font-size: var(--ag-font-size, 13px);
+  border-radius: var(--ag-wrapper-border-radius, 8px);
+  box-shadow: var(--ag-card-shadow, none);
+}
+.og-source-client[data-og-host-theme] .og-row-alt:not(.og-row-selected):not(:hover) {
+  background: var(--ag-odd-row-background-color, var(--og-bg));
+}
+.og-source-client[data-og-host-theme] .og-grid-frame {
+  border-radius: var(--ag-wrapper-border-radius, 8px);
+}

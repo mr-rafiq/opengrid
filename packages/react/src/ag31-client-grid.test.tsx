@@ -640,3 +640,98 @@ it("controlled source group toggles and API restoration retain leaf visibility",
     ref.current!.api.getColumnState()!.find((c) => c.colId === "amount")!.hide,
   ).toBe(false);
 });
+
+it("places the consumer flex class on the source root and retains explicit viewport sizing", () => {
+  const view = render(
+    <PublicGrid
+      className="host-slot"
+      height={222}
+      rowData={[{ id: "a", amount: 12 }]}
+      columnDefs={[{ field: "id" }]}
+      getRowId={getRowId}
+    />,
+  );
+  const host = view.container.querySelector(".host-slot")!;
+  expect(host.classList.contains("og-source-client")).toBe(true);
+  expect(host.parentElement).toBe(view.container);
+  expect(host.querySelector(".og-root")!.classList.contains("host-slot")).toBe(
+    false,
+  );
+  expect(host.querySelector(".og-statusbar")).toBeNull();
+  expect((host.querySelector(".og-viewport") as HTMLElement).style.height).toBe(
+    "222px",
+  );
+});
+it("exposes one accessible spanning leaf header instead of a blank padding header", () => {
+  render(
+    <PublicGrid
+      rowData={[{ id: "a", amount: 12 }]}
+      columnDefs={[
+        { field: "id", headerName: "Record" },
+        {
+          headerName: "Metrics",
+          children: [{ field: "amount", headerName: "Amount" }],
+        },
+      ]}
+      getRowId={getRowId}
+      headerHeight={52}
+      groupHeaderHeight={28}
+    />,
+  );
+  const record = screen
+    .getByRole("button", { name: "Sort Record" })
+    .closest('[role="columnheader"]')!;
+  expect(record.getAttribute("aria-rowspan")).toBe("2");
+  expect(record.getAttribute("aria-rowindex")).toBe("1");
+  expect(screen.getAllByRole("columnheader")).toHaveLength(3);
+});
+
+it("keeps imperative header metrics through unrelated props, then applies replacement and clearing", () => {
+  const ref = createRef<Ag31ClientGridHandle<Row>>(),
+    rows = [{ id: "a", amount: 12 }],
+    defs = [{ field: "id" }];
+  const view = render(
+      <PublicGrid
+        ref={ref}
+        rowData={rows}
+        columnDefs={defs}
+        getRowId={getRowId}
+        headerHeight={52}
+      />,
+    ),
+    api = ref.current!.api;
+  const height = () =>
+    (view.container.querySelector(".og-header-row") as HTMLElement).style
+      .height;
+  expect(api.getGridOption("headerHeight")).toBe(52);
+  expect(height()).toBe("52px");
+  act(() => api.setGridOption("headerHeight", 64));
+  expect(height()).toBe("64px");
+  view.rerender(
+    <PublicGrid
+      ref={ref}
+      rowData={rows}
+      columnDefs={defs}
+      getRowId={getRowId}
+      headerHeight={52}
+      context={{ changed: true }}
+    />,
+  );
+  expect(ref.current!.api).toBe(api);
+  expect(height()).toBe("64px");
+  act(() => api.setGridOption("headerHeight", null));
+  expect(height()).toBe("38px");
+  view.rerender(
+    <PublicGrid
+      ref={ref}
+      rowData={rows}
+      columnDefs={defs}
+      getRowId={getRowId}
+      headerHeight={72}
+    />,
+  );
+  expect(api.getGridOption("headerHeight")).toBe(72);
+  expect(height()).toBe("72px");
+  expect(() => api.setGridOption("headerHeight", -1)).toThrow(/positive/);
+  expect(height()).toBe("72px");
+});

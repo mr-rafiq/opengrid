@@ -1,3 +1,4 @@
+import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
 import {
   Ag31ClientGrid,
@@ -110,6 +111,7 @@ export function LegacyBridgeLab() {
     [],
   );
   const [rows, setRows] = useState<EstimateLine[] | null>(null);
+  const [hostOpen, setHostOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -258,6 +260,10 @@ export function LegacyBridgeLab() {
             Refresh source model
           </button>
         </div>
+      </details>
+      <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
+        <summary>Source host layout example</summary>
+        {hostOpen && <LegacyHostLab />}
       </details>
       <p role="status" aria-label="Source summary">
         {summary}

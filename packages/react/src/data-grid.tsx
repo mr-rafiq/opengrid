@@ -164,7 +164,9 @@ export interface GridSelectionControls<T> {
 }
 /** Controlled provided-header presentation; leaf hidden state remains model-owned. */
 export interface GridHeaderGroupController<T> {
-  getPath(column: Column<T>): readonly { key: string; label: string }[];
+  getPath(
+    column: Column<T>,
+  ): readonly { key: string; label: string; padding?: boolean }[];
   isColumnDisplayed(column: Column<T>): boolean;
   canToggle(path: readonly string[]): boolean;
   isExpanded(path: readonly string[]): boolean;
@@ -183,6 +185,10 @@ export interface DataGridProps<T> {
   formulas?: FormulaGridController<T>;
   direction?: GridDirection;
   height?: number;
+  /** Minimum body space beneath sticky headers and pinned rows. */
+  minimumBodyHeight?: number;
+  /** Overall viewport floor, independent from sticky headers and body space. */
+  minimumViewportHeight?: number;
   rowHeight?: number;
   getRowHeight?: (node: RowNode<T>) => number;
   pinnedTopRowIds?: readonly string[];
@@ -200,6 +206,9 @@ export interface DataGridProps<T> {
   columnOverscan?: number;
   virtualizeColumns?: boolean;
   columnGroups?: boolean;
+  headerRowHeight?: number;
+  groupHeaderRowHeight?: number;
+  floatingFilterRowHeight?: number;
   headerGroupController?: GridHeaderGroupController<T>;
   /** Floating filter inputs can be hidden without disabling filtering or filter panels. */
   floatingFilters?: boolean | ((column: Column<T>) => boolean);
@@ -235,6 +244,8 @@ export interface DataGridProps<T> {
   >;
   notes?: CellNotesStore | false;
   pagination?: boolean;
+  /** Native counts, custom status content and pagination controls. */
+  statusBar?: boolean;
   className?: string;
   renderCell?: (context: CellContext<T>) => ReactNode;
   /** Noninteractive label inside the native sort button; sorting/menu/resize semantics remain native. */
@@ -382,6 +393,8 @@ export function DataGrid<T>({
   formulas: suppliedFormulas,
   direction = "ltr",
   height = 480,
+  minimumBodyHeight = 64,
+  minimumViewportHeight = 140,
   rowHeight = 38,
   getRowHeight,
   pinnedTopRowIds = EMPTY_ROW_IDS,
@@ -398,6 +411,9 @@ export function DataGrid<T>({
   columnOverscan = 200,
   virtualizeColumns = true,
   columnGroups = true,
+  headerRowHeight = 38,
+  groupHeaderRowHeight = headerRowHeight,
+  floatingFilterRowHeight = headerRowHeight,
   headerGroupController,
   floatingFilters = true,
   rowGroupPanel = false,
@@ -422,6 +438,7 @@ export function DataGrid<T>({
   filterComponents,
   notes,
   pagination = true,
+  statusBar = true,
   className = "",
   renderCell,
   renderHeader,
@@ -759,8 +776,32 @@ export function DataGrid<T>({
       ? floatingFilters(column)
       : floatingFilters);
   const hasColumnFilters = columns.some(showsFloatingFilter);
+  for (const [name, value] of [
+    ["headerRowHeight", headerRowHeight],
+    ["groupHeaderRowHeight", groupHeaderRowHeight],
+    ["floatingFilterRowHeight", floatingFilterRowHeight],
+  ] as const)
+    if (!Number.isFinite(value) || value <= 0 || value > 1_000_000)
+      throw new RangeError(`${name} must be positive and bounded`);
   const headerRows = groupDepth + 1 + (hasColumnFilters ? 1 : 0);
-  const headerHeight = headerRows * 38;
+  const headerHeight =
+    groupDepth * groupHeaderRowHeight +
+    headerRowHeight +
+    (hasColumnFilters ? floatingFilterRowHeight : 0);
+  const paddingRowsByColumn = new Map(
+    groupedColumns.map((column) => {
+      let count = 0;
+      const path = column.headerGroupPath;
+      if (path)
+        for (
+          let index = path.length - 1;
+          index >= 0 && path[index].padding;
+          index--
+        )
+          count++;
+      return [column.id, count];
+    }),
+  );
   const viewport = useRef<HTMLDivElement>(null);
   const [popupHost, setPopupHost] = useState<HTMLElement | null>(null);
   const pendingFocus = useRef(false);
@@ -934,9 +975,17 @@ export function DataGrid<T>({
   const detailIds = expandedDetailRows ?? localDetails;
   const helpId = useId();
   const errorId = useId();
+  for (const [name, value] of [
+    ["minimumBodyHeight", minimumBodyHeight],
+    ["minimumViewportHeight", minimumViewportHeight],
+  ] as const)
+    if (!Number.isFinite(value) || value < 0 || value > 1_000_000)
+      throw new RangeError(
+        `${name} must be between zero and one million pixels`,
+      );
   const requestedHeight = Number.isFinite(height)
-    ? Math.max(140, headerHeight + 64, height)
-    : Math.max(480, headerHeight + 64);
+    ? Math.max(minimumViewportHeight, headerHeight + minimumBodyHeight, height)
+    : Math.max(480, minimumViewportHeight, headerHeight + minimumBodyHeight);
   const safeRowHeight = Number.isFinite(rowHeight)
     ? Math.max(24, rowHeight)
     : 38;
@@ -1229,7 +1278,7 @@ export function DataGrid<T>({
   const pinnedBottomHeight = rowGeometry.layouts.bottom.totalHeight;
   const safeHeight = Math.max(
     requestedHeight,
-    headerHeight + pinnedTopHeight + pinnedBottomHeight + 64,
+    headerHeight + pinnedTopHeight + pinnedBottomHeight + minimumBodyHeight,
   );
   const bodyViewportHeight =
     safeHeight - headerHeight - pinnedTopHeight - pinnedBottomHeight;
@@ -4580,6 +4629,7 @@ export function DataGrid<T>({
                     direction={direction}
                     scrollLeft={scrollLeft}
                     columns={groupedColumns}
+                    rowHeight={groupHeaderRowHeight}
                     entries={columnEntries}
                     leadingWidth={selectionWidth}
                     onToggle={
@@ -4597,6 +4647,7 @@ export function DataGrid<T>({
                     role="row"
                     aria-rowindex={groupDepth + 1}
                     className="og-header-row"
+                    style={{ height: headerRowHeight }}
                   >
                     {selectionWidth > 0 && (
                       <div
@@ -4711,7 +4762,33 @@ export function DataGrid<T>({
                               : "none"
                           }
                           className={`og-header-cell ${pinOf(column) ? "og-pinned" : ""}`}
-                          style={cellStyle(column)}
+                          aria-rowspan={
+                            (paddingRowsByColumn.get(column.id) ?? 0) > 0
+                              ? 1 + paddingRowsByColumn.get(column.id)!
+                              : undefined
+                          }
+                          aria-rowindex={
+                            (paddingRowsByColumn.get(column.id) ?? 0) > 0
+                              ? groupDepth +
+                                1 -
+                                paddingRowsByColumn.get(column.id)!
+                              : undefined
+                          }
+                          style={{
+                            ...cellStyle(column),
+                            ...((paddingRowsByColumn.get(column.id) ?? 0) > 0
+                              ? {
+                                  height:
+                                    headerRowHeight +
+                                    paddingRowsByColumn.get(column.id)! *
+                                      groupHeaderRowHeight,
+                                  marginTop:
+                                    -paddingRowsByColumn.get(column.id)! *
+                                    groupHeaderRowHeight,
+                                  zIndex: pinOf(column) ? 8 : 3,
+                                }
+                              : {}),
+                          }}
                           onFocusCapture={(event) => {
                             if (
                               event.target instanceof Element &&
@@ -5014,6 +5091,7 @@ export function DataGrid<T>({
                       role="row"
                       aria-rowindex={groupDepth + 2}
                       className="og-filter-row"
+                      style={{ height: floatingFilterRowHeight }}
                     >
                       {selectionWidth > 0 && (
                         <div
@@ -5196,91 +5274,93 @@ export function DataGrid<T>({
           }}
         />
       )}
-      <div className="og-statusbar">
-        <span dir="auto">
-          {t("grid.rowCount", { count: model.getFilteredRows().length })}
-          {ranges.selectedCellCount > 0 && (
-            <>
-              {" "}
-              {"\u00b7"}{" "}
-              {t("grid.cellCount", { count: ranges.selectedCellCount })}
-            </>
+      {statusBar && (
+        <div className="og-statusbar">
+          <span dir="auto">
+            {t("grid.rowCount", { count: model.getFilteredRows().length })}
+            {ranges.selectedCellCount > 0 && (
+              <>
+                {" "}
+                {"\u00b7"}{" "}
+                {t("grid.cellCount", { count: ranges.selectedCellCount })}
+              </>
+            )}
+            {state.selected.length > 0 && (
+              <>
+                {" "}
+                {"\u00b7"}{" "}
+                {t("grid.selectedCount", { count: state.selected.length })}
+              </>
+            )}
+          </span>
+          {statusContent && (
+            <div className="og-status-content">{statusContent}</div>
           )}
-          {state.selected.length > 0 && (
-            <>
-              {" "}
-              {"\u00b7"}{" "}
-              {t("grid.selectedCount", { count: state.selected.length })}
-            </>
-          )}
-        </span>
-        {statusContent && (
-          <div className="og-status-content">{statusContent}</div>
-        )}
-        {pagination && (
-          <div className="og-pagination">
-            <label>
-              {t("grid.rowsPerPage")}
-              <select
-                aria-label={t("grid.rowsPerPage")}
-                value={state.pageSize}
-                onChange={(event) => {
-                  model.setState({
-                    pageSize: Number(event.target.value),
-                    page: 0,
-                  });
+          {pagination && (
+            <div className="og-pagination">
+              <label>
+                {t("grid.rowsPerPage")}
+                <select
+                  aria-label={t("grid.rowsPerPage")}
+                  value={state.pageSize}
+                  onChange={(event) => {
+                    model.setState({
+                      pageSize: Number(event.target.value),
+                      page: 0,
+                    });
+                    if (viewport.current) viewport.current.scrollTop = 0;
+                    setScrollTop(0);
+                  }}
+                >
+                  {[...new Set([10, 25, 50, 100, state.pageSize])]
+                    .sort((a, b) => a - b)
+                    .map((size) => (
+                      <option value={size} key={size}>
+                        {number(size)}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <span aria-live="polite">
+                {t("grid.pageCount", {
+                  page: pageCount ? state.page + 1 : 0,
+                  pages: pageCount,
+                })}
+              </span>
+              <button
+                type="button"
+                aria-label={t("grid.previousPage")}
+                disabled={state.page <= 0}
+                onClick={() => {
+                  model.setState({ page: state.page - 1 });
                   if (viewport.current) viewport.current.scrollTop = 0;
                   setScrollTop(0);
                 }}
               >
-                {[...new Set([10, 25, 50, 100, state.pageSize])]
-                  .sort((a, b) => a - b)
-                  .map((size) => (
-                    <option value={size} key={size}>
-                      {number(size)}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <span aria-live="polite">
-              {t("grid.pageCount", {
-                page: pageCount ? state.page + 1 : 0,
-                pages: pageCount,
-              })}
-            </span>
-            <button
-              type="button"
-              aria-label={t("grid.previousPage")}
-              disabled={state.page <= 0}
-              onClick={() => {
-                model.setState({ page: state.page - 1 });
-                if (viewport.current) viewport.current.scrollTop = 0;
-                setScrollTop(0);
-              }}
-            >
-              <GridIcon
-                name={direction === "rtl" ? "chevronRight" : "chevronLeft"}
-                size={16}
-              />
-            </button>
-            <button
-              type="button"
-              aria-label={t("grid.nextPage")}
-              disabled={state.page >= pageCount - 1}
-              onClick={() => {
-                model.setState({ page: state.page + 1 });
-                if (viewport.current) viewport.current.scrollTop = 0;
-                setScrollTop(0);
-              }}
-            >
-              <GridIcon
-                name={direction === "rtl" ? "chevronLeft" : "chevronRight"}
-                size={16}
-              />
-            </button>
-          </div>
-        )}
-      </div>
+                <GridIcon
+                  name={direction === "rtl" ? "chevronRight" : "chevronLeft"}
+                  size={16}
+                />
+              </button>
+              <button
+                type="button"
+                aria-label={t("grid.nextPage")}
+                disabled={state.page >= pageCount - 1}
+                onClick={() => {
+                  model.setState({ page: state.page + 1 });
+                  if (viewport.current) viewport.current.scrollTop = 0;
+                  setScrollTop(0);
+                }}
+              >
+                <GridIcon
+                  name={direction === "rtl" ? "chevronLeft" : "chevronRight"}
+                  size={16}
+                />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       <span className="og-sr-only" role="status" aria-live="polite">
         {resolveMessage(announcement)}
       </span>

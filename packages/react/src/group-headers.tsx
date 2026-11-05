@@ -12,7 +12,11 @@ export interface GroupedWindowColumn extends WindowColumn {
   header?: string;
   groupPath?: readonly string[];
   /** Stable keys can differ from labels; blank labels represent padding groups. */
-  headerGroupPath?: readonly { key: string; label: string }[];
+  headerGroupPath?: readonly {
+    key: string;
+    label: string;
+    padding?: boolean;
+  }[];
 }
 export interface HeaderGroupCell {
   key: string;
@@ -29,6 +33,7 @@ export interface HeaderGroupCell {
   leftOffset?: number;
   rightOffset?: number;
   leafIds: string[];
+  padding?: boolean;
 }
 export interface HeaderGroupOptions {
   direction?: GridDirection;
@@ -135,6 +140,9 @@ export function computeHeaderGroups(
           key: `group-${depth}-${JSON.stringify([column.id, path, pinned])}`,
           label,
           path: [...path],
+          ...(column.headerGroupPath?.[depth]?.padding
+            ? { padding: true }
+            : {}),
           depth,
           start: index,
           end: index + 1,
@@ -475,9 +483,14 @@ export function HeaderGroupRows({
           cells.push(
             <div
               key={cell.key}
-              role="columnheader"
-              aria-colindex={cell.start + 1 + (leadingWidth > 0 ? 1 : 0)}
-              aria-colspan={cell.end - cell.start}
+              role={cell.padding ? "presentation" : "columnheader"}
+              aria-hidden={cell.padding ? true : undefined}
+              aria-colindex={
+                cell.padding
+                  ? undefined
+                  : cell.start + 1 + (leadingWidth > 0 ? 1 : 0)
+              }
+              aria-colspan={cell.padding ? undefined : cell.end - cell.start}
               className={`og-header-group${cell.pinned ? " og-pinned" : ""}`}
               data-group-path={JSON.stringify(cell.path)}
               data-group-depth={depth}

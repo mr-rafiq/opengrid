@@ -16,6 +16,9 @@ import { DataGrid, type GridHeaderControlsContext } from "./data-grid.js";
 import {
   createAg31ClientController,
   AG31_EVENT_OPTIONS,
+  AG31_HEADER_METRICS,
+  assertAg31HeaderMetric,
+  type Ag31HeaderMetricName,
   type Ag31EventOptionName,
 } from "./ag31-client-controller.js";
 import type { Ag31ColumnDefinition } from "./ag31-leaf-columns.js";
@@ -47,6 +50,9 @@ export interface Ag31ClientGridConfig<T> {
   components?: Readonly<Record<string, ComponentType<any>>>;
   initialModelState?: Partial<GridState>;
   height?: number;
+  headerHeight?: number | null;
+  groupHeaderHeight?: number | null;
+  floatingFiltersHeight?: number | null;
   rowHeight?: number;
   className?: string;
   ariaLabel?: string;
@@ -90,6 +96,9 @@ const configKeys = new Set([
   "components",
   "initialModelState",
   "height",
+  "headerHeight",
+  "groupHeaderHeight",
+  "floatingFiltersHeight",
   "rowHeight",
   "className",
   "ariaLabel",
@@ -111,6 +120,10 @@ const configKeys = new Set([
   ...AG31_EVENT_OPTIONS.map(([name]) => name),
 ]);
 const emptyDefinitions: readonly never[] = Object.freeze([]);
+const headerMetricValues = <T,>(config: Ag31ClientGridConfig<T>) =>
+  Object.fromEntries(
+    AG31_HEADER_METRICS.map((name) => [name, config[name]]),
+  ) as Record<Ag31HeaderMetricName, number | null | undefined>;
 const optionCallbacks = <T,>(
   config: Ag31ClientGridConfig<T>,
 ): Partial<Record<Ag31EventOptionName, unknown>> =>
@@ -181,6 +194,8 @@ export function resolveAg31ClientGridConfig<T>(
     )
   )
     throw new TypeError("Unsupported source row group panel policy");
+  for (const name of AG31_HEADER_METRICS)
+    assertAg31HeaderMetric(result[name], name);
   return result as unknown as Ag31ClientGridConfig<T>;
 }
 
@@ -264,6 +279,108 @@ function ResidentView<T>({
   const view = useRef<DataGridViewController>(null);
   const container = useRef<HTMLDivElement>(null);
   const ready = useRef(false);
+  const [automaticHeight, setAutomaticHeight] = useState(480);
+  const [hostHeaderHeight, setHostHeaderHeight] = useState(38);
+  useLayoutEffect(() => {
+    if (destroyed || props.height !== undefined) return;
+    const host = container.current;
+    const reconcile = () => {
+      if (!host || owner.api.isDestroyed()) return;
+      const root = host.querySelector<HTMLElement>(".og-root");
+      const viewport = host.querySelector<HTMLElement>(".og-viewport");
+      if (!root || !viewport || host.clientHeight <= 0) return;
+      const viewportHeight = viewport.getBoundingClientRect().height;
+      const chrome = Math.max(
+        0,
+        root.getBoundingClientRect().height - viewportHeight,
+      );
+      const style = getComputedStyle(host);
+      const padding =
+        (parseFloat(style.paddingTop) || 0) +
+        (parseFloat(style.paddingBottom) || 0);
+      const available = Math.max(1, host.clientHeight - padding - chrome);
+      // Intrinsic hosts and fractional CSS pixels must not shrink on every observer pass.
+      if (Math.abs(viewportHeight - available) < 1.5) return;
+      setAutomaticHeight((previous) =>
+        Math.abs(previous - available) >= 1 ? available : previous,
+      );
+    };
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(reconcile);
+    if (host) {
+      observer?.observe(host);
+      const root = host.querySelector<HTMLElement>(".og-root");
+      if (root) observer?.observe(root);
+    }
+    reconcile();
+    return () => observer?.disconnect();
+  }, [owner, destroyed, props.height]);
+  useLayoutEffect(() => {
+    if (destroyed) return;
+    const host = container.current;
+    if (!host) return;
+    const reconcile = () => {
+      const style = getComputedStyle(host);
+      const adopted = Boolean(
+        style.getPropertyValue("--ag-background-color").trim() &&
+        style.getPropertyValue("--ag-foreground-color").trim(),
+      );
+      host.toggleAttribute("data-og-host-theme", adopted);
+      if (!adopted) {
+        setHostHeaderHeight(38);
+        return;
+      }
+      const probe = document.createElement("span");
+      probe.setAttribute("aria-hidden", "true");
+      Object.assign(probe.style, {
+        position: "absolute",
+        visibility: "hidden",
+        pointerEvents: "none",
+        width: "0px",
+        padding: "0px",
+        border: "0px",
+        height: "var(--ag-header-height, calc(var(--ag-grid-size, 6px) * 8))",
+      });
+      host.append(probe);
+      const measured = probe.getBoundingClientRect().height;
+      probe.remove();
+      if (Number.isFinite(measured) && measured > 0 && measured <= 1_000_000)
+        setHostHeaderHeight(measured);
+    };
+    let frame: number | undefined;
+    const schedule = () => {
+      if (frame !== undefined) return;
+      if (typeof requestAnimationFrame !== "function") return reconcile();
+      frame = requestAnimationFrame(() => {
+        frame = undefined;
+        reconcile();
+      });
+    };
+    const observer =
+      typeof MutationObserver === "undefined"
+        ? undefined
+        : new MutationObserver(schedule);
+    for (let node: HTMLElement | null = host; node; node = node.parentElement)
+      observer?.observe(node, {
+        attributes: true,
+        attributeFilter: ["class", "style", "data-theme", "data-og-theme"],
+      });
+    if (document.head)
+      observer?.observe(document.head, {
+        childList: true,
+        characterData: true,
+        subtree: true,
+      });
+    document.addEventListener("load", schedule, true);
+    reconcile();
+    return () => {
+      observer?.disconnect();
+      document.removeEventListener("load", schedule, true);
+      if (frame !== undefined) cancelAnimationFrame(frame);
+    };
+  }, [owner, destroyed]);
   const presentation = useMemo(() => createAg31Presentation(owner), [owner]);
   useImperativeHandle(
     gridRef,
@@ -377,9 +494,23 @@ function ResidentView<T>({
   const checkboxColumn = checkboxColumns[0];
   const rowNode = (node: { id: string }) =>
     owner.nodes.getRowNodeByNativeId(node.id)!;
+  const headerMetric = (name: Ag31HeaderMetricName, fallback: number) => {
+    const value = owner.api.getGridOption(name);
+    return typeof value === "number" ? value : fallback;
+  };
+  const headerHeight = headerMetric("headerHeight", hostHeaderHeight);
   if (destroyed) return null;
   return (
-    <div ref={container} style={{ minWidth: 0 }}>
+    <div
+      ref={container}
+      className={`og-source-client ${props.className ?? ""}`}
+      data-og-fluid-height={props.height === undefined ? "true" : undefined}
+      style={{
+        minWidth: 0,
+        minHeight: 0,
+        overflow: props.height === undefined ? "auto" : undefined,
+      }}
+    >
       <DataGrid
         model={owner.model}
         headerGroupController={{
@@ -393,6 +524,7 @@ function ResidentView<T>({
         viewRef={view}
         toolbar={false}
         pagination={false}
+        statusBar={false}
         rowGroupPanel={
           props.rowGroupPanelShow === "always"
             ? "always"
@@ -404,9 +536,16 @@ function ResidentView<T>({
           owner.columns.getColumn(column.id)!.getColDef().floatingFilter ===
           true
         }
-        height={props.height}
+        height={props.height ?? automaticHeight}
+        minimumBodyHeight={props.height === undefined ? 0 : 64}
+        minimumViewportHeight={props.height === undefined ? 0 : 140}
+        headerRowHeight={headerHeight}
+        groupHeaderRowHeight={headerMetric("groupHeaderHeight", headerHeight)}
+        floatingFilterRowHeight={headerMetric(
+          "floatingFiltersHeight",
+          headerHeight,
+        )}
         rowHeight={props.rowHeight ?? 42}
-        className={props.className}
         ariaLabel={props.ariaLabel ?? "Source client grid"}
         getRowStyle={(node) => presentation.rowStyle(rowNode(node))}
         getCellStyle={({ node, column }) =>
@@ -508,6 +647,7 @@ function ClientGrid<T>(
     isExternalFilterPresent: Ag31ClientGridConfig<T>["isExternalFilterPresent"];
     doesExternalFilterPass: Ag31ClientGridConfig<T>["doesExternalFilterPass"];
     getRowStyle: Ag31ClientGridConfig<T>["getRowStyle"];
+    headerMetrics: Record<Ag31HeaderMetricName, number | null | undefined>;
   }>({
     owner: null,
     context: props.context,
@@ -516,6 +656,7 @@ function ClientGrid<T>(
     isExternalFilterPresent: props.isExternalFilterPresent,
     doesExternalFilterPass: props.doesExternalFilterPass,
     getRowStyle: props.getRowStyle,
+    headerMetrics: headerMetricValues(props),
   });
   useLayoutEffect(() => {
     const options = initial.current;
@@ -534,6 +675,7 @@ function ClientGrid<T>(
       isExternalFilterPresent: options.isExternalFilterPresent,
       doesExternalFilterPass: options.doesExternalFilterPass,
       getRowStyle: options.getRowStyle,
+      ...headerMetricValues(options),
     });
     setOwner(next);
     return () => next.api.destroy();
@@ -557,6 +699,7 @@ function ClientGrid<T>(
         isExternalFilterPresent: initial.current.isExternalFilterPresent,
         doesExternalFilterPass: initial.current.doesExternalFilterPass,
         getRowStyle: initial.current.getRowStyle,
+        headerMetrics: headerMetricValues(initial.current),
       };
     for (const [name] of AG31_EVENT_OPTIONS) {
       if (forwarded.current.callbacks[name] !== props[name]) {
@@ -572,6 +715,12 @@ function ClientGrid<T>(
     if (forwarded.current.getRowStyle !== props.getRowStyle) {
       owner.api.setGridOption("getRowStyle", props.getRowStyle);
       forwarded.current.getRowStyle = props.getRowStyle;
+    }
+    for (const name of AG31_HEADER_METRICS) {
+      if (!Object.is(forwarded.current.headerMetrics[name], props[name])) {
+        owner.api.setGridOption(name, props[name]);
+        forwarded.current.headerMetrics[name] = props[name];
+      }
     }
     for (const name of [
       "isExternalFilterPresent",
@@ -602,6 +751,9 @@ function ClientGrid<T>(
     props.isExternalFilterPresent,
     props.doesExternalFilterPass,
     props.getRowStyle,
+    props.headerHeight,
+    props.groupHeaderHeight,
+    props.floatingFiltersHeight,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

@@ -29,3 +29,27 @@ it("matches the measured two-band source pin-pressure cases without changing inp
   ).toEqual([]);
   expect(planAg31PinPressure([], 0)).toEqual([]);
 });
+
+it("alternates mixed sides so a final right metric survives the source narrow layout", () => {
+  expect(
+    planAg31PinPressure(
+      [
+        { colId: "tree", pinned: "left", width: 200 },
+        { colId: "total", pinned: "right", width: 200 },
+        { colId: "used", pinned: "right", width: 200 },
+      ],
+      320,
+    ),
+  ).toEqual(["total", "tree"]);
+  expect(
+    planAg31PinPressure(
+      [
+        { colId: "left1", pinned: "left", width: 120 },
+        { colId: "left2", pinned: "left", width: 180 },
+        { colId: "right1", pinned: "right", width: 130 },
+        { colId: "right2", pinned: "right", width: 160 },
+      ],
+      500,
+    ),
+  ).toEqual(["right1", "left1"]);
+});

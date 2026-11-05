@@ -7,6 +7,7 @@ export interface Ag31ColumnGroupState {
 export interface SourceHeaderPathPart {
   key: string;
   label: string;
+  padding?: boolean;
 }
 type Group<T> = {
   id: string;
@@ -148,6 +149,7 @@ export function createAg31ColumnGroups<T>(
         leaf.conditions = next;
         leaf.path = parents.map((group) => ({
           key: group.id,
+          ...(group.padding ? { padding: true } : {}),
           label: group.padding
             ? ""
             : String(
