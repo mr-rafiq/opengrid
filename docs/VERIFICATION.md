@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident host layout and theme (0.20.0)
+
+The complete serial local gate passed formatting/version checks, strict TypeScript in **204.01 seconds**, **2,216 unit tests in 153 files** in **319.35 seconds**, package ESM/declaration/CSS and demo builds in **291.86 seconds**, and **225 Chromium scenarios without retries** in **931.48 seconds**. Built public ESM/SSR smoke passed. The earlier formatting-only attempt is retained separately; no interrupted attempt is treated as passed.
+
+Eight private reference profiles on installed React/ReactDOM 18.3.1 and AG Grid 31.3.4 passed in **51.9 seconds**. They mount the unchanged 64-column consumer definitions over empty data and compare host sizing, four source theme palettes, font, 48px header rows, 96px spanning headers, pin release and imperative header metrics at 320px/1440px. A separate **16-layout pin comparison passed in 46.2 seconds** after mixed left/right cases exposed an incorrect release order. Empty-data comparisons establish bounded metadata/layout behavior, not business-data or authenticated application acceptance.
+
+The affected unit slice passed **57 tests in 6.67 seconds**. Twenty affected public browser flows passed in **56.6 seconds** after the source count-bar correction, covering parent resizing, host palette adoption/removal, keyboard scrolling, existing filters/selection/header controls and serious/critical automated accessibility checks. Actual reference and OpenGrid 320px light and 1440px dark screenshots were inspected. Browser emulation is not physical-device or manual screen-reader verification.
+
+Complete saved state, source custom filter/editor/menu/status/tool-panel contracts, independent partial processing stages, full source DOM/CSS compatibility and authenticated calculation-page acceptance remain open. Original source data and private fixtures are excluded from publication. The bridge remains experimental and read-only.
+
 ## Resident provided header groups (0.19.0)
 
 The complete staged serial gate passed formatting/version consistency, strict TypeScript in **213.35 seconds**, **2,212 unit tests in 153 files** in **294.30 seconds**, package ESM/declaration/CSS and production demo builds in **186.57 seconds**, and **221 Chromium scenarios without retries** in **736.59 seconds**. Built public ESM/SSR smoke passed. Stages were kept serial so the preceding public release could receive live verification between local checks.
