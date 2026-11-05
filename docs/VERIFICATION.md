@@ -1,5 +1,15 @@
 # Verification record
 
+## Resident provided header groups (0.19.0)
+
+The complete staged serial gate passed formatting/version consistency, strict TypeScript in **213.35 seconds**, **2,212 unit tests in 153 files** in **294.30 seconds**, package ESM/declaration/CSS and production demo builds in **186.57 seconds**, and **221 Chromium scenarios without retries** in **736.59 seconds**. Built public ESM/SSR smoke passed. Stages were kept serial so the preceding public release could receive live verification between local checks.
+
+Six private comparisons on installed React/ReactDOM 18.3.1 and AG Grid 31.3.4 passed in **34.7 seconds**. They compare snapshots and actual displayed columns across ordinary, nested, open-only, closed-only and explicit-ID groups, including the unchanged 64-column consumer definitions over empty data. This last case verifies header metadata/display, not original business data or full application acceptance. The first comparison exposed generated-ID collisions, nested snapshot ordering and hidden-child expansion differences; the corrected implementation matches all six profiles.
+
+The affected four-file unit slice passed **40 tests in 6.27 seconds** before an additional ID/order regression joined the full gate. A public React regression first reproduced missing widths when controlled display changed without changing saved leaf visibility; displayed IDs now invalidate that geometry cache. Sixteen affected browser flows passed in **40.2 seconds**, and four strengthened phone/desktop light/dark cases passed in **12.7 seconds**, verifying revealed cell values, keyboard focus, native horizontal scrolling and reset. Actual closed/expanded 320px light and 1440px dark screenshots were inspected. Initial typed-selector and viewport-locator errors were corrected before the completed gate.
+
+Full source group objects/events, dynamic source schema migration, complete saved state, partial aggregate stages, custom filter/editor/panel contracts, source host styling and authenticated full application acceptance remain open. No private consumer source or data is published. Browser emulation is not physical-device or manual screen-reader certification.
+
 ## Resident view-stage refresh (0.18.0)
 
 The complete serial local gate passed formatting/version checks, strict TypeScript in **211.25 seconds**, **2,201 unit tests in 152 files** in **381.37 seconds**, package ESM/declaration/CSS and production demo builds in **266.82 seconds**, and **217 Chromium scenarios without retries** in **727.81 seconds**. Built public ESM/SSR smoke passed. The full affected core/controller slice separately passed **968 tests in 49 files** in **23.72 seconds**.
