@@ -101,3 +101,7 @@ Native custom editors now accept typed drafts without class coercion, and a [cli
 Native string grouping keys preserve original class-valued reads; generated-group callbacks and explicit blank comparators use real hierarchy metadata. Frozen source/filtered/sorted forests remain independent of the rendered page. The original class-grouping demo exercises filtering, totals and keyboard cell focus in both color modes. See [domain grouping callbacks](GROUP_CALLBACKS.md).
 
 Internal row/column/value adapters have separate original regressions and private read-only source-conformance checks. They are not a public AG Grid facade or a complete application replacement. Unbalanced reference grouping, complete component/filter/panel/API/state translation, asynchronous business edits/paste, backend permissions and authenticated visual acceptance remain open. The existing broad-category partial status is unchanged.
+
+## Resident source stage boundary
+
+A private reference comparison reproduced selection invalidating the sorted projection after a retained class value changes and a view-only refresh. The reference retains its prior sort order until explicit model processing. This remains an open compatibility defect, independent of the tested source-decoration callbacks. Full application replacement is not verified.
