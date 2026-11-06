@@ -55,6 +55,8 @@ describe("owned AG31 leaf column contracts", () => {
       sortable: true,
     });
     expect(column.getColDef()).toBe(column.getColDef());
+    expect(column.colDef).toBe(column.getColDef());
+    expect(column.colDef.field).toBe("team");
     expect(columns.getColumn(column.getColDef())).toBe(column);
     expect(columns.getColumn(definitions[0])).toBeNull();
     expect(column.getSort()).toBeUndefined();

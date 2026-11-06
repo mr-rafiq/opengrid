@@ -88,6 +88,47 @@ it("writes original nested class objects, skips the editor parser and queues sou
   expect(s.row.nested).toBe(nested);
   expect(nested.name).toBe("next");
 });
+
+it("re-reads the current source value when a direct API write occurs during editing", () => {
+  const s = setup(),
+    stopped = vi.fn();
+  s.c.api.addEventListener("cellEditingStopped", stopped);
+  expect(
+    s.c.editing.controller.startEditingCell({ rowId: "a", columnId: "amount" }),
+  ).toBe(true);
+  s.node.setDataValue("amount", 30);
+  expect(s.row.amount).toBe(30);
+  s.c.editing.stop();
+  expect(s.row.amount).toBe(10);
+  vi.runOnlyPendingTimers();
+  expect(stopped).toHaveBeenCalledWith(
+    expect.objectContaining({ oldValue: 30, newValue: 10, valueChanged: true }),
+  );
+  expect(s.globalChanged.mock.calls.map(([event]) => event)).toMatchObject([
+    { oldValue: 10, newValue: 30, source: undefined },
+    { oldValue: 30, newValue: 10, source: "edit" },
+  ]);
+  expect(s.node.data).toBe(s.row);
+});
+
+it("reports the current borrowed value when cancelling after an external source change", () => {
+  const s = setup(),
+    stopped = vi.fn();
+  s.c.api.addEventListener("cellEditingStopped", stopped);
+  s.c.editing.controller.startEditingCell({ rowId: "a", columnId: "amount" });
+  s.row.amount = 30;
+  s.c.editing.stop(true);
+  vi.runOnlyPendingTimers();
+  expect(s.row.amount).toBe(30);
+  expect(s.globalChanged).not.toHaveBeenCalled();
+  expect(stopped).toHaveBeenCalledWith(
+    expect.objectContaining({
+      oldValue: 30,
+      newValue: undefined,
+      valueChanged: false,
+    }),
+  );
+});
 it.each([undefined, false, true, 1, 0, null, "", Promise.resolve(false)])(
   "preserves submitted row notifications and setter result semantics (%s)",
   (result) => {

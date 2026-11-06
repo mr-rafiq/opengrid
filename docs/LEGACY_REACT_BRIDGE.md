@@ -1,6 +1,6 @@
 # Experimental legacy React bridge
 
-`Ag31ClientGrid` is a public resident-client bridge for selected measured AG Grid 31 contracts, including an explicit inline source-editing adapter. It is not an alias for `AgGridReact`, a complete compatibility layer, or certification that an existing application can replace its grid unchanged. Unsupported grid options fail explicitly.
+`Ag31ClientGrid` is a public resident-client bridge for selected measured AG Grid 31 contracts, including inline source editing and retained reactive custom filters. It is not an alias for `AgGridReact`, a complete compatibility layer, or certification that an existing application can replace its grid unchanged. Unsupported grid options fail explicitly.
 
 [Open the working bridge lab](https://mr-rafiq.github.io/opengrid/demo/#legacy-react-bridge). This source release is available from the repository and its package tarballs; no npm publication is implied.
 
@@ -53,7 +53,7 @@ Pinned columns release under viewport pressure with a 50px center reservation, a
 
 ## Resident source filter models
 
-The typed ref exposes `api.getFilterModel()` and `api.setFilterModel(modelOrNull)` for enabled resident text, number and set filters. Operands are owned JSON snapshots, not native OpenGrid `Filter` records. Combined text/number conditions preserve the measured two-condition `condition1`/`condition2` fields alongside `conditions`. Unsupported date/multi/custom-component contracts fail explicitly. Unknown column IDs are ignored; null clears the source model. A source column must have filtering enabled in its definition or defaults.
+The typed ref exposes `api.getFilterModel()` and `api.setFilterModel(modelOrNull)` for enabled resident text, number, set and registered reactive custom filters. Operands are owned JSON snapshots, not native OpenGrid `Filter` records. Combined text/number conditions preserve the measured two-condition `condition1`/`condition2` fields alongside `conditions`. Unsupported date/multi/value-service contracts fail explicitly. Unknown column IDs are ignored; null clears the source model. A source column must have filtering enabled in its definition or defaults.
 
 ```tsx
 grid.current?.api.setFilterModel({
@@ -70,11 +70,50 @@ await grid.current?.api.setColumnFilterModel("phase", { values: ["Planning"] });
 grid.current?.api.onFilterChanged();
 ```
 
-`await api.getColumnFilterInstance(key)` returns an owned model facade for these provided filters, with `getModel`, `setModel`, `isFilterActive` and `doesFilterPass({ node, data })`. Its `setModel` also stages until explicit refresh. This is a bounded model interface, not the complete provided-filter GUI/value-service object. Unknown or retired columns return no instance; captured facades become inert after destruction. Models remain detached snapshots. Custom filter hooks, source popup/sidebar UI and date/multi-filter component instances are still unsupported.
+`await api.getColumnFilterInstance(key)` returns an owned model facade for these provided filters and registered reactive custom filters, with `getModel`, `setModel`, `isFilterActive` and `doesFilterPass({ node, data })`. Its `setModel` also stages until explicit refresh. This is a bounded model interface, not the complete provided-filter GUI/value-service object. Unknown or retired columns return no instance; captured facades become inert after destruction. Models remain detached snapshots. Provided popup/sidebar UI, date/multi-filter instances and other lifecycle/value services remain unfinished.
 
 Source filter getters and set key creators receive original owned records/columns and current context. Set models use canonical resident keys, discard absent keys, preserve requested key order and clear when every available key is selected. Row replacement/transactions reconcile existing selections; keys removed from an active model do not return merely because the data later reappears. An empty-data set request clears. Set processing is bounded to 100,000 source rows, 500,000 key evaluations and four million key-text characters per column; keys are at most 4,096 characters, and requests total at most 50,000 selected keys. Supplied/remote/tree value services and their refresh variants are separate unfinished contracts.
 
-Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.
+Models intersect with the external Smart Search predicate. Whole-model application replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the provided source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing provided source filter for the same column. Provided popup/sidebar UI and complete saved-state translation remain open. The original collapsed examples exercise the documented ref APIs and custom popup path.
+
+## Reactive source filters
+
+A functional React filter uses `model` and `onModelChange` as controlled state and registers its predicate with `useGridFilter<Row>()`. Predicates receive both the owned row node and its original `data`. The wrapper owns an opaque nullable JSON model; it does not infer `filterType` or use a component's legacy `getModel` hook. Derive checkbox selection from the current model so an API restore updates the UI as well as filtering.
+
+```tsx
+import { useGridFilter } from "@opengrid/react";
+
+type Line = { id: string; team: string };
+type TeamModel = { teams: string[] };
+function TeamFilter({
+  model,
+  onModelChange,
+}: {
+  model: TeamModel | null;
+  onModelChange(model: TeamModel | null): void;
+}) {
+  const selected = new Set(model?.teams ?? ["Design", "Operations"]);
+  useGridFilter<Line>({
+    doesFilterPass: ({ data }) => !!data && selected.has(data.team),
+  });
+  return (
+    <button onClick={() => onModelChange({ teams: ["Design"] })}>
+      Design only
+    </button>
+  );
+}
+const columns = [{ field: "team", filter: TeamFilter }];
+```
+
+Components can be supplied directly or through a name in `components`. They receive owned API/column/context parameters, `getValue(node)`, resolved `filterParams`, the model and its change callback. Source components own their accessible markup and styles. Hook imports must resolve to this adapter; an existing application's AG Grid hook import needs an explicit consumer module bridge. This does not provide a complete `ag-grid-react` module alias.
+
+`api.showColumnFilter(key)` opens a custom filter; the column menu's **Focus column filter** command reaches the same retained body. Escape, outside pointer input and `api.hidePopupMenu()` close that popup. Search and other local state survive closing; the last focused filter control is retained for reopening. A still-visible launcher receives focus on Escape or API close. Tabbing to another control closes the popup without taking focus back. Asynchronously created controls receive initial focus only while the launcher or document still owns focus. The popup inherits grid/host tokens and stays within the viewport. Provided-filter popups, complete source menus and shared sidebar placement remain separate unfinished contracts.
+
+`await api.setColumnFilterModel(key, modelOrNull)` waits for initialization effects and then the custom component's render acknowledgement, then leaves application to `onFilterChanged()`. Component `onModelChange` applies after its own React commit. Whole `setFilterModel` returns an awaitable promise whenever retained custom components participate; await it before inspecting applied rows. Preparation validates all provided/custom models before staging. Superseded restores and retired hosts cannot apply pending work. Custom instances resolve after their required hook commits; captured instances become inert when that host or owner retires. Popup `afterGuiAttached` and `afterGuiDetached` callbacks are supported. Additional new-row/any-filter/model-string hooks and legacy imperative class filters fail explicitly pending their own adapters.
+
+Models are bounded acyclic JSON: plain objects, dense arrays, strings, finite numbers, booleans and null. Zero/false/empty-string are active custom models. Root null/undefined clears. Getters, hidden/symbol properties, class instances, BigInt and cycles are rejected without invoking accessors. Custom whole-model requests share a 50,000-node/four-million-character budget and maximum depth32; column records retain their 1,000-column bound. API snapshots are detached clones and rendered model props are immutable. Narrow the `Ag31SourceFilterValue` union before treating a returned value as a provided filter model.
+
+The public collapsed custom-filter example has an original controlled team filter, retained search and local model save/restore. Private read-only comparisons also exercise an unchanged consumer hierarchy filter. That component's local selection fails to follow later model restores in the installed AG baseline too; wrapper compatibility cannot repair that application state bug. Full saved-view and authenticated application acceptance remain unfinished.
 
 `api.setAdvancedFilterModel(null | undefined)` clears an existing native advanced expression while preserving column models and selection. An already-clear call does not refresh the model. `getAdvancedFilterModel()` returns null when clear and rejects serialization of an active native expression. Non-null source advanced expressions require a separate translator and fail explicitly; this is the clearing path used by saved-view helpers, not advanced-filter model parity.
 
@@ -159,6 +198,8 @@ Column `cellStyle` records or callbacks, `cellClass` strings/arrays/callbacks an
 `tooltipValueGetter` takes precedence over a dotted `tooltipField`. Nullish callback results clear the ordinary browser title rather than falling back to a stale value. This is plain-text browser-tooltip support, not the reference custom-tooltip component/lifecycle. Existing source CSS classes are preserved, but AG Grid DOM/theme selectors are not translated automatically.
 
 ## Inline source editing
+
+Owned columns expose their stable merged definition through both `getColDef()` and readonly `colDef`, as required by measured formula-editor code. Stopping or cancelling an editor reads the current source value for its commit baseline and event, including a direct API write made while that editor was open. The initial editor value remains separate. Synchronous direct writes can therefore be followed by a second commit of the editor's older draft, matching the installed reference; the application owns that editing policy and asynchronous persistence.
 
 The source bridge supports reactive inline `cellEditor` components and `cellEditorSelector`, registered component names, parameter records/callbacks and provided text/number editors. Editors receive owned API/column/node objects, the original data and typed value, `initialValue`, `eventKey`, `onValueChange`, `parseValue` and `stopEditing`. A custom editor's staged value is passed directly to its setter; the grid does not automatically apply `valueParser` to custom-editor values. Provided text/number editors parse once when committing. Column `suppressKeyboardEvent` runs before default keyboard behavior; an editor can stage a typed payload in its own Enter handler before closing.
 

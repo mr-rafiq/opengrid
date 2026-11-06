@@ -41,6 +41,8 @@ import type { DataGridViewController } from "./grid-view.js";
 import type { DataGridSizingController } from "./column-sizing.js";
 import type { GridState } from "@opengrid/core";
 import { Ag31SourceEditor, sourceEditorKey } from "./ag31-source-editor.js";
+import { Ag31CustomFilterHost } from "./ag31-custom-filter-host.js";
+import { isAg31CustomFilter } from "./ag31-custom-filters.js";
 import { planAg31PinPressure } from "./ag31-pin-pressure.js";
 import {
   createAg31Presentation,
@@ -636,6 +638,13 @@ function ResidentView<T>({
         viewRef={view}
         sizingRef={sizing}
         toolbar={false}
+        onColumnFilterRequest={({ column, anchor }) => {
+          const source = owner.columns.getColumn(column.id);
+          if (!source || !isAg31CustomFilter(source.getColDef().filter))
+            return false;
+          owner.customFilters.show(source, anchor);
+          return true;
+        }}
         pagination={false}
         statusBar={false}
         rowGroupPanel={
@@ -734,6 +743,37 @@ function ResidentView<T>({
         }
       />
       <Ag31SourceOverlay owner={owner} host={container} config={props} />
+      <Ag31CustomFilterHost
+        filters={owner.customFilters}
+        host={container}
+        resolveComponent={(column) =>
+          component(column.getColDef().filter, props.components)
+        }
+        getParams={(column) => {
+          const colDef = column.getColDef(),
+            params = {
+              api: owner.api,
+              columnApi: owner.columnApi,
+              context: owner.api.getGridOption("context"),
+              column,
+              colDef,
+              getValue: (node: Ag31RowNode<T>) =>
+                owner.schema.readFilter(node, column),
+            };
+          const extra =
+            typeof colDef.filterParams === "function"
+              ? colDef.filterParams(params)
+              : colDef.filterParams;
+          if (
+            extra != null &&
+            (typeof extra !== "object" || Array.isArray(extra))
+          )
+            throw new TypeError(
+              "Source filter parameters must resolve to a parameter record",
+            );
+          return { ...params, ...((extra as object) ?? {}) };
+        }}
+      />
     </div>
   );
 }

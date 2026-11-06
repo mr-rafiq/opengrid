@@ -40,7 +40,14 @@ it("applies numeric source models, exposes active columns and owns snapshots", (
   expect(c.api.getColumn("amount")!.isFilterActive()).toBe(true);
   input.amount.filter = 3;
   const snapshot = c.api.getFilterModel()!;
-  if ("filter" in snapshot.amount) snapshot.amount.filter = 5;
+  const amount = snapshot.amount;
+  if (
+    amount &&
+    typeof amount === "object" &&
+    !Array.isArray(amount) &&
+    "filter" in amount
+  )
+    amount.filter = 5;
   expect(c.ids()).toEqual(["b", "c", "d"]);
   expect(c.api.getFilterModel()!.amount).toEqual({
     filterType: "number",

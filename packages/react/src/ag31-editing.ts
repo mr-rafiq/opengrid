@@ -84,17 +84,18 @@ export function createAg31EditingServices<T>(options: Ag31EditingOptions<T>) {
     }
     let changed = false;
     try {
+      const oldValue = options.read(current.node, current.column);
       const value = cancel
         ? undefined
         : parse
           ? parse(current.value)
           : current.value;
-      if (!cancel && current.oldValue !== value)
+      if (!cancel && oldValue !== value)
         changed = options.write(current.node, current.column, value);
       if (live())
         options.emit({
           ...event(current, "cellEditingStopped"),
-          oldValue: current.oldValue,
+          oldValue,
           newValue: value,
           value: options.read(current.node, current.column),
           valueChanged: changed,

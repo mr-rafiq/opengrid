@@ -83,7 +83,12 @@ it("exposes owned cached model facades without leaking snapshots or accepting fo
   await f!.setModel({ values: ["21"] });
   expect(f!.isFilterActive()).toBe(true);
   const snapshot = f!.getModel();
-  if (snapshot && "values" in snapshot)
+  if (
+    snapshot &&
+    typeof snapshot === "object" &&
+    !Array.isArray(snapshot) &&
+    "values" in snapshot
+  )
     (snapshot.values as (string | null)[]).push("22");
   expect(f!.getModel()).toEqual({ filterType: "set", values: ["21"] });
   expect(f!.doesFilterPass({ node: c.api.getRowNode("a")! })).toBe(true);

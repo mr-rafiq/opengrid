@@ -15,6 +15,13 @@ export type {
 } from "./ag31-leaf-columns.js";
 export type { Ag31RowNode } from "./ag31-row-nodes.js";
 export type { Ag31ColumnFilterInstance } from "./ag31-client-controller.js";
+export { useGridFilter } from "./ag31-filter-hook.js";
+export type { Ag31CustomFilterPassParams } from "./ag31-custom-filters.js";
+export type { Ag31ReactiveFilterCallbacks } from "./ag31-reactive-filter.js";
+export type {
+  Ag31SourceFilterModel,
+  Ag31SourceFilterValue,
+} from "./ag31-source-filter-models.js";
 export type { Ag31ColumnGroupState } from "./ag31-column-groups.js";
 export type { Ag31ValueParams } from "./ag31-value-columns.js";
 export type {

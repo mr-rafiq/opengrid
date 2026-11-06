@@ -227,6 +227,11 @@ export interface DataGridProps<T> {
   /** Real-row commands via right-click, ContextMenu or Shift+F10. Ctrl-right-click keeps the browser menu. */
   contextMenu?: boolean | GridContextMenuOptions<NoInfer<T>>;
   columnMenu?: boolean | GridColumnMenuOptions<NoInfer<T>>;
+  /** Return true after routing this command to an owned external filter popup. */
+  onColumnFilterRequest?: (context: {
+    column: Column<T>;
+    anchor: HTMLElement | null;
+  }) => boolean;
   onCellRangeChange?: (range: CellRange | null) => void;
   editorOptions?: Record<string, EditorConfig>;
   renderEditor?: CellEditorRenderer<T>;
@@ -434,6 +439,7 @@ export function DataGrid<T>({
   cellSelection = true,
   contextMenu = true,
   columnMenu = true,
+  onColumnFilterRequest,
   onCellRangeChange,
   editorOptions = {},
   renderEditor,
@@ -1590,6 +1596,18 @@ export function DataGrid<T>({
       else viewport.current?.focus({ preventScroll: true });
     },
     onFilter: (id) => {
+      const requested = allColumns.find((column) => column.id === id);
+      if (
+        requested &&
+        onColumnFilterRequest?.({
+          column: requested,
+          anchor:
+            columnMenuButtons.current.get(id) ??
+            columnHeaderControls.current.get(id) ??
+            null,
+        }) === true
+      )
+        return;
       const container = columnFilterControls.current.get(id);
       if (container)
         for (const control of container.querySelectorAll<HTMLElement>(

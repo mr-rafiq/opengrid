@@ -863,3 +863,69 @@ footer .creator-credit {
   color: var(--og-accent);
   flex-shrink: 0;
 }
+
+.source-custom-filter-lab {
+  margin-block: 12px;
+  padding: 12px;
+  min-width: 0;
+  border: 1px solid var(--og-border);
+  border-radius: 8px;
+}
+.source-custom-filter-surface {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--og-text);
+}
+.source-custom-filter-surface fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.source-custom-filter-surface legend {
+  color: var(--og-muted);
+}
+.source-custom-filter-surface label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.source-custom-filter-surface input[type="search"] {
+  width: 100%;
+  min-width: 0;
+  padding: 7px;
+  color: var(--og-text);
+  background: var(--og-bg);
+  border: 1px solid var(--og-border);
+  border-radius: 4px;
+  font: inherit;
+}
+.source-custom-filter-surface input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--og-accent);
+}
+.source-custom-filter-surface button {
+  min-height: 32px;
+  border: 1px solid var(--og-border);
+  border-radius: 4px;
+  background: var(--og-bg);
+  color: var(--og-text);
+  font: inherit;
+  cursor: pointer;
+}
+.source-custom-filter-surface :focus-visible {
+  outline: 2px solid var(--og-accent);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .source-custom-filter-surface label,
+  .source-custom-filter-surface button {
+    min-height: 44px;
+  }
+}

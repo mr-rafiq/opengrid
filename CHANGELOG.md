@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.28.0 - 2026-11-06
+
+Retained reactive source filters and editor baselines. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Add `useGridFilter`, opaque JSON model ownership, retained custom popup bodies and awaited per-column/whole-model application after React commits. Route the real header-menu filter action to that popup; preserve local search and focus, and revoke retired/superseded work.
+- Validate whole models before component staging, preserve original node/data identities and reject unfinished lifecycle/value services explicitly. Model return types include opaque custom JSON and require per-column narrowing.
+- Expose the owned merged `column.colDef` and re-read the current source value when committing/cancelling an editor. Private unchanged formula-editor/real-Equation comparisons cover the observed direct-write baseline; business setters and recipe services remain application-owned.
+- Add an original controlled team-filter demo with local save/restore, pointer/keyboard focus and responsive light/dark checks. Private unchanged hierarchy-filter comparisons retain the reference application's existing saved-model synchronization defect; no application source is changed.
+- Provided filter UI, full sidebar/menu/state/focus integration, business persistence/paste/undo, authenticated acceptance, Order-header width and physical-touch gaps remain open. These changes do not establish full application replacement readiness.
+
 ## 0.27.0 - 2026-11-06
 
 Staged source filter actions. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.

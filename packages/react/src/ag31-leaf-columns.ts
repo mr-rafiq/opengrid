@@ -32,6 +32,7 @@ export interface Ag31ColumnEvent<T> {
 export type Ag31ColumnListener<T> = (event: Ag31ColumnEvent<T>) => void;
 export interface Ag31LeafColumn<T> {
   readonly colId: string;
+  readonly colDef: Ag31ColumnDefinition<T>;
   readonly actualWidth: number;
   getColId(): string;
   getId(): string;
@@ -158,6 +159,9 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
     }
     const column: Ag31LeafColumn<T> = {
       colId: id,
+      get colDef() {
+        return entry.definition;
+      },
       get actualWidth() {
         return width();
       },

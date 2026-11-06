@@ -29,6 +29,16 @@ import {
 import { createAg31RowNodes, type Ag31RowNode } from "./ag31-row-nodes.js";
 import { createAg31EventHub, type Ag31Event } from "./ag31-events.js";
 import {
+  createAg31CustomFilters,
+  isAg31CustomFilter,
+} from "./ag31-custom-filters.js";
+import { normalizeAg31CustomFilterModel } from "./ag31-custom-filter-model.js";
+import {
+  partitionAg31FilterModel,
+  type Ag31SourceFilterModel,
+  type Ag31SourceFilterValue,
+} from "./ag31-source-filter-models.js";
+import {
   compileAg31ColumnFilter,
   canonicalizeAg31SetFilter,
   normalizeAg31ColumnFilterModel,
@@ -47,7 +57,7 @@ export interface Ag31RowTransaction<T> {
   remove?: T[];
 }
 export interface Ag31ColumnFilterInstance<T> {
-  getModel(): Ag31ColumnFilterModel | null;
+  getModel(): Ag31SourceFilterValue | null;
   setModel(model: unknown): Promise<void>;
   isFilterActive(): boolean;
   doesFilterPass(params: { node: Ag31RowNode<T>; data?: T }): boolean;
@@ -332,23 +342,36 @@ export function createAg31ClientController<T>(
       return options.writeCell(node, column, value, source);
     },
   });
-  const columns = createAg31LeafColumns({
-    editingAllowed: () => !!options.editing && !destroyed,
-    model,
-    definitions: schema.leafDefinitions,
-    defaultColDef: options.defaultColDef,
-    commonParams,
-    ownsNode: (node) => nodes.getRowNode(node.id) === node,
-    sourceFilterActive: (id) => Object.hasOwn(sourceFilters, id),
-    sourceColumnDisplayed: groups.isColumnDisplayed,
-    sourceSortIndexes: true,
-    renderedWidth: (id) => {
-      const widths = model.getState().columnWidths;
-      return Object.hasOwn(widths, id)
-        ? widths[id]
-        : sizingServices.getRenderedWidth(id);
-    },
-  });
+  const columns: ReturnType<typeof createAg31LeafColumns<T>> =
+    createAg31LeafColumns({
+      editingAllowed: () => !!options.editing && !destroyed,
+      model,
+      definitions: schema.leafDefinitions,
+      defaultColDef: options.defaultColDef,
+      commonParams,
+      ownsNode: (node) => nodes.getRowNode(node.id) === node,
+      sourceFilterActive: (id) =>
+        Object.hasOwn(sourceFilters, id) ||
+        (customFilters.get(id)?.filter.isFilterActive() ?? false),
+      sourceColumnDisplayed: groups.isColumnDisplayed,
+      sourceSortIndexes: true,
+      renderedWidth: (id) => {
+        const widths = model.getState().columnWidths;
+        return Object.hasOwn(widths, id)
+          ? widths[id]
+          : sizingServices.getRenderedWidth(id);
+      },
+    });
+  let filterRequest = 0;
+  const customFilterInstances = new WeakMap<
+    object,
+    Ag31ColumnFilterInstance<T>
+  >();
+  const customFilters: ReturnType<typeof createAg31CustomFilters<T>> =
+    createAg31CustomFilters<T>({
+      getColumn: columns.getColumn,
+      onModelChange: () => onFilterChanged(),
+    });
   schema.bind({ model, nodes, columns });
   if (options.editing)
     cellValues = createAg31CellValueServices({
@@ -562,7 +585,7 @@ export function createAg31ClientController<T>(
             (filter) => filter.filterType === "set",
           )
         )
-          setFilterModel(sourceFilters);
+          changeFilterModel(sourceFilters, true);
       } catch (error) {
         const resident = model.getRows();
         if (
@@ -595,20 +618,34 @@ export function createAg31ClientController<T>(
       ((node: Ag31RowNode<T>) => boolean) | undefined;
     const isPresent = present?.() === true;
     const filters = appliedCompiledFilters;
-    if (!isPresent && !Object.keys(appliedSourceFilters).length)
+    const custom = customFilters
+      .getSnapshot()
+      .entries.filter((entry) => entry.filter.isFilterActive());
+    if (
+      !isPresent &&
+      !Object.keys(appliedSourceFilters).length &&
+      !custom.length
+    )
       return undefined;
     return (row: T) => {
       const node = nodes.getRowNode(options.getRowId(row))!;
       if (isPresent && !(predicate?.(node) ?? false)) return false;
-      return filters.every(
-        ({ id, passes }) =>
-          !Object.hasOwn(appliedSourceFilters, id) ||
-          Object.hasOwn(model.getState().filters, id) ||
-          passes(node),
+      return (
+        custom.every(
+          (entry) =>
+            customFilters.get(entry.column) !== entry ||
+            entry.filter.doesFilterPass({ node, data: node.data }),
+        ) &&
+        filters.every(
+          ({ id, passes }) =>
+            !Object.hasOwn(appliedSourceFilters, id) ||
+            Object.hasOwn(model.getState().filters, id) ||
+            passes(node),
+        )
       );
     };
   }
-  function getFilterModel() {
+  function getProvidedFilterModel() {
     return active(() => {
       if (Object.keys(model.getState().filters).length)
         throw new TypeError(
@@ -620,6 +657,22 @@ export function createAg31ClientController<T>(
           normalizeAg31ColumnFilterModel(filter),
         ]),
       );
+    });
+  }
+  function getFilterModel(): Ag31SourceFilterModel | undefined {
+    return active(() => {
+      const result: Ag31SourceFilterModel = { ...getProvidedFilterModel() };
+      for (const entry of customFilters.getSnapshot().entries) {
+        const value = entry.filter.getModel();
+        if (value !== null)
+          Object.defineProperty(result, entry.column.colId, {
+            value,
+            enumerable: true,
+            configurable: true,
+            writable: true,
+          });
+      }
+      return result;
     });
   }
   function getAdvancedFilterModel(): null | undefined {
@@ -640,10 +693,29 @@ export function createAg31ClientController<T>(
     if (model.getState().advancedFilter != null) model.setAdvancedFilter(null);
   }
   function setFilterModel(input: unknown) {
-    changeFilterModel(input, true);
-  }
-  function changeFilterModel(input: unknown, apply: boolean) {
     if (destroyed) return;
+    const partition = partitionAg31FilterModel(input, columns.getColumn);
+    const prepared = prepareFilterModel(partition.provided);
+    const request = ++filterRequest;
+    for (const key of partition.custom.keys()) customFilters.validate(key);
+    for (const key of partition.custom.keys()) customFilters.ensure(key);
+    const entries = customFilters.getSnapshot().entries;
+    if (!entries.length) return changePreparedFilterModel(prepared, true);
+    changePreparedFilterModel(prepared, false);
+    return Promise.all(
+      entries.map(async (entry) => {
+        if (!(await entry.filter.whenReady()) || request !== filterRequest)
+          return false;
+        return entry.filter.stage(
+          partition.custom.get(entry.column.colId) ?? null,
+        );
+      }),
+    ).then((committed) => {
+      if (!destroyed && request === filterRequest && committed.every(Boolean))
+        applySourceFilterQuery(true);
+    });
+  }
+  function prepareFilterModel(input: unknown) {
     const next: Ag31FilterModel = {};
     const compiled: { id: string; passes(node: Ag31RowNode<T>): boolean }[] =
       [];
@@ -725,6 +797,16 @@ export function createAg31ClientController<T>(
         });
       }
     }
+    return { next, compiled };
+  }
+  function changeFilterModel(input: unknown, apply: boolean) {
+    if (destroyed) return;
+    changePreparedFilterModel(prepareFilterModel(input), apply);
+  }
+  function changePreparedFilterModel(
+    { next, compiled }: ReturnType<typeof prepareFilterModel>,
+    apply: boolean,
+  ) {
     if (
       equal(sourceFilters, next) &&
       !Object.keys(model.getState().filters).length &&
@@ -763,17 +845,26 @@ export function createAg31ClientController<T>(
     modelUpdated();
   }
   function onFilterChanged() {
+    applySourceFilterQuery(false);
+  }
+  function applySourceFilterQuery(clearNative: boolean) {
     if (destroyed) return;
     const previousApplied = appliedSourceFilters;
     const previousCompiled = appliedCompiledFilters;
     appliedSourceFilters = sourceFilters;
     appliedCompiledFilters = compiledFilters;
+    filtersApplying = true;
     try {
-      model.setExternalFilter(queryPredicate());
+      model.setExternalFilter(
+        queryPredicate(),
+        clearNative ? { columnFilters: {} } : undefined,
+      );
     } catch (error) {
       appliedSourceFilters = previousApplied;
       appliedCompiledFilters = previousCompiled;
       throw error;
+    } finally {
+      filtersApplying = false;
     }
     emit({ type: "filterChanged", source: "api", columns: [] });
     modelUpdated();
@@ -786,6 +877,13 @@ export function createAg31ClientController<T>(
     const column = columns.getColumn(key),
       definition = column?.getColDef();
     if (!column || !definition?.filter) return;
+    if (isAg31CustomFilter(definition.filter)) {
+      const value = normalizeAg31CustomFilterModel(input);
+      const entry = customFilters.ensure(column);
+      if (entry && (await entry.filter.whenReady()))
+        await entry.filter.stage(value);
+      return;
+    }
     const kind =
       definition.filter === "agSetColumnFilter" || definition.filter === true
         ? "set"
@@ -799,7 +897,7 @@ export function createAg31ClientController<T>(
         "This column requires its registered source filter component adapter",
       );
     const value = normalizeAg31ProvidedFilterModel(kind, input);
-    const next = { ...getFilterModel() };
+    const next = { ...getProvidedFilterModel() };
     if (value == null) delete next[column.colId];
     else
       Object.defineProperty(next, column.colId, {
@@ -817,6 +915,29 @@ export function createAg31ClientController<T>(
     const column = columns.getColumn(key),
       definition = column?.getColDef();
     if (!column || !definition?.filter) return;
+    if (isAg31CustomFilter(definition.filter)) {
+      const entry = customFilters.ensure(column);
+      if (!entry) return;
+      await entry.filter.whenReady();
+      if (destroyed || customFilters.get(column) !== entry) return;
+      let instance = customFilterInstances.get(entry);
+      if (!instance) {
+        const current = () => !destroyed && customFilters.get(column) === entry;
+        instance = Object.freeze({
+          getModel: () => (current() ? entry.filter.getModel() : null),
+          setModel: async (input: unknown) => {
+            if (current()) await setColumnFilterModel(column, input);
+          },
+          isFilterActive: () => current() && entry.filter.isFilterActive(),
+          doesFilterPass: ({ node }: { node: Ag31RowNode<T>; data?: T }) =>
+            current() &&
+            nodes.getRowNode(node.id) === node &&
+            entry.filter.doesFilterPass({ node, data: node.data }),
+        });
+        customFilterInstances.set(entry, instance);
+      }
+      return instance;
+    }
     if (
       ![
         true,
@@ -832,7 +953,7 @@ export function createAg31ClientController<T>(
     if (!instance) {
       instance = Object.freeze({
         getModel: () =>
-          destroyed ? null : (getFilterModel()?.[column.colId] ?? null),
+          destroyed ? null : (getProvidedFilterModel()?.[column.colId] ?? null),
         setModel: (input: unknown) => setColumnFilterModel(column, input),
         isFilterActive: () =>
           !destroyed && Object.hasOwn(sourceFilters, column.colId),
@@ -892,7 +1013,7 @@ export function createAg31ClientController<T>(
         (filter) => filter.filterType === "set",
       )
     )
-      setFilterModel(sourceFilters);
+      changeFilterModel(sourceFilters, true);
     emit({ type: "rowDataUpdated" });
     modelUpdated();
     return {
@@ -1057,6 +1178,7 @@ export function createAg31ClientController<T>(
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    filterRequest++;
     editing.destroy();
     editingAttachment = null;
     viewServices.destroy();
@@ -1069,9 +1191,21 @@ export function createAg31ClientController<T>(
     schema.destroy();
     settings.clear();
     filterInstances.clear();
-    for (const listener of [...lifecycle]) listener();
+    let teardownError: unknown;
+    try {
+      customFilters.destroy();
+    } catch (error) {
+      teardownError = error;
+    }
+    for (const listener of [...lifecycle])
+      try {
+        listener();
+      } catch (error) {
+        teardownError ??= error;
+      }
     lifecycle.clear();
     viewListeners.clear();
+    if (teardownError) throw teardownError;
   }
   const methods = {
     startEditingCell(params: {
@@ -1144,6 +1278,17 @@ export function createAg31ClientController<T>(
     setFilterModel,
     getColumnFilterInstance,
     setColumnFilterModel,
+    showColumnFilter: (key: unknown) => {
+      if (destroyed) return;
+      const column = columns.getColumn(key);
+      if (!column?.getColDef().filter) return;
+      if (!isAg31CustomFilter(column.getColDef().filter))
+        throw new TypeError(
+          "Provided source filter popups require their separate UI adapter",
+        );
+      customFilters.show(column);
+    },
+    hidePopupMenu: () => customFilters.hide(),
     getAdvancedFilterModel,
     setAdvancedFilterModel,
     applyTransaction,
@@ -1260,6 +1405,7 @@ export function createAg31ClientController<T>(
     sizingServices,
     cellValues,
     editing,
+    customFilters,
     attachEditingView(read: () => DataGridViewController | null) {
       const attachment = { read };
       editingAttachment = attachment;

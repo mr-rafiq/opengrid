@@ -4,6 +4,7 @@ import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
 import { SourceEditingLab } from "./source-editing-lab";
+import { SourceCustomFilterLab } from "./source-custom-filter-lab.js";
 import {
   Ag31ClientGrid,
   type Ag31ClientGridHandle,
@@ -121,6 +122,7 @@ export function LegacyBridgeLab() {
   const [scrollOpen, setScrollOpen] = useState(false);
   const [sizingOpen, setSizingOpen] = useState(false);
   const [editingOpen, setEditingOpen] = useState(false);
+  const [customFilterOpen, setCustomFilterOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -189,6 +191,12 @@ export function LegacyBridgeLab() {
         </button>
       </div>
       {editingOpen && <SourceEditingLab />}
+      <details
+        onToggle={(event) => setCustomFilterOpen(event.currentTarget.open)}
+      >
+        <summary>Source custom filter example</summary>
+        {customFilterOpen && <SourceCustomFilterLab />}
+      </details>
       <details>
         <summary>Source filter model example</summary>
         <p>
