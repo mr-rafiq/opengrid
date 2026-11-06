@@ -1,5 +1,12 @@
 # Release notes
 
+## 0.28.1 - 2026-11-06
+
+Keep the resident demo usable before advanced examples. Created by Mohamed Rafiq.
+
+- Place the live resident grid and its summary directly after the primary controls. Advanced examples remain available below it, so adding an example does not push the working grid below the viewport during header-group interaction.
+- Preserve the existing phone/desktop, light/dark header-group viewport assertions and all source filter/editor behavior. This patch changes the demo layout and release metadata; the reactive-filter library implementation is unchanged.
+
 ## 0.28.0 - 2026-11-06
 
 Retained reactive source filters and editor baselines. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.

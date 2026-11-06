@@ -190,6 +190,24 @@ export function LegacyBridgeLab() {
           Highlight sample changes
         </button>
       </div>
+      <p role="status" aria-label="Source summary">
+        {summary}
+      </p>
+      <Ag31ClientGrid
+        ref={grid}
+        gridOptions={options}
+        rowData={rows}
+        columnDefs={definitions}
+        context={context}
+        getRowStyle={rowStyle}
+        height={300}
+        ariaLabel="Legacy source estimate"
+        onGridReady={update}
+        onModelUpdated={update}
+        onSelectionChanged={update}
+        isExternalFilterPresent={filtered ? active : null}
+        doesExternalFilterPass={expensive}
+      />
       {editingOpen && <SourceEditingLab />}
       <details
         onToggle={(event) => setCustomFilterOpen(event.currentTarget.open)}
@@ -386,24 +404,6 @@ export function LegacyBridgeLab() {
         <summary>Source host layout example</summary>
         {hostOpen && <LegacyHostLab />}
       </details>
-      <p role="status" aria-label="Source summary">
-        {summary}
-      </p>
-      <Ag31ClientGrid
-        ref={grid}
-        gridOptions={options}
-        rowData={rows}
-        columnDefs={definitions}
-        context={context}
-        getRowStyle={rowStyle}
-        height={300}
-        ariaLabel="Legacy source estimate"
-        onGridReady={update}
-        onModelUpdated={update}
-        onSelectionChanged={update}
-        isExternalFilterPresent={filtered ? active : null}
-        doesExternalFilterPass={expensive}
-      />
       <p>
         <a href="../docs/legacy-react-bridge/">
           Supported options and remaining contracts
