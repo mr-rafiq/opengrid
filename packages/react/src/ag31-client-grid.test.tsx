@@ -550,9 +550,12 @@ it("refreshes source renderers without replacing nodes or resorting, then forwar
   expect(api.getRowNode("a")).toBe(node);
   expect(node.data).toBe(replacement);
   expect(seen).toContain(node);
-  // Until setters/editors are compiled, source editable flags cannot enable native writes.
+  // Source editing borrows the record; cancellation keeps it intact.
   fireEvent.doubleClick(screen.getByText("class:42:second"));
-  expect(screen.queryByRole("textbox", { name: /edit/i })).toBeNull();
+  expect(screen.getByRole("textbox", { name: "Cell editor" })).toBeTruthy();
+  act(() => api.stopEditing(true));
+  expect(screen.queryByRole("textbox", { name: "Cell editor" })).toBeNull();
+  expect(node.data).toBe(replacement);
 });
 
 it("connects custom header subscriptions to local sort and asynchronous source row events", async () => {

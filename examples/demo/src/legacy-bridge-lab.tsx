@@ -3,6 +3,7 @@ import { LegacySizingLab } from "./legacy-sizing-lab.js";
 import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
 import { useMemo, useRef, useState } from "react";
+import { SourceEditingLab } from "./source-editing-lab";
 import {
   Ag31ClientGrid,
   type Ag31ClientGridHandle,
@@ -119,6 +120,7 @@ export function LegacyBridgeLab() {
   const [overlayOpen, setOverlayOpen] = useState(false);
   const [scrollOpen, setScrollOpen] = useState(false);
   const [sizingOpen, setSizingOpen] = useState(false);
+  const [editingOpen, setEditingOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
@@ -137,11 +139,18 @@ export function LegacyBridgeLab() {
     >
       <h2>Resident React bridge</h2>
       <p>
-        Experimental, read-only API/ref compatibility for resident rows. This is
-        not a complete AG Grid replacement. Original class records retain their
-        methods.
+        Experimental API/ref compatibility for resident rows, with an explicit
+        source editing adapter. This is not a complete AG Grid replacement.
+        Original class records retain their methods.
       </p>
       <div className="grouping-lab-controls">
+        <button
+          type="button"
+          aria-expanded={editingOpen}
+          onClick={() => setEditingOpen(!editingOpen)}
+        >
+          Source editing contracts lab
+        </button>
         <button type="button" onClick={() => setRows([...source])}>
           Load source records
         </button>
@@ -166,6 +175,7 @@ export function LegacyBridgeLab() {
           Highlight sample changes
         </button>
       </div>
+      {editingOpen && <SourceEditingLab />}
       <details>
         <summary>Source filter model example</summary>
         <p>

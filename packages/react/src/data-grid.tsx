@@ -5,7 +5,11 @@ import {
 } from "./group-panel.js";
 import { GridIcon } from "./icons.js";
 import { createDataGridViewController } from "./grid-view.js";
-import type { DataGridViewController, GridViewPort } from "./grid-view.js";
+import type {
+  DataGridViewController,
+  GridViewPort,
+  GridCellEditingController,
+} from "./grid-view.js";
 import {
   useEffect,
   useId,
@@ -226,6 +230,12 @@ export interface DataGridProps<T> {
   onCellRangeChange?: (range: CellRange | null) => void;
   editorOptions?: Record<string, EditorConfig>;
   renderEditor?: CellEditorRenderer<T>;
+  cellEditingController?: GridCellEditingController;
+  cellKeyboardHandler?: (
+    event: KeyboardEvent<HTMLDivElement>,
+    position: CellPosition,
+  ) => boolean;
+  doubleClickEditing?: boolean;
   editMode?: "cell" | "row";
   rowConflictPolicy?: "reject" | "overwrite";
   onRowEdit?: (context: { rowId: string }) => void;
@@ -427,6 +437,9 @@ export function DataGrid<T>({
   onCellRangeChange,
   editorOptions = {},
   renderEditor,
+  cellEditingController,
+  cellKeyboardHandler,
+  doubleClickEditing = true,
   editMode = "cell",
   rowConflictPolicy = "reject",
   onRowEdit,
@@ -459,6 +472,13 @@ export function DataGrid<T>({
     isCoreCellEditable(column, row, {
       writeMode: requestMode ? "request" : "local",
     });
+  const canEditNode = (node: RowNode<T>, column: Column<T>) =>
+    cellEditingController
+      ? cellEditingController.isCellEditable({
+          rowId: node.id,
+          columnId: column.id,
+        })
+      : node.kind === "row" && isCellEditable(column, node.data);
   const formulas = suppliedFormulas ?? getFormulaGridController(model);
   if (formulas && formulas.model !== model)
     throw new TypeError("Formula controller must own the supplied grid model");
@@ -1633,15 +1653,11 @@ export function DataGrid<T>({
         ranges.select({ rowId: rows[owner].id, columnId });
     },
     onDoubleTap: (position) => {
+      if (!doubleClickEditing) return;
       if (ranges.extendOnTap || rowEditing || noteEditing) return;
       const row = projection.indexOf(position.rowId),
         column = columns.findIndex((column) => column.id === position.columnId);
-      if (
-        row < 0 ||
-        column < 0 ||
-        !isCellEditable(columns[column], rows[row]?.data) ||
-        rows[row].kind !== "row"
-      )
+      if (row < 0 || column < 0 || !canEditNode(rows[row], columns[column]))
         return;
       focusAt(row, column, false, undefined, false);
       startEdit(rows[row], columns[column]);
@@ -2306,6 +2322,13 @@ export function DataGrid<T>({
     }
   }
   function startEdit(node: RowNode<T>, column: Column<T>, initial?: string) {
+    if (cellEditingController) {
+      cellEditingController.startEditingCell(
+        { rowId: node.id, columnId: column.id },
+        { initialText: initial },
+      );
+      return;
+    }
     if (committingEditor.current) return;
     const owner = ownerAt(projection.indexOf(node.id), columns.indexOf(column));
     if (!owner) return;
@@ -2594,6 +2617,8 @@ export function DataGrid<T>({
     column: Column<T>,
     row: number,
   ) {
+    if (cellKeyboardHandler?.(event, { rowId: node.id, columnId: column.id }))
+      return;
     if (event.target !== event.currentTarget) return;
     if (
       !event.ctrlKey &&
@@ -2738,6 +2763,7 @@ export function DataGrid<T>({
         event.preventDefault();
         if (
           node.children?.length &&
+          !canEditNode(node, column) &&
           (node.kind === "group" ||
             (editMode === "cell" && !isCellEditable(column, node.data)))
         )
@@ -2761,7 +2787,7 @@ export function DataGrid<T>({
           !event.metaKey &&
           !event.altKey &&
           editMode === "cell" &&
-          isCellEditable(column, node.data)
+          canEditNode(node, column)
         ) {
           event.preventDefault();
           startEdit(node, column, event.key);
@@ -3451,6 +3477,10 @@ export function DataGrid<T>({
                     editMode === "cell" &&
                     editing?.rowId === node.id &&
                     editing.columnId === column.id;
+                  const sourceEditing = cellEditingController?.getEditingCell();
+                  const isSourceEditing =
+                    sourceEditing?.rowId === node.id &&
+                    sourceEditing.columnId === column.id;
                   const formulaResult =
                     node.data && formulas?.supportsColumn(column.id)
                       ? formulas.getResult({
@@ -3477,10 +3507,7 @@ export function DataGrid<T>({
                       aria-colindex={index + 1 + (selectionWidth ? 1 : 0)}
                       aria-colspan={span.span > 1 ? span.span : undefined}
                       aria-rowspan={rowSpan?.span}
-                      aria-readonly={
-                        !isCellEditable(column, node.data) ||
-                        node.kind !== "row"
-                      }
+                      aria-readonly={!canEditNode(node, column)}
                       aria-invalid={formulaError ? true : undefined}
                       aria-description={formulaError?.message}
                       aria-keyshortcuts={
@@ -3515,7 +3542,7 @@ export function DataGrid<T>({
                       data-row-id={node.id}
                       data-column-id={column.id}
                       data-formula-error={formulaError?.code}
-                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""} ${getCellClassName?.({ node, column, value, displayValue: display }) ?? ""}`}
+                      className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing || isSourceEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""} ${getCellClassName?.({ node, column, value, displayValue: display }) ?? ""}`}
                       style={{
                         ...getCellStyle?.({
                           node,
@@ -3565,12 +3592,22 @@ export function DataGrid<T>({
                         )
                           ownsCellFocus.current = false;
                       }}
-                      onPointerDown={(event) =>
+                      onPointerDown={(event) => {
+                        const active = cellEditingController?.getEditingCell();
+                        if (
+                          active &&
+                          (active.rowId !== node.id ||
+                            active.columnId !== column.id) &&
+                          !cellEditingController!.stopEditing()
+                        ) {
+                          event.preventDefault();
+                          return;
+                        }
                         ranges.begin(event, {
                           rowId: node.id,
                           columnId: column.id,
-                        })
-                      }
+                        });
+                      }}
                       onContextMenu={(event) => {
                         if (
                           event.defaultPrevented ||
@@ -3626,6 +3663,7 @@ export function DataGrid<T>({
                           );
                       }}
                       onDoubleClick={(event) => {
+                        if (!doubleClickEditing) return;
                         if (touchTaps.suppressDoubleClick(event)) return;
                         if (
                           event.target instanceof Element &&
@@ -3992,12 +4030,22 @@ export function DataGrid<T>({
           return true;
         },
         getEditingCell: () => {
+          if (cellEditingController)
+            return cellEditingController.getEditingCell();
           const current = editingRef.current;
           return current && current.revision === model.getColumnRevision()
             ? { rowId: current.rowId, columnId: current.columnId }
             : null;
         },
         startEditingCell: (position, options = {}) => {
+          if (cellEditingController) {
+            const target = positionOf(position);
+            if (!target || !cellEditingController.isCellEditable(position))
+              return false;
+            revealAt(target.row, target.column);
+            setFocus({ ...position });
+            return cellEditingController.startEditingCell(position, options);
+          }
           if (
             committingEditor.current ||
             editMode !== "cell" ||
@@ -4031,6 +4079,13 @@ export function DataGrid<T>({
           return !!editingRef.current;
         },
         stopEditing: (options = {}) => {
+          if (cellEditingController) {
+            const position = cellEditingController.getEditingCell();
+            const stopped = cellEditingController.stopEditing(options);
+            const target = position && positionOf(position);
+            if (stopped && target) focusAt(target.row, target.column);
+            return stopped;
+          }
           if (committingEditor.current) return false;
           const current = editingRef.current;
           if (!current) return true;

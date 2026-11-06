@@ -60,6 +60,8 @@ export interface Ag31LeafColumnsOptions<T> {
   defaultColDef?: Ag31ColumnDefinition<T>;
   commonParams(): { api: object; columnApi?: object; context?: unknown };
   ownsNode(node: Ag31RowNode<T>): boolean;
+  /** An explicit borrowed-data editor can own writes while native writes stay read-only. */
+  editingAllowed?(): boolean;
   renderedWidth?(columnId: string): number | undefined;
   eventSource?(): string;
   sourceFilterActive?(columnId: string): boolean;
@@ -213,7 +215,7 @@ export function createAg31LeafColumns<T>(options: Ag31LeafColumnsOptions<T>) {
         if (
           !active ||
           !native(id!) ||
-          model.isReadOnly() ||
+          (model.isReadOnly() && !options.editingAllowed?.()) ||
           !options.ownsNode(node)
         )
           return false;

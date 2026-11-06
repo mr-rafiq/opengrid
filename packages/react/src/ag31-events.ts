@@ -40,7 +40,10 @@ export function createAg31EventHub(
     entries?.delete(listener);
     if (entries?.size === 0) listeners.delete(type);
   }
-  function dispatchEvent(event: Ag31Event) {
+  function dispatchEventWithPrelude(
+    event: Ag31Event,
+    beforeListeners?: () => void,
+  ) {
     if (destroyed) return;
     if (!event || typeof event.type !== "string" || !event.type)
       throw new TypeError("An event type is required");
@@ -54,13 +57,15 @@ export function createAg31EventHub(
       });
     // Removing a listener does not revoke an already queued notification.
     const captured = [...(listeners.get(event.type) ?? [])];
-    if (!captured.length && !afterListeners) return;
+    if (!captured.length && !afterListeners && !beforeListeners) return;
+    if (beforeListeners) pending.push(beforeListeners);
     for (const listener of captured) pending.push(() => listener(event));
     // Grid-option handlers are global listeners. Their current option is read
     // during delivery, after the dispatch-time API listener snapshot.
     if (afterListeners) pending.push(() => afterListeners(event));
     if (timer === undefined) timer = setTimeout(flush, 0);
   }
+  const dispatchEvent = (event: Ag31Event) => dispatchEventWithPrelude(event);
   function destroy() {
     if (destroyed) return;
     destroyed = true;
@@ -73,6 +78,7 @@ export function createAg31EventHub(
     addEventListener,
     removeEventListener,
     dispatchEvent,
+    dispatchEventWithPrelude,
     destroy,
     isDestroyed: () => destroyed,
   });

@@ -32,11 +32,15 @@ import {
   type Ag31HeaderMetricName,
   type Ag31EventOptionName,
 } from "./ag31-client-controller.js";
-import type { Ag31ColumnDefinition } from "./ag31-leaf-columns.js";
+import type {
+  Ag31ColumnDefinition,
+  Ag31LeafColumn,
+} from "./ag31-leaf-columns.js";
 import type { Ag31RowNode } from "./ag31-row-nodes.js";
 import type { DataGridViewController } from "./grid-view.js";
 import type { DataGridSizingController } from "./column-sizing.js";
 import type { GridState } from "@opengrid/core";
+import { Ag31SourceEditor, sourceEditorKey } from "./ag31-source-editor.js";
 import { planAg31PinPressure } from "./ag31-pin-pressure.js";
 import {
   createAg31Presentation,
@@ -52,6 +56,18 @@ export interface Ag31ClientGridEvent<T> extends Ag31ClientGridHandle<T> {
   type: string;
   context: unknown;
   [key: string]: unknown;
+}
+export interface Ag31ClientGridCellEvent<T> extends Ag31ClientGridEvent<T> {
+  node: Ag31RowNode<T>;
+  data: T | undefined;
+  column: Ag31LeafColumn<T>;
+  colDef: Ag31ColumnDefinition<T>;
+  rowIndex: number | null;
+  rowPinned: null;
+  value?: unknown;
+  oldValue?: unknown;
+  newValue?: unknown;
+  valueChanged?: boolean;
 }
 export interface Ag31ClientGridConfig<T> extends Ag31OverlayComponentOptions {
   rowData: T[] | null;
@@ -83,6 +99,15 @@ export interface Ag31ClientGridConfig<T> extends Ag31OverlayComponentOptions {
   groupMaintainOrder?: false;
   showOpenedGroup?: false;
   reactiveCustomComponents?: true;
+  readOnlyEdit?: boolean;
+  enableGroupEdit?: boolean;
+  suppressClickEdit?: boolean;
+  enableCellEditingOnBackspace?: boolean;
+  onCellValueChanged?(event: Ag31ClientGridCellEvent<T>): void;
+  onCellEditRequest?(event: Ag31ClientGridCellEvent<T>): void;
+  onCellEditingStarted?(event: Ag31ClientGridCellEvent<T>): void;
+  onCellEditingStopped?(event: Ag31ClientGridCellEvent<T>): void;
+  onCellKeyDown?(event: Ag31ClientGridCellEvent<T>): void;
   rowGroupPanelShow?: "always" | "onlyWhenGrouping" | "never";
   isExternalFilterPresent?: (() => boolean) | null;
   doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
@@ -136,6 +161,10 @@ const configKeys = new Set([
   "groupMaintainOrder",
   "showOpenedGroup",
   "reactiveCustomComponents",
+  "readOnlyEdit",
+  "enableGroupEdit",
+  "suppressClickEdit",
+  "enableCellEditingOnBackspace",
   "rowGroupPanelShow",
   "isExternalFilterPresent",
   "doesExternalFilterPass",
@@ -217,7 +246,14 @@ export function resolveAg31ClientGridConfig<T>(
     )
   )
     throw new TypeError("Unsupported source row group panel policy");
-  for (const name of ["suppressLoadingOverlay", "suppressNoRowsOverlay"]) {
+  for (const name of [
+    "suppressLoadingOverlay",
+    "suppressNoRowsOverlay",
+    "readOnlyEdit",
+    "enableGroupEdit",
+    "suppressClickEdit",
+    "enableCellEditingOnBackspace",
+  ]) {
     if (result[name] != null && typeof result[name] !== "boolean")
       throw new TypeError("Source overlay suppression must be boolean");
   }
@@ -304,6 +340,11 @@ function ResidentView<T>({
     owner.getViewSnapshot,
     owner.getViewSnapshot,
   );
+  const editing = useSyncExternalStore(
+    owner.editing.subscribe,
+    owner.editing.getSnapshot,
+    owner.editing.getSnapshot,
+  );
   const view = useRef<DataGridViewController>(null);
   const sizing = useRef<DataGridSizingController>(null);
   const container = useRef<HTMLDivElement>(null);
@@ -311,6 +352,10 @@ function ResidentView<T>({
   const [automaticHeight, setAutomaticHeight] = useState(480);
   const [hostHeaderHeight, setHostHeaderHeight] = useState(38);
   useLayoutEffect(() => owner.viewServices.attach(() => view.current), [owner]);
+  useLayoutEffect(() => owner.attachEditingView(() => view.current), [owner]);
+  useLayoutEffect(() => {
+    owner.editing.reconcile();
+  });
   useLayoutEffect(
     () => owner.sizingServices.attach(() => sizing.current),
     [owner],
@@ -484,6 +529,15 @@ function ResidentView<T>({
     (node: Ag31RowNode<T>, id: string) => {
       const column = owner.columns.getColumn(id)!;
       const colDef = column.getColDef();
+      if (editing?.node === node && editing.column === column)
+        return (
+          <Ag31SourceEditor
+            key={id}
+            owner={owner}
+            cell={editing}
+            components={props.components}
+          />
+        );
       const Renderer = component(colDef.cellRenderer, props.components);
       const value = owner.schema.read(node, column);
       if (!Renderer) return owner.schema.format(node, column);
@@ -509,7 +563,7 @@ function ResidentView<T>({
         </span>
       );
     },
-    [owner, props.components],
+    [owner, props.components, editing],
   );
   const renderSourceCell = useCallback(
     ({ row, column }: CellContext<T>) =>
@@ -561,6 +615,16 @@ function ResidentView<T>({
     >
       <DataGrid
         model={owner.model}
+        cellEditingController={owner.editing.controller}
+        doubleClickEditing={!props.suppressClickEdit}
+        cellKeyboardHandler={(event, position) =>
+          sourceEditorKey(
+            owner,
+            event,
+            position,
+            props.enableCellEditingOnBackspace === true,
+          )
+        }
         headerGroupController={{
           getPath: (column) => owner.groups.getPath(column.id),
           isColumnDisplayed: (column) =>
@@ -691,6 +755,10 @@ function ClientGrid<T>(
     doesExternalFilterPass: Ag31ClientGridConfig<T>["doesExternalFilterPass"];
     getRowStyle: Ag31ClientGridConfig<T>["getRowStyle"];
     headerMetrics: Record<Ag31HeaderMetricName, number | null | undefined>;
+    editingOptions: Pick<
+      Ag31ClientGridConfig<T>,
+      "readOnlyEdit" | "enableGroupEdit"
+    >;
     overlayOptions: Pick<
       Ag31ClientGridConfig<T>,
       "suppressLoadingOverlay" | "suppressNoRowsOverlay" | "localeText"
@@ -704,6 +772,10 @@ function ClientGrid<T>(
     doesExternalFilterPass: props.doesExternalFilterPass,
     getRowStyle: props.getRowStyle,
     headerMetrics: headerMetricValues(props),
+    editingOptions: {
+      readOnlyEdit: props.readOnlyEdit,
+      enableGroupEdit: props.enableGroupEdit,
+    },
     overlayOptions: {
       suppressLoadingOverlay: props.suppressLoadingOverlay,
       suppressNoRowsOverlay: props.suppressNoRowsOverlay,
@@ -727,6 +799,10 @@ function ClientGrid<T>(
       initialState: options.initialModelState,
       rowHeight: options.rowHeight,
       readOnly: true,
+      editing: {
+        readOnlyEdit: options.readOnlyEdit,
+        enableGroupEdit: options.enableGroupEdit,
+      },
       groupSelectsFiltered: options.groupSelectsFiltered,
       callbacks: optionCallbacks(options),
       isExternalFilterPresent: options.isExternalFilterPresent,
@@ -757,6 +833,10 @@ function ClientGrid<T>(
         doesExternalFilterPass: initial.current.doesExternalFilterPass,
         getRowStyle: initial.current.getRowStyle,
         headerMetrics: headerMetricValues(initial.current),
+        editingOptions: {
+          readOnlyEdit: initial.current.readOnlyEdit,
+          enableGroupEdit: initial.current.enableGroupEdit,
+        },
         overlayOptions: {
           suppressLoadingOverlay: initial.current.suppressLoadingOverlay,
           suppressNoRowsOverlay: initial.current.suppressNoRowsOverlay,
@@ -774,6 +854,11 @@ function ClientGrid<T>(
       forwarded.current.context = props.context;
       owner.api.refreshCells();
     }
+    for (const name of ["readOnlyEdit", "enableGroupEdit"] as const)
+      if (forwarded.current.editingOptions[name] !== props[name]) {
+        owner.api.setGridOption(name, props[name] === true);
+        forwarded.current.editingOptions[name] = props[name];
+      }
     if (forwarded.current.getRowStyle !== props.getRowStyle) {
       owner.api.setGridOption("getRowStyle", props.getRowStyle);
       forwarded.current.getRowStyle = props.getRowStyle;
@@ -832,6 +917,13 @@ function ClientGrid<T>(
     props.suppressLoadingOverlay,
     props.suppressNoRowsOverlay,
     props.localeText,
+    props.readOnlyEdit,
+    props.enableGroupEdit,
+    props.onCellValueChanged,
+    props.onCellEditRequest,
+    props.onCellEditingStarted,
+    props.onCellEditingStopped,
+    props.onCellKeyDown,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />

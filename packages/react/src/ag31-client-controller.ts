@@ -1,4 +1,7 @@
 import { createAg31ViewServices } from "./ag31-view-services.js";
+import { createAg31CellValueServices } from "./ag31-cell-values.js";
+import { createAg31EditingServices } from "./ag31-editing.js";
+import type { DataGridViewController } from "./grid-view.js";
 import { createAg31SizingServices } from "./ag31-sizing-services.js";
 import {
   createAg31Overlays,
@@ -49,6 +52,11 @@ export const AG31_EVENT_OPTIONS = [
   ["onModelUpdated", "modelUpdated"],
   ["onRowDataUpdated", "rowDataUpdated"],
   ["onColumnRowGroupChanged", "columnRowGroupChanged"],
+  ["onCellValueChanged", "cellValueChanged"],
+  ["onCellEditRequest", "cellEditRequest"],
+  ["onCellEditingStarted", "cellEditingStarted"],
+  ["onCellEditingStopped", "cellEditingStopped"],
+  ["onCellKeyDown", "cellKeyDown"],
 ] as const;
 export type Ag31EventOptionName = (typeof AG31_EVENT_OPTIONS)[number][0];
 export const AG31_HEADER_METRICS = [
@@ -88,6 +96,7 @@ export interface Ag31ClientControllerOptions<T> {
   floatingFiltersHeight?: number | null;
   initialState?: Partial<GridState>;
   readOnly?: boolean;
+  editing?: { readOnlyEdit?: boolean; enableGroupEdit?: boolean };
   groupSelectsFiltered?: boolean;
   callbacks?: Partial<Record<Ag31EventOptionName, unknown>>;
   isExternalFilterPresent?: (() => boolean) | null;
@@ -97,7 +106,7 @@ export interface Ag31ClientControllerOptions<T> {
     node: Ag31RowNode<T>,
     column: unknown,
     value: unknown,
-    source: string,
+    source: string | undefined,
   ): boolean;
 }
 function equal(
@@ -163,6 +172,17 @@ export function createAg31ClientController<T>(
     columnApi,
     context: getGridOption("context"),
   });
+  for (const key of ["readOnlyEdit", "enableGroupEdit"] as const) {
+    const value = options.editing?.[key];
+    if (value != null && typeof value !== "boolean")
+      throw new TypeError(`Source ${key} must be boolean`);
+    settings.set(key, value);
+  }
+  if (options.editing && options.writeCell)
+    throw new TypeError(
+      "Source compiled editing and a custom write owner cannot overlap",
+    );
+  let cellValues: ReturnType<typeof createAg31CellValueServices<T>> | undefined;
   if (options.getRowStyle != null && typeof options.getRowStyle !== "function")
     throw new TypeError(
       "Source getRowStyle must be a function, null or undefined",
@@ -275,7 +295,7 @@ export function createAg31ClientController<T>(
     rows: options.rows,
     columns: schema.columns,
     getRowId: options.getRowId,
-    readOnly: options.readOnly ?? !options.writeCell,
+    readOnly: options.readOnly ?? !(options.writeCell || options.editing),
     initialState: {
       pageSize: HIERARCHY_SELECTION_LIMITS.maxNodes,
       ...declaredQuery,
@@ -283,6 +303,7 @@ export function createAg31ClientController<T>(
     },
   });
   const nodes = createAg31RowNodes({
+    writeAllowed: () => !!options.editing && !destroyed,
     model,
     getRowId: options.getRowId,
     rowHeight: options.rowHeight ?? 42,
@@ -292,6 +313,7 @@ export function createAg31ClientController<T>(
     groupIdentity: schema.groupIdentity,
     writeCell: (node, column, value, source) => {
       if (destroyed) return false;
+      if (cellValues) return cellValues.write(node, column, value, source);
       if (!options.writeCell)
         throw new Error(
           "Source business writes require a compiled write handler",
@@ -300,6 +322,7 @@ export function createAg31ClientController<T>(
     },
   });
   const columns = createAg31LeafColumns({
+    editingAllowed: () => !!options.editing && !destroyed,
     model,
     definitions: schema.leafDefinitions,
     defaultColDef: options.defaultColDef,
@@ -316,6 +339,55 @@ export function createAg31ClientController<T>(
     },
   });
   schema.bind({ model, nodes, columns });
+  if (options.editing)
+    cellValues = createAg31CellValueServices({
+      alive: () => !destroyed,
+      owns: (node) => nodes.getRowNode(node.id) === node,
+      column: (key) => columns.getColumn(key),
+      read: (node, column) => schema.read(node, column),
+      common: commonParams,
+      readOnlyEdit: () => settings.get("readOnlyEdit") === true,
+      prepareWrite: (node) => nodes.prepareWriteData(node),
+      request: (event) => events.dispatchEvent(event),
+      changed: (event, params) =>
+        events.dispatchEventWithPrelude(event, () => {
+          const callback = event.column.getColDef().onCellValueChanged;
+          if (typeof callback === "function") callback(params);
+        }),
+      rowChanged: (event) =>
+        nodes.dispatchCellChanged(
+          event.node,
+          event.column,
+          event.oldValue,
+          event.newValue,
+        ),
+      refresh: refreshCells,
+    });
+  const editing = createAg31EditingServices<T>({
+    alive: () => !destroyed && !!cellValues,
+    resolve: (position) => {
+      const native = model
+        .getRowModel()
+        .find((row) => row.id === position.rowId);
+      const node = native && nodes.getRowNodeByNativeId(native.id);
+      const column = columns
+        .getAllDisplayedColumns()
+        .find((column) => column.colId === position.columnId);
+      return node && column ? { node, column } : undefined;
+    },
+    read: (node, column) => schema.read(node, column),
+    write: (node, column, value) =>
+      cellValues?.write(node, column, value, "edit") ?? false,
+    enableGroupEdit: () => settings.get("enableGroupEdit") === true,
+    emit: (event) => events.dispatchEvent(event),
+  });
+  let editingAttachment: { read(): DataGridViewController | null } | null =
+    null;
+  function mountedEditingView() {
+    if (destroyed) return null;
+    const view = editingAttachment?.read();
+    return view?.isActive() ? view : null;
+  }
   const emit = (event: Ag31Event) => {
     if (event.type === "rowDataUpdated")
       overlays.dataUpdated(model.getRows().length);
@@ -435,6 +507,15 @@ export function createAg31ClientController<T>(
     }
     if (key === "context") {
       settings.set(key, value);
+      return;
+    }
+    if (key === "readOnlyEdit" || key === "enableGroupEdit") {
+      if (!options.editing)
+        throw new TypeError("This source owner has no editing contract");
+      if (value != null && typeof value !== "boolean")
+        throw new TypeError(`Source ${key} must be boolean`);
+      settings.set(key, value);
+      refreshCells();
       return;
     }
     if (key === "getRowStyle") {
@@ -864,6 +945,8 @@ export function createAg31ClientController<T>(
   function destroy() {
     if (destroyed) return;
     destroyed = true;
+    editing.destroy();
+    editingAttachment = null;
     viewServices.destroy();
     sizingServices.destroy();
     overlays.destroy();
@@ -878,6 +961,54 @@ export function createAg31ClientController<T>(
     viewListeners.clear();
   }
   const methods = {
+    startEditingCell(params: {
+      rowIndex: number;
+      colKey: unknown;
+      key?: string;
+      rowPinned?: null;
+    }) {
+      if (destroyed || !cellValues) return;
+      if (
+        !params ||
+        !Number.isSafeInteger(params.rowIndex) ||
+        params.rowIndex < 0 ||
+        (params.key !== undefined && typeof params.key !== "string") ||
+        params.rowPinned != null
+      )
+        throw new TypeError(
+          "Source editing requires a displayed body row and a live column",
+        );
+      const row = model.getRowModel()[params.rowIndex],
+        column = columns.getColumn(params.colKey);
+      if (row && column)
+        mountedEditingView()?.startEditingCell(
+          { rowId: row.id, columnId: column.colId },
+          { initialText: params.key },
+        );
+    },
+    stopEditing(cancel = false) {
+      if (typeof cancel !== "boolean")
+        throw new TypeError("Source editing cancellation must be boolean");
+      if (!destroyed) {
+        const view = mountedEditingView();
+        if (view) view.stopEditing({ cancel });
+        else editing.stop(cancel);
+      }
+    },
+    getEditingCells() {
+      if (destroyed) return [];
+      editing.reconcile();
+      const current = editing.getSnapshot();
+      return current
+        ? [
+            {
+              rowIndex: current.node.rowIndex,
+              rowPinned: null,
+              column: current.column,
+            },
+          ]
+        : [];
+    },
     sizeColumnsToFit: sizingServices.sizeColumnsToFit,
     autoSizeColumns: sizingServices.autoSizeColumns,
     autoSizeAllColumns: sizingServices.autoSizeAllColumns,
@@ -1012,6 +1143,18 @@ export function createAg31ClientController<T>(
     overlays,
     viewServices,
     sizingServices,
+    cellValues,
+    editing,
+    attachEditingView(read: () => DataGridViewController | null) {
+      const attachment = { read };
+      editingAttachment = attachment;
+      return () => {
+        if (editingAttachment === attachment) {
+          editingAttachment = null;
+          editing.stop(true);
+        }
+      };
+    },
     subscribeViewRefresh(listener: () => void) {
       viewListeners.add(listener);
       return () => {

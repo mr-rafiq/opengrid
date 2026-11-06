@@ -7,6 +7,17 @@ export interface GridViewFocusOptions {
 export interface GridViewEditOptions {
   initialText?: string;
 }
+/** An external owner may render its own editors while the grid owns geometry,
+ * focus and keyboard entry. Native owned-row writes remain isolated. */
+export interface GridCellEditingController {
+  isCellEditable(position: CellPosition): boolean;
+  getEditingCell(): Readonly<CellPosition> | null;
+  startEditingCell(
+    position: CellPosition,
+    options?: GridViewEditOptions,
+  ): boolean;
+  stopEditing(options?: { cancel?: boolean }): boolean;
+}
 export interface GridViewScrollPosition {
   readonly top: number;
   readonly left: number;

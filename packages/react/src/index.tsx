@@ -7,6 +7,7 @@ export type {
   Ag31ClientGridConfig,
   Ag31ClientGridHandle,
   Ag31ClientGridEvent,
+  Ag31ClientGridCellEvent,
 } from "./ag31-client-grid.js";
 export type {
   Ag31ColumnDefinition,
@@ -21,6 +22,7 @@ export type {
 } from "./ag31-presentation.js";
 export type {
   DataGridViewController,
+  GridCellEditingController,
   GridViewFocusOptions,
   GridViewEditOptions,
   GridViewScrollPosition,

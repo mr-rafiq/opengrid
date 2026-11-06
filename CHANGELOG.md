@@ -1,5 +1,15 @@
 # Release notes
 
+## 0.26.0 - 2026-11-06
+
+Resident source editing contracts. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Add an explicit inline reactive source-editor lifecycle, provided text/number editors, selectors/parameters, keyboard suppression, typed value staging and displayed-cell API entry/cancellation. Group editors require the declared group policy.
+- Borrow original class/nested objects for source setters and API cell writes. Preserve measured parser, setter return, read-only request and row/column/grid-event ordering semantics. Application-owned asynchronous setters remain responsible for persistence, errors, acknowledgement and undo.
+- Revoke stale editor callbacks after cancellation, source replacement and owner retirement while isolating native owned-row writes. Forward editing policies without resetting imperative changes during unrelated prop updates.
+- Add a responsive original source-editing example and focused unit/browser regressions. Private comparisons exercise an unchanged consumer description editor against installed AG Grid 31.3.4 with its source keyboard policy; they do not certify the complete application.
+- Custom-filter hooks, complete saved state/focus, popup/formula-editor integration, source clipboard/business undo and authenticated calculation-page acceptance remain open. Retain the known Order-header width discrepancy and moving-release/physical-touch qualifications.
+
 ## 0.25.1 - 2026-11-05
 
 Touch input timing correction. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.

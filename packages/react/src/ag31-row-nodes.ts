@@ -41,6 +41,7 @@ export interface Ag31RowNode<T> {
 export interface Ag31RowNodeEvent<T> {
   readonly type: string;
   readonly node: Ag31RowNode<T>;
+  [key: string]: unknown;
 }
 export type Ag31RowNodeListener<T> = (event: Ag31RowNodeEvent<T>) => void;
 export interface Ag31RowNodeOptions<T> {
@@ -62,18 +63,21 @@ export interface Ag31RowNodeOptions<T> {
     node: Ag31RowNode<T>,
     column: unknown,
     value: unknown,
-    source: string,
+    source: string | undefined,
   ): boolean;
   selectionChanged?(source: string): void;
   setSelection?(ids: string[], source: string): void;
   /** Group actions use filtered descendants; displayed mixed state still uses all descendants. */
   groupSelectsFiltered?: boolean;
+  /** Explicit source write ownership can coexist with a read-only native model. */
+  writeAllowed?(): boolean;
 }
 type Entry<T> = {
   node: Ag31RowNode<T>;
   nativeId: string;
   live: boolean;
   data?: T;
+  generatedWriteData?: T;
   group: boolean;
   level: number;
   key: string | null;
@@ -278,9 +282,14 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           return;
         model.toggleExpanded(entry.nativeId);
       },
-      setDataValue(column, value, source = "edit") {
+      setDataValue(column, value, source) {
         sync();
-        if (destroyed || !entry.live || syncing || model.isReadOnly())
+        if (
+          destroyed ||
+          !entry.live ||
+          syncing ||
+          (model.isReadOnly() && !options.writeAllowed?.())
+        )
           return false;
         return options.writeCell(node, column, value, source);
       },
@@ -437,7 +446,7 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           const assignment: Partial<Entry<T>> = {
             ...assignments.get(entry),
             live: true,
-            data: node.data,
+            data: node.data ?? (group ? entry.generatedWriteData : undefined),
             group,
             level: node.depth,
             key: identity.key,
@@ -638,6 +647,18 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
     flatten(current(root)[children] ?? [], children).forEach(callback);
   }
   return Object.freeze({
+    prepareWriteData(node: Ag31RowNode<T>) {
+      sync();
+      const entry = entries.get(node);
+      if (destroyed || syncing || !entry?.live) return false;
+      if (entry.group && entry.data === undefined) {
+        // A generated group has no application record. The measured reference
+        // allocates its own plain data record on the first non-read-only write.
+        entry.generatedWriteData ??= {} as T;
+        entry.data = entry.generatedWriteData;
+      }
+      return entry.data !== undefined;
+    },
     getRowNode(id: string) {
       sync();
       if (destroyed) return undefined;
@@ -647,6 +668,19 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
           (byId.get(id)?.group ? byId.get(id)?.node : undefined)
         );
       return byId.get(id)?.node;
+    },
+    dispatchCellChanged(
+      node: Ag31RowNode<T>,
+      column: unknown,
+      oldValue: unknown,
+      newValue: unknown,
+    ) {
+      sync();
+      const entry = entries.get(node);
+      if (destroyed || !entry?.live) return;
+      const event = { type: "cellChanged", node, column, oldValue, newValue };
+      for (const listener of [...(entry.listeners.get("cellChanged") ?? [])])
+        listener(event);
     },
     /** Internal bridge lookup; the public AG API uses compatibility IDs. */
     getRowNodeByNativeId(id: string) {
