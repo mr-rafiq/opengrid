@@ -682,6 +682,14 @@ export function createAg31RowNodes<T>(options: Ag31RowNodeOptions<T>) {
       for (const listener of [...(entry.listeners.get("cellChanged") ?? [])])
         listener(event);
     },
+    /** Reject retired, foreign and virtual-root objects without scanning rows. */
+    getNativeId(node: Ag31RowNode<T>) {
+      sync();
+      const entry = entries.get(node);
+      return !destroyed && entry?.live && entry !== root
+        ? current(entry).nativeId
+        : undefined;
+    },
     /** Internal bridge lookup; the public AG API uses compatibility IDs. */
     getRowNodeByNativeId(id: string) {
       sync();

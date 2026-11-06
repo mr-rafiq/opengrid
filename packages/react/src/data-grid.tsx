@@ -282,6 +282,8 @@ export interface DataGridProps<T> {
   /** Group/total content only. Expansion uses the native prefix unless renderTreePrefix replaces it; selection remains native. */
   renderGroupCell?: (context: GridNodeCellContext<T>) => ReactNode;
   getRowClassName?: (node: RowNode<T>) => string;
+  /** Changing a row's render key remounts its presentation without changing model identity. */
+  getRowRenderKey?: (node: RowNode<T>) => string | number;
   getRowStyle?: (node: RowNode<T>) => CSSProperties | undefined;
   getCellClassName?: (context: GridNodeCellContext<T>) => string;
   getCellStyle?: (context: GridNodeCellContext<T>) => CSSProperties | undefined;
@@ -474,6 +476,7 @@ export function DataGrid<T>({
   renderTreePrefix,
   renderGroupCell,
   getRowClassName,
+  getRowRenderKey,
   getRowStyle,
   getCellClassName,
   getCellStyle,
@@ -3297,7 +3300,7 @@ export function DataGrid<T>({
           ? (subtreeSelection?.checked ?? false)
           : selected.has(node.id);
       return (
-        <Fragment key={node.id}>
+        <Fragment key={getRowRenderKey?.(node) ?? node.id}>
           <div
             role="row"
             key={node.id}

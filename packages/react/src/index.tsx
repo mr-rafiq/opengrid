@@ -18,6 +18,7 @@ export type { Ag31ColumnFilterInstance } from "./ag31-client-controller.js";
 export { useGridFilter } from "./ag31-filter-hook.js";
 export type { Ag31RowRevealPosition } from "./ag31-row-reveal.js";
 export type { Ag31FocusedCell } from "./ag31-cell-focus.js";
+export type { Ag31RedrawRowsParams } from "./ag31-row-rendering.js";
 export type { GridCellFocusController } from "./grid-cell-focus.js";
 export type { Ag31CustomFilterPassParams } from "./ag31-custom-filters.js";
 export type { Ag31ReactiveFilterCallbacks } from "./ag31-reactive-filter.js";

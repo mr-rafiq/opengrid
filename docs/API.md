@@ -5,6 +5,8 @@ For selected source-style resident React/ref/API contracts, see the separate [ex
 See [client view commands](GRID_VIEW.md) for the lifecycle-safe `viewRef` controller:
 focus/reveal/scroll, cell editing, validation, cancellation and current-view limits.
 
+`DataGrid.getRowRenderKey(node)` optionally supplies a React presentation key for each rendered row. Changing it remounts that row and its renderers without changing the model record, query, selection or scroll. Keys must be unique among rows and stable until an intentional redraw. The source bridge uses this hook for its bounded `api.redrawRows` contract; ordinary native grids keep row IDs as keys.
+
 See [host-owned edit requests](EXTERNAL_EDITS.md) for `GridOptions.onEditRequest`, `GridEditRequest`, optional `GridModel.getWriteMode()` and the row-session `requested` status. They preserve application-owned data and asynchronous business persistence outside the local write/history pipeline.
 
 This is OpenGrid's API, not an AG Grid compatibility layer. The source of truth for complete types is [`packages/core/src/types.ts`](../packages/core/src/types.ts) and the exported client React props in [`data-grid.tsx`](../packages/react/src/data-grid.tsx), with public exports in [`index.tsx`](../packages/react/src/index.tsx). See the [parity ledger](FEATURE_PARITY.md) for supported subsets and missing systems.

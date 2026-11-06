@@ -1,6 +1,7 @@
 import { createAg31ViewServices } from "./ag31-view-services.js";
 import { createAg31RowReveal } from "./ag31-row-reveal.js";
 import { createAg31CellFocus } from "./ag31-cell-focus.js";
+import { createAg31RowRendering } from "./ag31-row-rendering.js";
 import { createAg31CellValueServices } from "./ag31-cell-values.js";
 import { createAg31EditingServices } from "./ag31-editing.js";
 import type { DataGridViewController } from "./grid-view.js";
@@ -428,6 +429,14 @@ export function createAg31ClientController<T>(
   });
   let editingAttachment: { read(): DataGridViewController | null } | null =
     null;
+  let pendingEditing: {
+    attachment: { read(): DataGridViewController | null };
+    rowId: string;
+    node: Ag31RowNode<T>;
+    data: T | undefined;
+    column: NonNullable<ReturnType<typeof columns.getColumn>>;
+    key?: string;
+  } | null = null;
   const cellFocus = createAg31CellFocus<T>({
     column: columns.getColumn,
     position(index, column) {
@@ -446,10 +455,41 @@ export function createAg31ClientController<T>(
     subscribe: model.subscribe,
     emit: (event) => events.dispatchEvent(event),
   });
+  const rowRendering = createAg31RowRendering<T>({
+    alive: () => !destroyed,
+    nativeId: nodes.getNativeId,
+    node: nodes.getRowNodeByNativeId,
+    editingNode: () => editing.getSnapshot()?.node ?? pendingEditing?.node,
+    stopEditing: () => {
+      pendingEditing = null;
+      editing.stop(false);
+    },
+    captureFocus: cellFocus.captureRedrawFocus,
+    refresh: refreshCells,
+  });
   function mountedEditingView() {
     if (destroyed) return null;
     const view = editingAttachment?.read();
     return view?.isActive() ? view : null;
+  }
+  function flushEditing() {
+    const pending = pendingEditing;
+    if (!pending || destroyed) return;
+    const view = mountedEditingView();
+    if (!view) return;
+    pendingEditing = null;
+    if (
+      editingAttachment !== pending.attachment ||
+      nodes.getRowNodeByNativeId(pending.rowId) !== pending.node ||
+      pending.node.data !== pending.data ||
+      columns.getColumn(pending.column) !== pending.column ||
+      pending.node.rowIndex === null
+    )
+      return;
+    view.startEditingCell(
+      { rowId: pending.rowId, columnId: pending.column.colId },
+      { initialText: pending.key },
+    );
   }
   const emit = (event: Ag31Event) => {
     if (event.type === "rowDataUpdated")
@@ -1216,10 +1256,12 @@ export function createAg31ClientController<T>(
     destroyed = true;
     filterRequest++;
     editing.destroy();
+    pendingEditing = null;
     editingAttachment = null;
     viewServices.destroy();
     rowReveal.destroy();
     cellFocus.destroy();
+    rowRendering.destroy();
     sizingServices.destroy();
     overlays.destroy();
     unsubscribe();
@@ -1265,16 +1307,35 @@ export function createAg31ClientController<T>(
         );
       const row = model.getRowModel()[params.rowIndex],
         column = columns.getColumn(params.colKey);
-      if (row && column)
-        mountedEditingView()?.startEditingCell(
-          { rowId: row.id, columnId: column.colId },
-          { initialText: params.key },
-        );
+      pendingEditing = null;
+      if (row && column) {
+        const view = mountedEditingView();
+        if (view)
+          view.startEditingCell(
+            { rowId: row.id, columnId: column.colId },
+            { initialText: params.key },
+          );
+        else if (editingAttachment) {
+          const node = nodes.getRowNodeByNativeId(row.id);
+          if (node) {
+            pendingEditing = {
+              attachment: editingAttachment,
+              rowId: row.id,
+              node,
+              data: node.data,
+              column,
+              key: params.key,
+            };
+            refreshCells();
+          }
+        }
+      }
     },
     stopEditing(cancel = false) {
       if (typeof cancel !== "boolean")
         throw new TypeError("Source editing cancellation must be boolean");
       if (!destroyed) {
+        pendingEditing = null;
         const view = mountedEditingView();
         if (view) view.stopEditing({ cancel });
         else editing.stop(cancel);
@@ -1391,6 +1452,7 @@ export function createAg31ClientController<T>(
     getCellValue: (params: Ag31GetCellValueParams<T>) =>
       active(() => schema.getCellValue(params)),
     refreshCells,
+    redrawRows: rowRendering.redrawRows,
     refreshClientSideRowModel,
     getColumnGroupState: () => active(() => groups.getColumnGroupState()),
     setColumnGroupState: (state: readonly Ag31ColumnGroupState[]) => {
@@ -1447,9 +1509,11 @@ export function createAg31ClientController<T>(
     viewServices,
     rowReveal,
     cellFocus,
+    rowRendering,
     sizingServices,
     cellValues,
     editing,
+    flushEditing,
     customFilters,
     attachEditingView(read: () => DataGridViewController | null) {
       const attachment = { read };
@@ -1457,6 +1521,7 @@ export function createAg31ClientController<T>(
       return () => {
         if (editingAttachment === attachment) {
           editingAttachment = null;
+          pendingEditing = null;
           editing.stop(true);
         }
       };

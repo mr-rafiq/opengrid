@@ -43,6 +43,16 @@ Supported configuration includes `getRowId`, `rowData`, `columnDefs`, `defaultCo
 
 Declared `rowGroup`, `rowGroupIndex`, `initialRowGroup` and `initialRowGroupIndex` take effect independently of `enableRowGroup`. Defined regular values override initial values; an explicit group index activates grouping. The phase example deliberately sets `enableRowGroup: false` while retaining its declared groups. This does not certify the complete source tool-panel permission model. Grouping an initially ungrouped field through source state still requires `enableRowGroup: true`; full programmatic/UI permission separation remains unfinished.
 
+## Resident row redraw
+
+`api.redrawRows({ rowNodes })` remounts the requested owned body rows and their React renderers without rebuilding source records, filters, grouping or sorting. A targeted group redraw remounts that group row, not its descendants. Duplicate nodes are processed once; an empty array does nothing. Foreign, retired and virtual-root nodes are ignored. Omitting `rowNodes`, or calling `redrawRows()` without parameters, remounts all current rows. Local renderer state resets on redraw; `refreshCells` retains it.
+
+An edited target commits through the existing source parser/setter/event path before remounting. An unrelated row redraw preserves the editor and its draft. Numeric source focus and selection remain unchanged. A full redraw restores a previously focused non-editor cell after DOM commit; targeted redraw and removal of an active editor leave browser focus outside the removed cell, matching the measured AG Grid 31 reference. Deferred restoration cannot take focus from an external control or a retired attachment.
+
+Starting an editor while a resident view update is committing waits for the next owned DOM commit. Only the latest request is retained, tied to its original record, row node, column and attachment. Cancellation, targeted redraw, record replacement or unmount revoke it. This mounted-view scheduling is asynchronous; it does not imply synchronous editing state before the view commits.
+
+The collapsed **Source row redraw example** in the bridge lab makes local renderer counters, targeted group/selected redraw, force refresh and inline number editing observable. Pinned source rows, full-row source editors, bulk source `setNodesSelected`, flash animation and the complete application transaction workflow remain separate unsupported contracts.
+
 ## Events and external filtering
 
 The supported event options are `onGridReady`, `onSortChanged`, `onFilterChanged`, `onSelectionChanged`, `onModelUpdated`, `onRowDataUpdated` and `onColumnRowGroupChanged`. API listeners run before the corresponding option callback. The option is resolved when the queued event is delivered, so replacement or clearing before delivery takes effect. Event records carry the owned API, column API and context. This does not establish complete payload parity for every AG Grid event.

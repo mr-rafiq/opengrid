@@ -10,6 +10,7 @@ export interface Ag31FocusedCell<T> {
 export interface Ag31CellFocusPort {
   focus(position: CellPosition, preventScroll: boolean): boolean;
   ownsBrowserFocus(): boolean;
+  canRestoreBrowserFocus?(): boolean;
 }
 interface CellFocusAttachment {
   read(): Ag31CellFocusPort | null;
@@ -118,6 +119,23 @@ export function createAg31CellFocus<T>(options: {
       setFocusedCell: setFromView,
     }),
     reconcile,
+    /** All-row redraw restores an owned non-editor cell once after DOM commit. */
+    captureRedrawFocus(): (() => void) | undefined {
+      const owner = attachment,
+        previous = logical;
+      const port = owner?.read();
+      if (!alive || !previous || !snapshot || !port?.ownsBrowserFocus())
+        return undefined;
+      let pending = true;
+      return () => {
+        if (!pending) return;
+        pending = false;
+        if (!alive || logical !== previous || attachment !== owner || !snapshot)
+          return;
+        const current = owner?.read();
+        if (current?.canRestoreBrowserFocus?.()) current.focus(snapshot, true);
+      };
+    },
     flush() {
       if (!alive || !snapshot) return;
       const port = attachment?.read();

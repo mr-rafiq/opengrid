@@ -2,6 +2,7 @@ import { LegacyScrollLab } from "./legacy-scroll-lab.js";
 import { LegacySizingLab } from "./legacy-sizing-lab.js";
 import { LegacyOverlayLab } from "./legacy-overlay-lab.js";
 import { LegacyHostLab } from "./legacy-host-lab.js";
+import { SourceRedrawLab } from "./source-redraw-lab.js";
 import { useMemo, useRef, useState } from "react";
 import { SourceEditingLab } from "./source-editing-lab";
 import { SourceCustomFilterLab } from "./source-custom-filter-lab.js";
@@ -122,6 +123,7 @@ export function LegacyBridgeLab() {
   const [scrollOpen, setScrollOpen] = useState(false);
   const [sizingOpen, setSizingOpen] = useState(false);
   const [editingOpen, setEditingOpen] = useState(false);
+  const [redrawOpen, setRedrawOpen] = useState(false);
   const [customFilterOpen, setCustomFilterOpen] = useState(false);
   const [filtered, setFiltered] = useState(false);
   const [highlight, setHighlight] = useState(false);
@@ -414,6 +416,10 @@ export function LegacyBridgeLab() {
       <details onToggle={(event) => setHostOpen(event.currentTarget.open)}>
         <summary>Source host layout example</summary>
         {hostOpen && <LegacyHostLab />}
+      </details>
+      <details onToggle={(event) => setRedrawOpen(event.currentTarget.open)}>
+        <summary>Source row redraw example</summary>
+        {redrawOpen && <SourceRedrawLab />}
       </details>
       <p>
         <a href="../docs/legacy-react-bridge/">

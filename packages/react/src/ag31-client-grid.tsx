@@ -415,6 +415,15 @@ function ResidentView<T>({
               active.closest(".og-viewport") === viewport
             );
           },
+          canRestoreBrowserFocus() {
+            const active = host.ownerDocument.activeElement;
+            return (
+              active === host.ownerDocument.body ||
+              (active instanceof HTMLElement &&
+                active.matches(".og-cell") &&
+                active.closest(".og-viewport") === viewport)
+            );
+          },
         };
       }),
     [owner],
@@ -719,6 +728,8 @@ function ResidentView<T>({
         viewRef={view}
         onViewCommit={() => {
           owner.rowReveal.flush();
+          owner.rowRendering.flush();
+          owner.flushEditing();
           owner.cellFocus.flush();
         }}
         sizingRef={sizing}
@@ -755,6 +766,7 @@ function ResidentView<T>({
         rowHeight={props.rowHeight ?? 42}
         ariaLabel={props.ariaLabel ?? "Source client grid"}
         getRowStyle={(node) => presentation.rowStyle(rowNode(node))}
+        getRowRenderKey={(node) => owner.rowRendering.key(node.id)}
         getCellStyle={({ node, column }) =>
           presentation.cellStyle(rowNode(node), column.id)
         }

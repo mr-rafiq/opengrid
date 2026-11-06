@@ -3,7 +3,8 @@
 ## Unreleased
 
 - Add a resident aggregate refresh stage with downstream sorting and retained filter/group membership. Keep source and filtered hierarchy preparation independent of display callbacks; preserve the previous projection on callback failure.
-- Expose the bounded source `refreshClientSideRowModel("aggregate")` path and a responsive retained-record demo. Full source aggregation configuration, row redraw/flash and business transaction acceptance remain unfinished.
+- Expose the bounded source `refreshClientSideRowModel("aggregate")` path and a responsive retained-record demo. Full source aggregation configuration and business transaction acceptance remain unfinished.
+- Add genuine source row redraw with targeted React remounts, preserved source/selection/query identity, edited-target commit and owned full-redraw focus restoration. Keep unrelated renderer state and drafts intact. Defer same-turn editor starts safely until their owned view commits. Flash, complete source state and authenticated business acceptance remain unfinished.
 
 ## 0.30.0 - 2026-11-06
 

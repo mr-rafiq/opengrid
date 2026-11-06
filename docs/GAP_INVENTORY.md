@@ -4,7 +4,9 @@ Initial audit baseline: `e3f5247fafc08e143562b6a0dacd4d397fe62641`, reviewed on 
 
 ## Completed bounded capabilities
 
-Resident source aggregate refresh now retains group/filter membership while updating aggregate values and downstream sorting, with original class records and owned row nodes preserved. The source aggregation registry, pivot/aggregate filtering, tree-path stage, row redraw/flash and complete business transaction integration remain unfinished. Native source/filtered hierarchy preparation stays independent of presentation callbacks.
+Resident source aggregate refresh now retains group/filter membership while updating aggregate values and downstream sorting, with original class records and owned row nodes preserved. The source aggregation registry, pivot/aggregate filtering, tree-path stage, flash and complete business transaction integration remain unfinished. Native source/filtered hierarchy preparation stays independent of presentation callbacks.
+
+Source body-row redraw remounts owned targeted rows and stateful React renderers without changing source/query/selection identity. Empty targets are inert; unrelated editors and renderer state survive; edited targets commit once. Full redraw restores an owned non-editor focus after commit. Pending editor requests are tied to original records and attachments. Pinned/full-row source editing, flash and authenticated whole-application acceptance remain open.
 
 Resident source numeric cell focus now has independent displayed-index ownership, original source column identity and get/set/clear APIs. It does not implicitly reveal absent virtual cells or steal focus later from an external control. Keyboard entry, mounted navigation, sorting, hiding and collapsed groups have bounded reference coverage. Pinned source focus, whole saved-state translation and authenticated application acceptance remain unfinished.
 
