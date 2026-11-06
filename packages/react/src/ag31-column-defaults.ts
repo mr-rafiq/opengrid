@@ -1,5 +1,19 @@
 import type { Column, GridState } from "@opengrid/core";
 import type { Ag31ColumnDefinition } from "./ag31-leaf-columns.js";
+/** Declared grouping is independent of the source tool-panel enable flag. */
+export function ag31DeclaresRowGroup<T>(
+  definition: Ag31ColumnDefinition<T>,
+): boolean {
+  const active =
+    definition.rowGroup === undefined
+      ? definition.initialRowGroup
+      : definition.rowGroup;
+  const index =
+    definition.rowGroupIndex === undefined
+      ? definition.initialRowGroupIndex
+      : definition.rowGroupIndex;
+  return active === true || index != null;
+}
 /** Compile original declared query defaults without changing source definitions or records. */
 export function ag31DeclaredQuery<T>(
   columns: readonly Column<T>[],

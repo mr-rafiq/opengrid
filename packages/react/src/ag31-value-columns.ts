@@ -1,4 +1,5 @@
 import type { Column, GridHierarchyNode, GridModel } from "@opengrid/core";
+import { ag31DeclaresRowGroup } from "./ag31-column-defaults.js";
 import {
   createAg31LeafColumns,
   type Ag31ColumnCellParams,
@@ -285,7 +286,9 @@ export function createAg31ValueColumns<T>(options: ValueColumnOptions<T>) {
           lockPinned: definition.lockPinned === true,
           movable: definition.suppressMovable !== true,
           columnsPanel: definition.suppressColumnsToolPanel !== true,
-          groupable: definition.enableRowGroup === true,
+          groupable:
+            definition.enableRowGroup === true ||
+            ag31DeclaresRowGroup(definition),
           groupBlanksLast: true,
           sortable: definition.sortable !== false,
           filterable: definition.filter != null && definition.filter !== false,
