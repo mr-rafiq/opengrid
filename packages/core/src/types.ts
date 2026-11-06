@@ -235,6 +235,8 @@ export interface GridModel<T> {
   /** Frozen configured widths, independent of restored/manual layout state. */
   getColumnWidthDefaults(): Readonly<Record<string, number>>;
   getValue(row: T, columnId: string): unknown;
+  /** Reaggregate resident column groups and downstream sort, retaining filter/group membership. */
+  refreshAggregates?(): void;
   expireValueCache(): void;
   getFilteredRows(): T[];
   /** Optional on older/custom models. Frozen forest, independent of expansion, pagination and totals. */

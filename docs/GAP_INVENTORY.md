@@ -4,6 +4,8 @@ Initial audit baseline: `e3f5247fafc08e143562b6a0dacd4d397fe62641`, reviewed on 
 
 ## Completed bounded capabilities
 
+Resident source aggregate refresh now retains group/filter membership while updating aggregate values and downstream sorting, with original class records and owned row nodes preserved. The source aggregation registry, pivot/aggregate filtering, tree-path stage, row redraw/flash and complete business transaction integration remain unfinished. Native source/filtered hierarchy preparation stays independent of presentation callbacks.
+
 Resident source numeric cell focus now has independent displayed-index ownership, original source column identity and get/set/clear APIs. It does not implicitly reveal absent virtual cells or steal focus later from an external control. Keyboard entry, mounted navigation, sorting, hiding and collapsed groups have bounded reference coverage. Pinned source focus, whole saved-state translation and authenticated application acceptance remain unfinished.
 
 Declared source grouping now survives an absent/false `enableRowGroup` UI flag, with regular/initial flag and index precedence preserved. Reference checks must require the actual group field/key/level before reveal geometry; root geometry alone is insufficient. This closes the initialization defect, not full source permission separation: grouping a previously ungrouped field through source state still requires UI opt-in. Full state, pinned source focus, business and authenticated acceptance remain unfinished.

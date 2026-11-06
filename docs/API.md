@@ -75,6 +75,8 @@ Column types are `text`, `number`, `boolean`, `date`, and `bigint`. Date compari
 
 Do not mutate rows or state returned by model readers. Use model operations so derived caches and subscribers remain correct. Nested row values are not a general deep-clone boundary.
 
+`createGrid` also provides `refreshAggregates()`, optional on older/custom model implementations. It recalculates configured aggregates and downstream sorting for a resident flat or column-grouped projection, retaining current filter eligibility and group membership. This is useful when a getter's external inputs change. A complete query refresh through `expireValueCache()` also reevaluates filters and grouping. Partial tree-path refresh is rejected. Aggregate callback failures preserve the prior published projection; reentrant model changes abort the prepared result.
+
 ## Sorting, filtering and selection
 
 ```ts

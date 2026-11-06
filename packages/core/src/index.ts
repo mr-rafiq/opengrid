@@ -51,11 +51,15 @@ export { matchesFilter } from "./filter-predicates.js";
 import {
   isFilterBlank as blank,
   filterText as text,
-  comparableFilterValue as comparable,
   compileFilterPredicate,
 } from "./filter-predicates.js";
 import type { FilterPredicate } from "./filter-predicates.js";
 import { aggregateValues } from "./analytics.js";
+import {
+  compareDataRows,
+  compareGroupRows,
+  refreshGroupedAggregates,
+} from "./row-processing.js";
 export { getBuiltinRowReorderReason } from "./row-reorder-status.js";
 import { createBuiltinRowReorderStatus } from "./row-reorder-status.js";
 import { planRowMove, replayRowMove } from "./row-order.js";
@@ -284,6 +288,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     redoStack.length = 0;
   }
   const objectKeys = new Map<unknown, number>();
+  const sourceGroupRanks = new WeakMap<RowNode<T>, number>();
   let rowIdCache: Set<string> | undefined;
   let filteredCache: T[] | undefined, modelCache: RowNode<T>[] | undefined;
   let groupedCache: RowNode<T>[] | undefined;
@@ -533,35 +538,16 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     });
     filteredCache = filtered
       .map((row, index) => ({ row, index }))
-      .sort((a, b) => {
-        for (const sort of state.sorting) {
-          const column = requireColumn(sort.columnId),
-            left = getValue(a.row, column.id),
-            right = getValue(b.row, column.id);
-          if (column.compare && column.compareBlankValues) {
-            const order = column.compare(left, right, {
-              rowA: a.row,
-              rowB: b.row,
-            });
-            if (order) return (sort.direction === "asc" ? 1 : -1) * order;
-            continue;
-          }
-          if (blank(left) || blank(right)) {
-            if (blank(left) && blank(right)) continue;
-            return blank(left) ? 1 : -1;
-          }
-          let order: number;
-          if (column.compare)
-            order = column.compare(left, right, { rowA: a.row, rowB: b.row });
-          else {
-            const x = comparable(left, column.type) as string | number | bigint,
-              y = comparable(right, column.type) as string | number | bigint;
-            order = x === y ? 0 : x < y ? -1 : 1;
-          }
-          if (order) return (sort.direction === "asc" ? 1 : -1) * order;
-        }
-        return a.index - b.index;
-      })
+      .sort(
+        (a, b) =>
+          compareDataRows(
+            a.row,
+            b.row,
+            state.sorting,
+            requireColumn,
+            getValue,
+          ) || a.index - b.index,
+      )
       .map((item) => item.row);
     return filteredCache;
   }
@@ -729,6 +715,7 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
         leafCount: children.length,
         aggregates: presentation ? aggregates(children) : undefined,
       };
+      sourceGroupRanks.set(node, structuralGroup?.first ?? ordinal);
       return {
         node,
         value,
@@ -736,58 +723,17 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
       };
     });
     // Source structure is stable; leaf sorting alone must not reorder groups.
-    projected.sort((a, b) => {
-      if (presentation)
-        for (const sort of state.sorting) {
-          const column = requireColumn(sort.columnId);
-          if (
-            column.id !== state.groupBy[depth] &&
-            !column.aggregate &&
-            !column.groupValueGetter
-          )
-            continue;
-          const left = column.groupValueGetter
-            ? column.groupValueGetter(a.node)
-            : column.id === state.groupBy[depth]
-              ? a.value
-              : a.node.aggregates?.[column.id];
-          const right = column.groupValueGetter
-            ? column.groupValueGetter(b.node)
-            : column.id === state.groupBy[depth]
-              ? b.value
-              : b.node.aggregates?.[column.id];
-          if (column.compare && column.compareBlankValues) {
-            const order = column.compare(left, right, {
-              nodeA: a.node,
-              nodeB: b.node,
-            });
-            if (order) return (sort.direction === "asc" ? 1 : -1) * order;
-            continue;
-          }
-          if (blank(left) || blank(right)) {
-            if (blank(left) && blank(right)) continue;
-            return blank(left) ? 1 : -1;
-          }
-          let order: number;
-          if (column.compare)
-            order = column.compare(left, right, {
-              nodeA: a.node,
-              nodeB: b.node,
-            });
-          else {
-            const x = comparable(left, column.type) as string | number | bigint,
-              y = comparable(right, column.type) as string | number | bigint;
-            order = x === y ? 0 : x < y ? -1 : 1;
-          }
-          if (order) return (sort.direction === "asc" ? 1 : -1) * order;
-        }
-      if (
-        groupedColumn.groupBlanksLast &&
-        blank(a.node.groupKey) !== blank(b.node.groupKey)
-      )
-        return blank(a.node.groupKey) ? 1 : -1;
-      return a.order - b.order;
-    });
+    projected.sort(
+      (a, b) =>
+        compareGroupRows(
+          a.node,
+          b.node,
+          groupedColumn,
+          state.sorting,
+          requireColumn,
+          presentation,
+        ) || a.order - b.order,
+    );
     return projected.map((item) => item.node);
   }
   function tree(
@@ -1382,6 +1328,64 @@ export function createGrid<T>(options: GridOptions<T>): GridModel<T> {
     },
     getColumnWidthDefaults: () => columnWidthDefaults,
     getValue,
+    refreshAggregates() {
+      if (options.getTreePath)
+        throw new TypeError(
+          "Partial aggregate refresh for tree paths is not supported",
+        );
+      rowModel();
+      const beforeState = state,
+        beforeRows = rows,
+        beforeRevision = columnRevision;
+      const beforeValues = new Map(cachedValues),
+        beforeCachedRows = cachedRows;
+      clearValueCache();
+      let next: ReturnType<typeof refreshGroupedAggregates<T>>;
+      let nextGrand: Record<string, unknown> | undefined;
+      try {
+        next = refreshGroupedAggregates({
+          roots: groupedCache!,
+          eligibleRows: filteredCache!,
+          sourceRows: rows,
+          sorting: state.sorting,
+          column: requireColumn,
+          value: getValue,
+          id: idOf,
+          aggregate: aggregates,
+          rank: (node) => sourceGroupRanks.get(node),
+        });
+        nextGrand =
+          grandAggregateCache !== undefined ? aggregates(next.rows) : undefined;
+        if (
+          state !== beforeState ||
+          rows !== beforeRows ||
+          columnRevision !== beforeRevision
+        )
+          throw new Error("Grid changed while preparing aggregate refresh");
+      } catch (error) {
+        if (
+          state === beforeState &&
+          rows === beforeRows &&
+          columnRevision === beforeRevision
+        ) {
+          cachedValues.clear();
+          for (const [key, value] of beforeValues) cachedValues.set(key, value);
+          cachedRows = beforeCachedRows;
+          cacheGeneration++;
+        }
+        throw error;
+      }
+      filteredCache = next.rows;
+      groupedCache = next.roots;
+      modelCache = undefined;
+      grandAggregateCache = nextGrand;
+      if (hierarchyCache.has("sorted")) {
+        hierarchyCache = new Map(hierarchyCache);
+        hierarchyCache.set("sorted", next.roots);
+      }
+      for (const [node, rank] of next.ranks) sourceGroupRanks.set(node, rank);
+      emit(true);
+    },
     expireValueCache() {
       clearValueCache();
       emit();

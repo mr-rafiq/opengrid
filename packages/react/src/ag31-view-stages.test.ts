@@ -67,7 +67,7 @@ it("full refresh reprocesses class records without changing their identity", () 
 });
 it("rejects unsupported partial refresh stages instead of doing a different query", () => {
   const c = setup();
-  expect(() => c.api.refreshClientSideRowModel("aggregate" as never)).toThrow(
+  expect(() => c.api.refreshClientSideRowModel("filter" as never)).toThrow(
     /Partial source processing/,
   );
   expect(c.order()).toEqual(["a", "b", "c"]);

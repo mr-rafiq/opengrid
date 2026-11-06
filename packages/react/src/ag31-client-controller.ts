@@ -1173,9 +1173,16 @@ export function createAg31ClientController<T>(
     });
   }
   function refreshClientSideRowModel(
-    stage: "everything" | "group" = "everything",
+    stage: "everything" | "group" | "aggregate" = "everything",
   ) {
     if (destroyed) return;
+    if (stage === "aggregate") {
+      if (!model.refreshAggregates)
+        throw new Error("Resident aggregate refresh is unavailable");
+      model.refreshAggregates();
+      modelUpdated();
+      return;
+    }
     if (stage !== "everything" && stage !== "group")
       throw new TypeError(
         "Partial source processing stages require their own staged query contract",

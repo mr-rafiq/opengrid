@@ -316,8 +316,10 @@ export function LegacyBridgeLab() {
         <summary>Retained-record refresh example</summary>
         <p>
           Local synthetic records only. Set Line A to EUR 300, then select Line
-          B. Selection keeps the existing order; refresh the model to move Line
-          A.
+          B. Selection keeps the existing order. Aggregate refresh re-sorts the
+          retained rows; a full model refresh also reruns filters and grouping.
+          With the EUR 100 filter active, Line A stays excluded until the full
+          refresh.
         </p>
         <div className="grouping-lab-controls">
           <button
@@ -338,6 +340,15 @@ export function LegacyBridgeLab() {
             }}
           >
             Set sample A to EUR 300
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() =>
+              grid.current?.api.refreshClientSideRowModel("aggregate")
+            }
+          >
+            Refresh aggregates and sort
           </button>
           <button
             type="button"
