@@ -16,6 +16,7 @@ export type {
 export type { Ag31RowNode } from "./ag31-row-nodes.js";
 export type { Ag31ColumnFilterInstance } from "./ag31-client-controller.js";
 export { useGridFilter } from "./ag31-filter-hook.js";
+export type { Ag31RowRevealPosition } from "./ag31-row-reveal.js";
 export type { Ag31CustomFilterPassParams } from "./ag31-custom-filters.js";
 export type { Ag31ReactiveFilterCallbacks } from "./ag31-reactive-filter.js";
 export type {

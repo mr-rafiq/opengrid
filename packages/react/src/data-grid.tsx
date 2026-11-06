@@ -181,6 +181,8 @@ export interface DataGridProps<T> {
   /** Explicit commands measure only currently rendered default text cells and leaf headers. */
   sizingRef?: Ref<DataGridSizingController>;
   viewRef?: Ref<DataGridViewController>;
+  /** Called after the mounted view's current geometry and command port commit. */
+  onViewCommit?: (view: DataGridViewController) => void;
   rowHeightRef?: Ref<DataGridRowHeightController>;
   autoRowHeight?: AutoRowHeightOptions;
   /** Latest applied filter for guarded popups; rendered state remains model-owned. */
@@ -402,6 +404,7 @@ export function DataGrid<T>({
   model,
   sizingRef,
   viewRef,
+  onViewCommit,
   rowHeightRef,
   autoRowHeight: autoRowHeightOptions,
   getColumnFilter,
@@ -4141,6 +4144,9 @@ export function DataGrid<T>({
     [viewOwner],
   );
   useImperativeHandle(viewRef, () => viewController, [viewController]);
+  useLayoutEffect(() => {
+    if (viewController.isActive()) onViewCommit?.(viewController);
+  });
 
   const content = (
     <section

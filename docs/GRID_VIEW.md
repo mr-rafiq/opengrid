@@ -18,6 +18,8 @@ Commands use row and column IDs in the current committed projection. They can re
 
 `isActive()` means the current model snapshot has a committed mounted view. During a pending model/schema update, commands return `false` until the new view commits. Retry from the host's React layout/effect lifecycle when synchronizing data and issuing view commands together. Do not equate this readiness signal with application/model destruction.
 
+The optional `onViewCommit(view)` callback runs in a layout effect after the current view handle is installed. It is a readiness notification for queued integrations, not a promise that every model update produces a distinct callback. Check `view.isActive()` and keep callbacks idempotent; do not create an unconditional update loop.
+
 ## Focus and scrolling
 
 - `getFocusedCell()` returns a frozen `{ rowId, columnId }` or `null`. This is logical grid focus, which may remain on a scrolled-out cell.

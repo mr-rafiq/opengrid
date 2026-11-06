@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.29.0 - 2026-11-06
+
+Resident source row reveal. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Add displayed-index, owned-node, original-record and predicate reveal commands with top/middle/bottom/minimum alignment. Preserve horizontal scroll, focus, selection and source identities.
+- Queue the latest valid reveal through the committed view after sorting or group expansion; revoke removed rows and retired attachments. Measure the current body viewport after host resizing.
+- Add responsive light/dark controls, unit/browser regressions and paired installed-reference comparisons. Remote loading, automatic expansion, numeric source focus, complete saved state and authenticated application acceptance remain unfinished. Existing header-width and physical-touch qualifications remain open.
+
 ## 0.28.1 - 2026-11-06
 
 Keep the resident demo usable before advanced examples. Created by Mohamed Rafiq.

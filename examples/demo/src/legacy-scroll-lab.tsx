@@ -3,6 +3,7 @@ import {
   Ag31ClientGrid,
   type Ag31ClientGridHandle,
   type Ag31ColumnDefinition,
+  type Ag31RowRevealPosition,
 } from "@opengrid/react";
 type Line = { id: string; item: string; amount: number; note: string };
 const columns: Ag31ColumnDefinition<Line>[] = [
@@ -24,6 +25,7 @@ export function LegacyScrollLab() {
     timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [ready, setReady] = useState(false),
     [compact, setCompact] = useState(false),
+    [alignment, setAlignment] = useState<Ag31RowRevealPosition>("middle"),
     [position, setPosition] = useState({ top: 0, left: 0 });
   const rows = useMemo(
     () =>
@@ -113,6 +115,60 @@ export function LegacyScrollLab() {
           Compact scroll host
         </button>
       </div>
+      <fieldset>
+        <legend>Reveal a resident row</legend>
+        <p>
+          Reveal commands preserve horizontal scroll, selection and keyboard
+          focus.
+        </p>
+        <div className="grouping-lab-controls">
+          <label>
+            Reveal alignment
+            <select
+              value={alignment ?? "auto"}
+              onChange={(event) =>
+                setAlignment(
+                  event.target.value === "auto"
+                    ? null
+                    : (event.target.value as Ag31RowRevealPosition),
+                )
+              }
+            >
+              <option value="auto">Minimum scroll</option>
+              <option value="top">Top</option>
+              <option value="middle">Middle</option>
+              <option value="bottom">Bottom</option>
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => ref.current?.api.ensureIndexVisible(250, alignment)}
+          >
+            Reveal displayed row 250
+          </button>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => {
+              const api = ref.current?.api,
+                node = api?.getRowNode("251");
+              if (node) api!.ensureNodeVisible(node, alignment);
+            }}
+          >
+            Reveal source node 251
+          </button>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() =>
+              ref.current?.api.ensureNodeVisible(rows[250], alignment)
+            }
+          >
+            Reveal original record 251
+          </button>
+        </div>
+      </fieldset>
       <p>
         <output aria-label="Source viewport position" aria-live="off">
           Top {Math.round(position.top * 100) / 100}px; left{" "}

@@ -142,6 +142,21 @@ Both offsets must be finite nonnegative pixel values. Fractions are preserved un
 
 This does not implement source `getState` / `initialState`, source logical-focus APIs or every viewport service method. Native row-ID focus/reveal semantics are different from the measured source numeric focus contract; do not substitute one for the other. Complete saved-view compatibility remains unfinished.
 
+## Resident row reveal
+
+`api.ensureIndexVisible(displayedIndex, position?)` scrolls to a resident displayed row. `api.ensureNodeVisible(nodeOrOriginalDataOrPredicate, position?)` finds an owned node, its original data object or the first matching displayed node. Positions are `"top"`, `"middle"`, `"bottom"` or omitted/null for minimum necessary scrolling.
+
+```tsx
+const api = grid.current?.api;
+const node = api?.getRowNode("line-250");
+if (node) api?.ensureNodeVisible(node, "middle");
+api?.ensureIndexVisible(100, "top");
+```
+
+Commands preserve horizontal scroll, row selection and keyboard focus. They use current sorted/filtered indices and actual mounted body height, including after host resizing. A request made immediately after a query or group-expansion change waits for that view's layout commit; the latest valid request wins. Removed rows and retired attachments cancel pending work. Invalid indices, lookalike objects and absent/collapsed/filtered rows do nothing. The command does not expand a group, load remote rows or focus a cell. Numeric source focus and complete saved-state APIs remain separate unfinished contracts.
+
+The scroll example includes node, original-record and displayed-index controls in both themes. Private reference comparisons cover constrained flex hosts, sorting, same-stack expansion and resizing; they do not establish equal absolute viewport heights or physical-device acceptance.
+
 ## Explicit viewport fit
 
 `api.sizeColumnsToFit(width?)` fits displayed columns using declared width ratios and the mounted viewport's usable width. A numeric argument supplies an explicit nonnegative width. `suppressSizeToFit: true` preserves a column's current width and existing flex ownership. If all displayed widths already fill the viewport, fitting is a no-op and retains flex. Otherwise fitted columns take manual width ownership; `getColumnState()` reports their resolved width and null flex. Hidden columns are excluded. The source bridge uses integer CSS pixel allocation, respecting minimum/maximum bounds; fractional constraints can retain fractional widths. Minimum-width overflow remains intentionally scrollable.
@@ -219,6 +234,6 @@ Selection, column width/order/visibility/pinning, pagination and group expansion
 
 `api.refreshClientSideRowModel()` (or `"everything"` / `"group"`) explicitly refreshes the complete resident source query and publishes the model update. It preserves original record and row-node identities. Independent partial stages such as `"aggregate"`, `"filter"` and `"sort"` are unfinished and explicitly rejected; the full-refresh API must not be substituted for a required partial-stage contract. The demo uses full refresh after mutating a local synthetic class instance.
 
-AG Grid `initialState`/`getState` translation, complete filter models and custom-filter hooks, full business-editor integration, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. Inline source editing can invoke an application's setter; the application owns any persistence it performs. The demonstration makes no backend request. A source callback retained in metadata is not proof that its feature is implemented.
+AG Grid `initialState`/`getState` translation, numeric focus, complete provided-filter GUI/value services and additional custom-filter lifecycle hooks, full business-editor integration, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. Inline source editing can invoke an application's setter; the application owns any persistence it performs. The demonstration makes no backend request. A source callback retained in metadata is not proof that its feature is implemented.
 
 Original regression fixtures cover public imports/ref lifecycle, nullable options, event ordering and filtering. Private read-only source fixtures additionally compare unchanged consumer components and the installed reference implementation; those source files and application data are not published. The unchanged complete application is **not supported yet**: the explicit gaps above prevent a complete replacement, independently of the pending authenticated acceptance.

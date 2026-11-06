@@ -354,6 +354,22 @@ function ResidentView<T>({
   const [automaticHeight, setAutomaticHeight] = useState(480);
   const [hostHeaderHeight, setHostHeaderHeight] = useState(38);
   useLayoutEffect(() => owner.viewServices.attach(() => view.current), [owner]);
+  useLayoutEffect(
+    () =>
+      owner.rowReveal.attach(() => {
+        const mounted = view.current,
+          viewport =
+            container.current?.querySelector<HTMLElement>(".og-viewport"),
+          header = container.current?.querySelector<HTMLElement>(".og-header");
+        return mounted && viewport && header
+          ? {
+              view: mounted,
+              bodyHeight: viewport.clientHeight - header.offsetHeight,
+            }
+          : null;
+      }),
+    [owner],
+  );
   useLayoutEffect(() => owner.attachEditingView(() => view.current), [owner]);
   useLayoutEffect(() => {
     owner.editing.reconcile();
@@ -636,6 +652,7 @@ function ResidentView<T>({
           toggle: owner.groups.toggle,
         }}
         viewRef={view}
+        onViewCommit={owner.rowReveal.flush}
         sizingRef={sizing}
         toolbar={false}
         onColumnFilterRequest={({ column, anchor }) => {

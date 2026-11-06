@@ -1,4 +1,5 @@
 import { createAg31ViewServices } from "./ag31-view-services.js";
+import { createAg31RowReveal } from "./ag31-row-reveal.js";
 import { createAg31CellValueServices } from "./ag31-cell-values.js";
 import { createAg31EditingServices } from "./ag31-editing.js";
 import type { DataGridViewController } from "./grid-view.js";
@@ -261,6 +262,14 @@ export function createAg31ClientController<T>(
     for (const listener of [...viewListeners]) listener();
   }
   const viewServices = createAg31ViewServices();
+  const rowReveal: ReturnType<typeof createAg31RowReveal<T>> =
+    createAg31RowReveal<T>({
+      count: () => model.getRowModel().length,
+      row: (index) => {
+        const row = model.getRowModel()[index];
+        return row ? nodes.getRowNodeByNativeId(row.id) : undefined;
+      },
+    });
   const sizingServices = createAg31SizingServices(
     (key) => columns.getColumn(key),
     () => columns.getAllDisplayedColumns(),
@@ -1182,6 +1191,7 @@ export function createAg31ClientController<T>(
     editing.destroy();
     editingAttachment = null;
     viewServices.destroy();
+    rowReveal.destroy();
     sizingServices.destroy();
     overlays.destroy();
     unsubscribe();
@@ -1260,6 +1270,8 @@ export function createAg31ClientController<T>(
     autoSizeColumns: sizingServices.autoSizeColumns,
     autoSizeAllColumns: sizingServices.autoSizeAllColumns,
     ctrlsService: viewServices.ctrlsService,
+    ensureIndexVisible: rowReveal.ensureIndexVisible,
+    ensureNodeVisible: rowReveal.ensureNodeVisible,
     overlayService: overlays.service,
     showLoadingOverlay() {
       if (!destroyed) overlays.showLoading();
@@ -1402,6 +1414,7 @@ export function createAg31ClientController<T>(
     getLifecycleSnapshot: () => destroyed,
     overlays,
     viewServices,
+    rowReveal,
     sizingServices,
     cellValues,
     editing,
