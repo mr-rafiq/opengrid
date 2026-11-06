@@ -63,6 +63,15 @@ grid.current?.api.setFilterModel({
 const savedFilters = grid.current?.api.getFilterModel();
 ```
 
+`await api.setColumnFilterModel(key, modelOrNull)` stages one declared provided Set/text/number filter without immediately applying its query or emitting filter/model events. The provided filter supplies the model type: a Set model can contain only `values`; scalar metadata such as the phase action's `type: "startsWith"` is ignored. Call `api.onFilterChanged()` after the promise resolves to apply the staged filters together. Staging is not a durable transaction: a row transaction or changed external-filter callback can trigger refiltering and activate the pending model, as in the measured reference. Whole-model `setFilterModel` applies immediately, including a model that was already staged.
+
+```tsx
+await grid.current?.api.setColumnFilterModel("phase", { values: ["Planning"] });
+grid.current?.api.onFilterChanged();
+```
+
+`await api.getColumnFilterInstance(key)` returns an owned model facade for these provided filters, with `getModel`, `setModel`, `isFilterActive` and `doesFilterPass({ node, data })`. Its `setModel` also stages until explicit refresh. This is a bounded model interface, not the complete provided-filter GUI/value-service object. Unknown or retired columns return no instance; captured facades become inert after destruction. Models remain detached snapshots. Custom filter hooks, source popup/sidebar UI and date/multi-filter component instances are still unsupported.
+
 Source filter getters and set key creators receive original owned records/columns and current context. Set models use canonical resident keys, discard absent keys, preserve requested key order and clear when every available key is selected. Row replacement/transactions reconcile existing selections; keys removed from an active model do not return merely because the data later reappears. An empty-data set request clears. Set processing is bounded to 100,000 source rows, 500,000 key evaluations and four million key-text characters per column; keys are at most 4,096 characters, and requests total at most 50,000 selected keys. Supplied/remote/tree value services and their refresh variants are separate unfinished contracts.
 
 Models intersect with the external Smart Search predicate. Whole-model application atomically replaces native column conditions and the combined external predicate; failed preparation retains the prior query/model. Direct native condition dialogs are not the source filter UI: `getFilterModel` explicitly rejects their unsupported serialization. Applying a native condition supersedes an existing source filter for the same column. Custom `useGridFilter` components, matching source popup/sidebar UI and complete saved-state translation remain open. The original collapsed demo example exercises only the documented ref APIs.

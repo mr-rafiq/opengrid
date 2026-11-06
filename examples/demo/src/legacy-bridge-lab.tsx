@@ -125,6 +125,19 @@ export function LegacyBridgeLab() {
   const [highlight, setHighlight] = useState(false);
   const context = useMemo(() => ({ highlight }), [highlight]);
   const [summary, setSummary] = useState("Waiting for rows");
+  const [filterDraft, setFilterDraft] = useState("No staged filter");
+  const stagePhase = async (values: string[] | null) => {
+    const api = grid.current?.api;
+    if (!api || api.isDestroyed()) return;
+    try {
+      await api.setColumnFilterModel("phase", values ? { values } : null);
+      setFilterDraft(`Staged: ${JSON.stringify(api.getFilterModel())}`);
+    } catch (error) {
+      setFilterDraft(
+        error instanceof Error ? error.message : "Unable to stage filter",
+      );
+    }
+  };
   const update = () => {
     const api = grid.current?.api;
     if (api && !api.isDestroyed())
@@ -217,7 +230,38 @@ export function LegacyBridgeLab() {
           >
             Clear source filter model
           </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => stagePhase(["Planning"])}
+          >
+            Stage Planning filter
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => stagePhase(null)}
+          >
+            Stage phase filter clear
+          </button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => {
+              grid.current?.api.onFilterChanged();
+              setFilterDraft("Staged filters applied");
+            }}
+          >
+            Apply staged filters
+          </button>
         </div>
+        <p role="status" aria-label="Staged source filter">
+          {filterDraft}
+        </p>
+        <p>
+          Staging updates the saved model. Apply explicitly to update displayed
+          rows.
+        </p>
       </details>
       <details>
         <summary>Source header group example</summary>

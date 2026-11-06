@@ -1,5 +1,14 @@
 # Release notes
 
+## 0.27.0 - 2026-11-06
+
+Staged source filter actions. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Add awaited per-column provided Set/text/number model staging and bounded owned model facades. Infer provided-filter types for values-only phase actions and ignore scalar metadata on Set models.
+- Keep staging distinct from immediate query application; explicit refresh, whole-model application and measured row/external-filter refreshes activate pending models. Preserve original records and detached model snapshots; retire captured instances on destruction.
+- Extend the responsive filter example with staged apply/clear controls and keyboard/browser regressions. A private comparison uses an unchanged consumer phase footer against installed AG Grid 31.3.4 and asserts equal canonical models, staged/refreshed rows and source object identities.
+- Custom-filter hooks/UI, full provided-filter GUI/value services, complete saved state/focus and authenticated application acceptance remain unfinished. Retain the Order-header sizing and physical-touch qualifications; no full replacement-readiness claim.
+
 ## 0.26.0 - 2026-11-06
 
 Resident source editing contracts. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.

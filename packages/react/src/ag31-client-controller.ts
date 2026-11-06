@@ -32,6 +32,8 @@ import {
   compileAg31ColumnFilter,
   canonicalizeAg31SetFilter,
   normalizeAg31ColumnFilterModel,
+  normalizeAg31ProvidedFilterModel,
+  type Ag31ColumnFilterModel,
   type Ag31FilterModel,
 } from "./ag31-filter-models.js";
 import {
@@ -43,6 +45,12 @@ export interface Ag31RowTransaction<T> {
   add?: T[];
   update?: T[];
   remove?: T[];
+}
+export interface Ag31ColumnFilterInstance<T> {
+  getModel(): Ag31ColumnFilterModel | null;
+  setModel(model: unknown): Promise<void>;
+  isFilterActive(): boolean;
+  doesFilterPass(params: { node: Ag31RowNode<T>; data?: T }): boolean;
 }
 export const AG31_EVENT_OPTIONS = [
   ["onGridReady", "gridReady"],
@@ -155,8 +163,11 @@ export function createAg31ClientController<T>(
   let destroyed = false;
   let selectionSource = "api";
   let sourceFilters: Ag31FilterModel = {};
+  let appliedSourceFilters: Ag31FilterModel = sourceFilters;
+  const filterInstances = new Map<string, Ag31ColumnFilterInstance<T>>();
   let compiledFilters: { id: string; passes(node: Ag31RowNode<T>): boolean }[] =
     [];
+  let appliedCompiledFilters = compiledFilters;
   let filtersApplying = false;
   const api = {} as Record<string, unknown>;
   const columnApi = {} as Record<string, unknown>;
@@ -415,6 +426,11 @@ export function createAg31ClientController<T>(
           delete remaining[id];
           sourceFilters = remaining;
         }
+        if (Object.hasOwn(appliedSourceFilters, id)) {
+          const remaining = { ...appliedSourceFilters };
+          delete remaining[id];
+          appliedSourceFilters = remaining;
+        }
       }
     }
     const sorting = !equal(before.sorting, next.sorting),
@@ -541,7 +557,7 @@ export function createAg31ClientController<T>(
       try {
         model.setRows(nextRows);
         if (
-          Object.values(sourceFilters).some(
+          Object.values({ ...sourceFilters, ...appliedSourceFilters }).some(
             (filter) => filter.filterType === "set",
           )
         )
@@ -577,14 +593,15 @@ export function createAg31ClientController<T>(
     const predicate = settings.get("doesExternalFilterPass") as
       ((node: Ag31RowNode<T>) => boolean) | undefined;
     const isPresent = present?.() === true;
-    const filters = compiledFilters;
-    if (!isPresent && !Object.keys(sourceFilters).length) return undefined;
+    const filters = appliedCompiledFilters;
+    if (!isPresent && !Object.keys(appliedSourceFilters).length)
+      return undefined;
     return (row: T) => {
       const node = nodes.getRowNode(options.getRowId(row))!;
       if (isPresent && !(predicate?.(node) ?? false)) return false;
       return filters.every(
         ({ id, passes }) =>
-          !Object.hasOwn(sourceFilters, id) ||
+          !Object.hasOwn(appliedSourceFilters, id) ||
           Object.hasOwn(model.getState().filters, id) ||
           passes(node),
       );
@@ -622,6 +639,9 @@ export function createAg31ClientController<T>(
     if (model.getState().advancedFilter != null) model.setAdvancedFilter(null);
   }
   function setFilterModel(input: unknown) {
+    changeFilterModel(input, true);
+  }
+  function changeFilterModel(input: unknown, apply: boolean) {
     if (destroyed) return;
     const next: Ag31FilterModel = {};
     const compiled: { id: string; passes(node: Ag31RowNode<T>): boolean }[] =
@@ -706,11 +726,14 @@ export function createAg31ClientController<T>(
     }
     if (
       equal(sourceFilters, next) &&
-      !Object.keys(model.getState().filters).length
+      !Object.keys(model.getState().filters).length &&
+      (!apply || equal(appliedSourceFilters, next))
     )
       return;
     const before = sourceFilters,
-      beforeCompiled = compiledFilters;
+      beforeCompiled = compiledFilters,
+      beforeApplied = appliedSourceFilters,
+      beforeAppliedCompiled = appliedCompiledFilters;
     const changed = columns
       .getColumns()
       .filter(
@@ -720,12 +743,17 @@ export function createAg31ClientController<T>(
       );
     sourceFilters = next;
     compiledFilters = compiled;
+    if (!apply) return;
+    appliedSourceFilters = next;
+    appliedCompiledFilters = compiled;
     filtersApplying = true;
     try {
       model.setExternalFilter(queryPredicate(), { columnFilters: {} });
     } catch (error) {
       sourceFilters = before;
       compiledFilters = beforeCompiled;
+      appliedSourceFilters = beforeApplied;
+      appliedCompiledFilters = beforeAppliedCompiled;
       throw error;
     } finally {
       filtersApplying = false;
@@ -735,9 +763,89 @@ export function createAg31ClientController<T>(
   }
   function onFilterChanged() {
     if (destroyed) return;
-    model.setExternalFilter(queryPredicate());
+    const previousApplied = appliedSourceFilters;
+    const previousCompiled = appliedCompiledFilters;
+    appliedSourceFilters = sourceFilters;
+    appliedCompiledFilters = compiledFilters;
+    try {
+      model.setExternalFilter(queryPredicate());
+    } catch (error) {
+      appliedSourceFilters = previousApplied;
+      appliedCompiledFilters = previousCompiled;
+      throw error;
+    }
     emit({ type: "filterChanged", source: "api", columns: [] });
     modelUpdated();
+  }
+  async function setColumnFilterModel(
+    key: unknown,
+    input: unknown,
+  ): Promise<void> {
+    if (destroyed) return;
+    const column = columns.getColumn(key),
+      definition = column?.getColDef();
+    if (!column || !definition?.filter) return;
+    const kind =
+      definition.filter === "agSetColumnFilter" || definition.filter === true
+        ? "set"
+        : definition.filter === "agTextColumnFilter"
+          ? "text"
+          : definition.filter === "agNumberColumnFilter"
+            ? "number"
+            : null;
+    if (!kind)
+      throw new TypeError(
+        "This column requires its registered source filter component adapter",
+      );
+    const value = normalizeAg31ProvidedFilterModel(kind, input);
+    const next = { ...getFilterModel() };
+    if (value == null) delete next[column.colId];
+    else
+      Object.defineProperty(next, column.colId, {
+        value,
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
+    changeFilterModel(next, false);
+  }
+  async function getColumnFilterInstance(
+    key: unknown,
+  ): Promise<Ag31ColumnFilterInstance<T> | undefined> {
+    if (destroyed) return;
+    const column = columns.getColumn(key),
+      definition = column?.getColDef();
+    if (!column || !definition?.filter) return;
+    if (
+      ![
+        true,
+        "agSetColumnFilter",
+        "agTextColumnFilter",
+        "agNumberColumnFilter",
+      ].includes(definition.filter as any)
+    )
+      throw new TypeError(
+        "This column requires its registered source filter component adapter",
+      );
+    let instance = filterInstances.get(column.colId);
+    if (!instance) {
+      instance = Object.freeze({
+        getModel: () =>
+          destroyed ? null : (getFilterModel()?.[column.colId] ?? null),
+        setModel: (input: unknown) => setColumnFilterModel(column, input),
+        isFilterActive: () =>
+          !destroyed && Object.hasOwn(sourceFilters, column.colId),
+        doesFilterPass: ({ node }: { node: Ag31RowNode<T>; data?: T }) =>
+          !destroyed &&
+          nodes.getRowNode(node.id) === node &&
+          (compiledFilters
+            .find((filter) => filter.id === column.colId)
+            ?.passes(node) ??
+            true),
+      });
+      filterInstances.set(column.colId, instance);
+    }
+    return instance;
   }
   function applyTransaction(transaction: Ag31RowTransaction<T>) {
     if (destroyed) return;
@@ -778,7 +886,9 @@ export function createAg31ClientController<T>(
       add,
     });
     if (
-      Object.values(sourceFilters).some((filter) => filter.filterType === "set")
+      Object.values({ ...sourceFilters, ...appliedSourceFilters }).some(
+        (filter) => filter.filterType === "set",
+      )
     )
       setFilterModel(sourceFilters);
     emit({ type: "rowDataUpdated" });
@@ -956,6 +1066,7 @@ export function createAg31ClientController<T>(
     columns.destroy();
     schema.destroy();
     settings.clear();
+    filterInstances.clear();
     for (const listener of [...lifecycle]) listener();
     lifecycle.clear();
     viewListeners.clear();
@@ -1029,6 +1140,8 @@ export function createAg31ClientController<T>(
     onFilterChanged,
     getFilterModel,
     setFilterModel,
+    getColumnFilterInstance,
+    setColumnFilterModel,
     getAdvancedFilterModel,
     setAdvancedFilterModel,
     applyTransaction,

@@ -59,6 +59,29 @@ for (const width of [320, 1440])
         .getByRole("button", { name: "Load source records", exact: true })
         .click();
       await expect(grid.getByText("Build", { exact: true })).toBeVisible();
+      await lab
+        .getByRole("button", { name: "Stage Planning filter", exact: true })
+        .click();
+      await expect(
+        lab.getByRole("status", { name: "Staged source filter" }),
+      ).toContainText('"values":["Planning"]');
+      await expect(grid.getByText("Build", { exact: true })).toBeVisible();
+      const apply = lab.getByRole("button", {
+        name: "Apply staged filters",
+        exact: true,
+      });
+      await apply.focus();
+      await apply.press("Enter");
+      await expect(grid.getByText("Build", { exact: true })).toHaveCount(0);
+      await lab
+        .getByRole("button", { name: "Stage phase filter clear", exact: true })
+        .click();
+      await expect(
+        lab.getByRole("status", { name: "Staged source filter" }),
+      ).toContainText("Staged: {}");
+      await expect(grid.getByText("Build", { exact: true })).toHaveCount(0);
+      await apply.click();
+      await expect(grid.getByText("Build", { exact: true })).toBeVisible();
       expect(
         await page.evaluate(
           () => document.documentElement.scrollWidth <= innerWidth,

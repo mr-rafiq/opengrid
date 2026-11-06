@@ -199,6 +199,41 @@ export function normalizeAg31ColumnFilterModel(
   }
   return simple(value);
 }
+/** A provided filter determines its model type. In particular, Set filters
+ * accept the values-only phase action and ignore scalar-filter metadata. */
+export function normalizeAg31ProvidedFilterModel(
+  kind: "set" | "text" | "number",
+  input: unknown,
+): Ag31ColumnFilterModel | null {
+  if (input == null) return null;
+  const allowed = [
+    "filterType",
+    "type",
+    "filter",
+    "filterTo",
+    "operator",
+    "conditions",
+    "condition1",
+    "condition2",
+    "values",
+  ];
+  const model = record(input, allowed);
+  if (kind === "set")
+    return normalizeAg31ColumnFilterModel({
+      filterType: "set",
+      values: model.values,
+    });
+  const typed = (value: unknown) => ({
+    ...record(value, allowed),
+    filterType: kind,
+  });
+  const result: Record<string, unknown> = { ...model, filterType: kind };
+  if (model.conditions !== undefined)
+    result.conditions = dense(model.conditions, 16).map(typed);
+  for (const name of ["condition1", "condition2"] as const)
+    if (model[name] !== undefined) result[name] = typed(model[name]);
+  return normalizeAg31ColumnFilterModel(result);
+}
 function blank(value: unknown) {
   return value == null || (typeof value === "string" && value.trim() === "");
 }
