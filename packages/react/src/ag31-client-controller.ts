@@ -557,6 +557,7 @@ export function createAg31ClientController<T>(
       try {
         model.setRows(nextRows);
         if (
+          !equal(sourceFilters, appliedSourceFilters) ||
           Object.values({ ...sourceFilters, ...appliedSourceFilters }).some(
             (filter) => filter.filterType === "set",
           )
@@ -886,6 +887,7 @@ export function createAg31ClientController<T>(
       add,
     });
     if (
+      !equal(sourceFilters, appliedSourceFilters) ||
       Object.values({ ...sourceFilters, ...appliedSourceFilters }).some(
         (filter) => filter.filterType === "set",
       )

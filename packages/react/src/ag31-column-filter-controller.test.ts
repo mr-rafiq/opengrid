@@ -114,3 +114,22 @@ it("rejects invalid staged models atomically without invoking accessor propertie
   expect(c.ids()).toEqual(["a", "b"]);
   c.api.destroy();
 });
+
+it("activates staged numeric replacements and clears when row data refilters", async () => {
+  const c = setup();
+  await c.api.setColumnFilterModel("amount", {
+    type: "greaterThan",
+    filter: 2,
+  });
+  c.api.onFilterChanged();
+  expect(c.ids()).toEqual(["c", "d"]);
+  await c.api.setColumnFilterModel("amount", { type: "lessThan", filter: 2 });
+  expect(c.ids()).toEqual(["c", "d"]);
+  c.api.applyTransaction({ update: [c.rows[0]] });
+  expect(c.ids()).toEqual(["a"]);
+  await c.api.setColumnFilterModel("amount", null);
+  expect(c.ids()).toEqual(["a"]);
+  c.api.setGridOption("rowData", [...c.rows]);
+  expect(c.ids()).toEqual(["a", "b", "c", "d"]);
+  c.api.destroy();
+});
