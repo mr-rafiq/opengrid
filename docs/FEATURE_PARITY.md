@@ -147,3 +147,7 @@ The experimental [source filter bridge](LEGACY_REACT_BRIDGE.md#reactive-source-f
 ## Resident row reveal (0.29.0)
 
 The experimental [row-reveal bridge](LEGACY_REACT_BRIDGE.md#resident-row-reveal) scrolls current resident rows by displayed index, owned node, original data or predicate. Alignment uses mounted body geometry; queued commands follow sort/expansion commits and revoke retired records/views. Original unit/browser fixtures and paired installed-reference profiles cover focus/selection/horizontal preservation, constrained hosts and resize. Numeric focus, saved-state translation, automatic hidden-branch expansion, remote loading and full application acceptance remain separate gaps. The broad parity counts are unchanged.
+
+## Resident aggregate refresh and row redraw (0.31.0)
+
+The experimental [source bridge](LEGACY_REACT_BRIDGE.md) now retains filter/group membership during aggregate refresh and runs downstream sorting. Owned body-row redraw remounts stateful React renderers, commits edited targets once and preserves unrelated drafts, selection and original records. Paired installed-AG31 measurements cover empty/target/all redraw and numeric/browser focus; original responsive examples exercise force refresh, group/selected redraw and inline editing. Deferred starts are guarded by original record and mounted-view ownership. Source aggregation configuration, bulk selection, flash, full state and the complete authenticated application transaction path remain unfinished. Broad parity category counts are unchanged.

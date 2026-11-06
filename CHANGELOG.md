@@ -1,6 +1,8 @@
 # Release notes
 
-## Unreleased
+## 0.31.0 - 2026-11-06
+
+Resident aggregate refresh and owned row redraw. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
 
 - Add a resident aggregate refresh stage with downstream sorting and retained filter/group membership. Keep source and filtered hierarchy preparation independent of display callbacks; preserve the previous projection on callback failure.
 - Expose the bounded source `refreshClientSideRowModel("aggregate")` path and a responsive retained-record demo. Full source aggregation configuration and business transaction acceptance remain unfinished.
