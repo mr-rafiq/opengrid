@@ -1,5 +1,6 @@
 import { createAg31ViewServices } from "./ag31-view-services.js";
 import { createAg31RowReveal } from "./ag31-row-reveal.js";
+import { createAg31CellFocus } from "./ag31-cell-focus.js";
 import { createAg31CellValueServices } from "./ag31-cell-values.js";
 import { createAg31EditingServices } from "./ag31-editing.js";
 import type { DataGridViewController } from "./grid-view.js";
@@ -76,6 +77,7 @@ export const AG31_EVENT_OPTIONS = [
   ["onCellEditingStarted", "cellEditingStarted"],
   ["onCellEditingStopped", "cellEditingStopped"],
   ["onCellKeyDown", "cellKeyDown"],
+  ["onCellFocused", "cellFocused"],
 ] as const;
 export type Ag31EventOptionName = (typeof AG31_EVENT_OPTIONS)[number][0];
 export const AG31_HEADER_METRICS = [
@@ -426,6 +428,24 @@ export function createAg31ClientController<T>(
   });
   let editingAttachment: { read(): DataGridViewController | null } | null =
     null;
+  const cellFocus = createAg31CellFocus<T>({
+    column: columns.getColumn,
+    position(index, column) {
+      const row = model.getRowModel()[index];
+      return row && columns.getAllDisplayedColumns().includes(column)
+        ? { rowId: row.id, columnId: column.colId }
+        : null;
+    },
+    locate(position) {
+      const index = model
+        .getRowModel()
+        .findIndex((row) => row.id === position.rowId);
+      const column = columns.getColumn(position.columnId);
+      return index >= 0 && column ? { index, column } : null;
+    },
+    subscribe: model.subscribe,
+    emit: (event) => events.dispatchEvent(event),
+  });
   function mountedEditingView() {
     if (destroyed) return null;
     const view = editingAttachment?.read();
@@ -1192,6 +1212,7 @@ export function createAg31ClientController<T>(
     editingAttachment = null;
     viewServices.destroy();
     rowReveal.destroy();
+    cellFocus.destroy();
     sizingServices.destroy();
     overlays.destroy();
     unsubscribe();
@@ -1272,6 +1293,9 @@ export function createAg31ClientController<T>(
     ctrlsService: viewServices.ctrlsService,
     ensureIndexVisible: rowReveal.ensureIndexVisible,
     ensureNodeVisible: rowReveal.ensureNodeVisible,
+    getFocusedCell: cellFocus.getFocusedCell,
+    setFocusedCell: cellFocus.setFocusedCell,
+    clearFocusedCell: cellFocus.clearFocusedCell,
     overlayService: overlays.service,
     showLoadingOverlay() {
       if (!destroyed) overlays.showLoading();
@@ -1415,6 +1439,7 @@ export function createAg31ClientController<T>(
     overlays,
     viewServices,
     rowReveal,
+    cellFocus,
     sizingServices,
     cellValues,
     editing,

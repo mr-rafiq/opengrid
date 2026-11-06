@@ -26,6 +26,10 @@ export function LegacyScrollLab() {
   const [ready, setReady] = useState(false),
     [compact, setCompact] = useState(false),
     [alignment, setAlignment] = useState<Ag31RowRevealPosition>("middle"),
+    [focusedCell, setFocusedCell] = useState<{
+      rowIndex: number;
+      columnId: string;
+    } | null>(null),
     [position, setPosition] = useState({ top: 0, left: 0 });
   const rows = useMemo(
     () =>
@@ -38,6 +42,14 @@ export function LegacyScrollLab() {
     [],
   );
   const onReady = useCallback(() => setReady(true), []);
+  const updateFocus = useCallback(() => {
+    const value = ref.current?.api.getFocusedCell();
+    setFocusedCell(
+      value
+        ? { rowIndex: value.rowIndex, columnId: value.column.getColId() }
+        : null,
+    );
+  }, []);
   useEffect(
     () => () => {
       if (timer.current !== null) clearTimeout(timer.current);
@@ -55,7 +67,7 @@ export function LegacyScrollLab() {
       <p>
         Original local records. Scroll restoration moves the real viewport
         without selecting another cell or moving keyboard focus. Complete source
-        saved state, focus APIs and automatic sizing strategies remain separate
+        saved state and automatic sizing strategies remain separate
         requirements.
       </p>
       <div className="grouping-lab-controls">
@@ -169,6 +181,40 @@ export function LegacyScrollLab() {
           </button>
         </div>
       </fieldset>
+      <fieldset>
+        <legend>Cell focus</legend>
+        <p>
+          Focus and scroll are separate. Reveal the row, then set focus when its
+          cell is visible.
+        </p>
+        <div className="grouping-lab-controls">
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => {
+              ref.current?.api.setFocusedCell(250, "item");
+              updateFocus();
+            }}
+          >
+            Set cell focus 251
+          </button>
+          <button
+            type="button"
+            disabled={!ready}
+            onClick={() => {
+              ref.current?.api.clearFocusedCell();
+              updateFocus();
+            }}
+          >
+            Clear cell focus
+          </button>
+        </div>
+        <output aria-label="Source focused cell" aria-live="polite">
+          {focusedCell
+            ? `Displayed index ${focusedCell.rowIndex}; ${focusedCell.columnId}`
+            : "No source cell focus"}
+        </output>
+      </fieldset>
       <p>
         <output aria-label="Source viewport position" aria-live="off">
           Top {Math.round(position.top * 100) / 100}px; left{" "}
@@ -204,6 +250,7 @@ export function LegacyScrollLab() {
           groupSelectsChildren
           suppressRowClickSelection
           onGridReady={onReady}
+          onCellFocused={updateFocus}
           ariaLabel="Source scroll records"
         />
       </div>

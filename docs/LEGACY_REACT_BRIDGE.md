@@ -144,7 +144,21 @@ grid.current?.api.ctrlsService.params?.gridBodyCtrl.bodyScrollFeature.setScrollP
 
 Both offsets must be finite nonnegative pixel values. Fractions are preserved until the browser applies its own pixel rounding; browser geometry clamps values beyond the available scroll range. Commands do not rerun the source query, change selection or move keyboard focus. The original collapsed scroll lab uses 500 synthetic records, both axes, fractional offsets, host resizing and a deferred loading/restore/hide example. The final logical header's resize handle stays inside its content edge, including under virtualization, so its hit area does not add phantom scroll width.
 
-This does not implement source `getState` / `initialState`, source logical-focus APIs or every viewport service method. Native row-ID focus/reveal semantics are different from the measured source numeric focus contract; do not substitute one for the other. Complete saved-view compatibility remains unfinished.
+This does not implement source `getState` / `initialState` or every viewport service method. Complete saved-view compatibility remains unfinished.
+
+## Numeric source focus
+
+`api.getFocusedCell()` returns a displayed row index, the original source column object and `rowPinned: null`, or null when no source cell is focused. `api.setFocusedCell(index, columnKey)` retains this numeric coordinate across sorting and group changes. This differs from native row-ID focus: the record at a focused index can change when the displayed projection changes. `api.clearFocusedCell()` clears logical cell focus without stealing browser focus from its current owner.
+
+```tsx
+api.setFocusedCell(250, "item");
+const focused = api.getFocusedCell();
+api.clearFocusedCell();
+```
+
+Setting focus does not reveal an offscreen row or take browser focus when that cell is absent. Revealing the row later does not transfer focus from an external control; set focus again once the cell is mounted. Keyboard navigation and clicks on mounted cells update the numeric coordinate. The bridge preserves original column identity and row selection. It rejects negative or noninteger indices and unsupported pinned-row focus. Full saved-state translation, pinned source rows and authenticated application acceptance remain unfinished.
+
+The scroll lab includes explicit set/clear controls and a displayed-coordinate readout. Isolated reference comparisons exercise mounted and offscreen cells, external focus, sorting, hidden columns, keyboard navigation and collapsed group projections. These comparisons do not establish physical-device or complete calculation-page acceptance.
 
 ## Resident row reveal
 
@@ -157,7 +171,7 @@ if (node) api?.ensureNodeVisible(node, "middle");
 api?.ensureIndexVisible(100, "top");
 ```
 
-Commands preserve horizontal scroll, row selection and keyboard focus. They use current sorted/filtered indices and actual mounted body height, including after host resizing. A request made immediately after a query or group-expansion change waits for that view's layout commit; the latest valid request wins. Removed rows and retired attachments cancel pending work. Invalid indices, lookalike objects and absent/collapsed/filtered rows do nothing. The command does not expand a group, load remote rows or focus a cell. Numeric source focus and complete saved-state APIs remain separate unfinished contracts.
+Commands preserve horizontal scroll, row selection and keyboard focus. They use current sorted/filtered indices and actual mounted body height, including after host resizing. A request made immediately after a query or group-expansion change waits for that view's layout commit; the latest valid request wins. Removed rows and retired attachments cancel pending work. Invalid indices, lookalike objects and absent/collapsed/filtered rows do nothing. The command does not expand a group, load remote rows or focus a cell. Complete saved-state APIs remain unfinished.
 
 The scroll example includes node, original-record and displayed-index controls in both themes. Private reference comparisons cover constrained flex hosts, sorting, same-stack expansion and resizing; they do not establish equal absolute viewport heights or physical-device acceptance.
 
@@ -238,6 +252,6 @@ Selection, column width/order/visibility/pinning, pagination and group expansion
 
 `api.refreshClientSideRowModel()` (or `"everything"` / `"group"`) explicitly refreshes the complete resident source query and publishes the model update. It preserves original record and row-node identities. Independent partial stages such as `"aggregate"`, `"filter"` and `"sort"` are unfinished and explicitly rejected; the full-refresh API must not be substituted for a required partial-stage contract. The demo uses full refresh after mutating a local synthetic class instance.
 
-AG Grid `initialState`/`getState` translation, numeric focus, complete provided-filter GUI/value services and additional custom-filter lifecycle hooks, full business-editor integration, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. Inline source editing can invoke an application's setter; the application owns any persistence it performs. The demonstration makes no backend request. A source callback retained in metadata is not proof that its feature is implemented.
+AG Grid `initialState`/`getState` translation, pinned-row source focus, complete provided-filter GUI/value services and additional custom-filter lifecycle hooks, full business-editor integration, paste and backend undo transactions, menu/status/tool-panel registries, complete service APIs, source-theme DOM/CSS compatibility and authenticated application acceptance remain unfinished. Native OpenGrid features in these areas do not automatically satisfy legacy contracts. Inline source editing can invoke an application's setter; the application owns any persistence it performs. The demonstration makes no backend request. A source callback retained in metadata is not proof that its feature is implemented.
 
 Original regression fixtures cover public imports/ref lifecycle, nullable options, event ordering and filtering. Private read-only source fixtures additionally compare unchanged consumer components and the installed reference implementation; those source files and application data are not published. The unchanged complete application is **not supported yet**: the explicit gaps above prevent a complete replacement, independently of the pending authenticated acceptance.

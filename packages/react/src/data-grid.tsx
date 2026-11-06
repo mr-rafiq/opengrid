@@ -5,6 +5,10 @@ import {
 } from "./group-panel.js";
 import { GridIcon } from "./icons.js";
 import { createDataGridViewController } from "./grid-view.js";
+import {
+  useGridCellFocus,
+  type GridCellFocusController,
+} from "./grid-cell-focus.js";
 import type {
   DataGridViewController,
   GridViewPort,
@@ -238,6 +242,7 @@ export interface DataGridProps<T> {
   editorOptions?: Record<string, EditorConfig>;
   renderEditor?: CellEditorRenderer<T>;
   cellEditingController?: GridCellEditingController;
+  cellFocusController?: GridCellFocusController;
   cellKeyboardHandler?: (
     event: KeyboardEvent<HTMLDivElement>,
     position: CellPosition,
@@ -447,6 +452,7 @@ export function DataGrid<T>({
   editorOptions = {},
   renderEditor,
   cellEditingController,
+  cellFocusController,
   cellKeyboardHandler,
   doubleClickEditing = true,
   editMode = "cell",
@@ -950,10 +956,13 @@ export function DataGrid<T>({
       },
     [model],
   );
-  const [focus, setFocus] = useState<FocusCell>({
-    rowId: rows[0]?.id ?? "",
-    columnId: columns[0]?.id ?? "",
-  });
+  const [focus, setFocus] = useGridCellFocus(
+    {
+      rowId: rows[0]?.id ?? "",
+      columnId: columns[0]?.id ?? "",
+    },
+    cellFocusController,
+  );
   const viewFocus = useRef(focus);
   const pendingViewFocus = useRef<FocusCell | null>(null);
   useLayoutEffect(() => {
@@ -1919,6 +1928,7 @@ export function DataGrid<T>({
     pinnedBottomHeight,
   ]);
   useEffect(() => {
+    if (cellFocusController) return;
     setFocus((current) => {
       const row = Math.max(0, projection.indexOf(current.rowId));
       const columnId = ownerColumnId(row, current.columnId);
@@ -1928,7 +1938,7 @@ export function DataGrid<T>({
         ? current
         : { rowId, columnId };
     });
-  }, [projection, spanPlanFor, rowSpanPlan]);
+  }, [projection, spanPlanFor, rowSpanPlan, cellFocusController]);
   useLayoutEffect(() => {
     const current = editingRef.current;
     if (!current) return;
@@ -3561,6 +3571,11 @@ export function DataGrid<T>({
                         else cells.current.delete(key);
                       }}
                       data-row-id={node.id}
+                      data-og-controlled-focus={
+                        cellFocusController && !focus.rowId
+                          ? "empty"
+                          : undefined
+                      }
                       data-column-id={column.id}
                       data-formula-error={formulaError?.code}
                       className={`og-cell ${column.wrapText ? "og-wrap-text" : ""} ${column.autoHeight && !isEditing ? "og-auto-height" : ""} ${rowSpan ? "og-row-spanning" : ""} ${isEditing || isSourceEditing ? "og-editing" : ""} ${pinOf(column) ? "og-pinned" : ""} ${findMatches.has(JSON.stringify([node.id, column.id])) ? "og-find-match" : ""} ${activeFind?.rowId === node.id && activeFind.columnId === column.id ? "og-find-active" : ""} ${ranges.contains(node.id, column.id) ? "og-range-selected" : ""} ${column.type === "number" || column.type === "bigint" ? "og-numeric" : ""} ${getCellClassName?.({ node, column, value, displayValue: display }) ?? ""}`}
@@ -4152,6 +4167,9 @@ export function DataGrid<T>({
     <section
       ref={setPopupHost}
       className={`og-root ${className}`}
+      data-og-controlled-focus={
+        cellFocusController && !focus.rowId ? "empty" : undefined
+      }
       lang={locale}
       dir={direction}
       data-direction={direction}

@@ -110,6 +110,13 @@ export interface Ag31ClientGridConfig<T> extends Ag31OverlayComponentOptions {
   onCellEditingStarted?(event: Ag31ClientGridCellEvent<T>): void;
   onCellEditingStopped?(event: Ag31ClientGridCellEvent<T>): void;
   onCellKeyDown?(event: Ag31ClientGridCellEvent<T>): void;
+  onCellFocused?(
+    event: Ag31ClientGridEvent<T> & {
+      rowIndex: number;
+      rowPinned: null;
+      column: Ag31LeafColumn<T>;
+    },
+  ): void;
   rowGroupPanelShow?: "always" | "onlyWhenGrouping" | "never";
   isExternalFilterPresent?: (() => boolean) | null;
   doesExternalFilterPass?: ((node: Ag31RowNode<T>) => boolean) | null;
@@ -371,6 +378,47 @@ function ResidentView<T>({
     [owner],
   );
   useLayoutEffect(() => owner.attachEditingView(() => view.current), [owner]);
+  useLayoutEffect(
+    () =>
+      owner.cellFocus.attach(() => {
+        const host = container.current;
+        const viewport = host?.querySelector<HTMLElement>(".og-viewport");
+        if (!host || !viewport || !view.current?.isActive()) return null;
+        return {
+          focus(position, preventScroll) {
+            const cell = [
+              ...viewport.querySelectorAll<HTMLElement>(
+                ".og-cell[data-row-id][data-column-id]",
+              ),
+            ].find(
+              (element) =>
+                element.dataset.rowId === position.rowId &&
+                element.dataset.columnId === position.columnId &&
+                element.closest(".og-viewport") === viewport,
+            );
+            if (!cell) return false;
+            const editing = owner.editing.controller.getEditingCell();
+            if (
+              editing?.rowId === position.rowId &&
+              editing.columnId === position.columnId &&
+              cell.contains(cell.ownerDocument.activeElement)
+            )
+              return true;
+            cell.focus({ preventScroll });
+            return cell.ownerDocument.activeElement === cell;
+          },
+          ownsBrowserFocus() {
+            const active = host.ownerDocument.activeElement;
+            return (
+              active instanceof HTMLElement &&
+              active.matches(".og-cell") &&
+              active.closest(".og-viewport") === viewport
+            );
+          },
+        };
+      }),
+    [owner],
+  );
   useLayoutEffect(() => {
     owner.editing.reconcile();
   });
@@ -623,6 +671,22 @@ function ResidentView<T>({
     <div
       ref={container}
       className={`og-source-client ${props.className ?? ""}`}
+      onFocusCapture={(event) => {
+        if (!(event.target instanceof Element)) return;
+        const cell = event.target.closest<HTMLElement>(
+          ".og-cell[data-row-id][data-column-id]",
+        );
+        if (
+          !cell ||
+          cell.closest(".og-viewport") !==
+            container.current?.querySelector(".og-viewport")
+        )
+          return;
+        owner.cellFocus.controller.setFocusedCell({
+          rowId: cell.dataset.rowId!,
+          columnId: cell.dataset.columnId!,
+        });
+      }}
       data-og-fluid-height={props.height === undefined ? "true" : undefined}
       style={{
         position: "relative",
@@ -634,6 +698,7 @@ function ResidentView<T>({
       <DataGrid
         model={owner.model}
         cellEditingController={owner.editing.controller}
+        cellFocusController={owner.cellFocus.controller}
         doubleClickEditing={!props.suppressClickEdit}
         cellKeyboardHandler={(event, position) =>
           sourceEditorKey(
@@ -652,7 +717,10 @@ function ResidentView<T>({
           toggle: owner.groups.toggle,
         }}
         viewRef={view}
-        onViewCommit={owner.rowReveal.flush}
+        onViewCommit={() => {
+          owner.rowReveal.flush();
+          owner.cellFocus.flush();
+        }}
         sizingRef={sizing}
         toolbar={false}
         onColumnFilterRequest={({ column, anchor }) => {
@@ -981,6 +1049,7 @@ function ClientGrid<T>(
     props.onCellEditingStarted,
     props.onCellEditingStopped,
     props.onCellKeyDown,
+    props.onCellFocused,
   ]);
   return owner && !owner.api.isDestroyed() ? (
     <ResidentView owner={owner} props={props} gridRef={ref} />
