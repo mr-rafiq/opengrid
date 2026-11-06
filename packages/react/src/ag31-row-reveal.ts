@@ -2,7 +2,7 @@ import type { Ag31RowNode } from "./ag31-row-nodes.js";
 import type { DataGridViewController } from "./grid-view.js";
 
 export type Ag31RowRevealPosition = "top" | "middle" | "bottom" | null;
-interface RowRevealPort {
+export interface RowRevealPort {
   view: Pick<
     DataGridViewController,
     "isActive" | "getScrollPosition" | "scrollTo"
