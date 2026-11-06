@@ -68,7 +68,7 @@ export function SourceEditingLab() {
         width: 240,
         editable: true,
         valueGetter: (p: any) =>
-          (p.data ?? p.node.allLeafChildren?.[0]?.data)?.label,
+          (p.node.group ? p.node.allLeafChildren?.[0]?.data : p.data)?.label,
         cellEditor: LabelEditor,
         suppressKeyboardEvent: (p: any) =>
           p.editing && ["Enter", "Tab"].includes(p.event.key),
