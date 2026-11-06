@@ -39,6 +39,10 @@ The ref exposes one owned `api` and `columnApi` graph. Row nodes retain original
 
 Supported configuration includes `getRowId`, `rowData`, `columnDefs`, `defaultColDef`, `context`, React `components`, native `initialModelState`, height/rowHeight, className/ariaLabel, multiple row selection, custom group display, filtered group selection, complete tree rendering and the native row-group panel. Measured false-only grouping policies and reactive-component mode are validated rather than silently approximated.
 
+## Declared row groups
+
+Declared `rowGroup`, `rowGroupIndex`, `initialRowGroup` and `initialRowGroupIndex` take effect independently of `enableRowGroup`. Defined regular values override initial values; an explicit group index activates grouping. The phase example deliberately sets `enableRowGroup: false` while retaining its declared groups. This does not certify the complete source tool-panel permission model. Grouping an initially ungrouped field through source state still requires `enableRowGroup: true`; full programmatic/UI permission separation remains unfinished.
+
 ## Events and external filtering
 
 The supported event options are `onGridReady`, `onSortChanged`, `onFilterChanged`, `onSelectionChanged`, `onModelUpdated`, `onRowDataUpdated` and `onColumnRowGroupChanged`. API listeners run before the corresponding option callback. The option is resolved when the queued event is delivered, so replacement or clearing before delivery takes effect. Event records carry the owned API, column API and context. This does not establish complete payload parity for every AG Grid event.

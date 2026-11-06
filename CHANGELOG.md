@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.29.1 - 2026-11-06
+
+Preserve declared source grouping. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Honor declared and initial row-group flags/indices when `enableRowGroup` is absent or false. The UI flag no longer silently removes an explicitly declared group from the resident projection.
+- Preserve regular/initial precedence, original records and definitions. Add a 27-case controller regression and exercise disabled UI opt-in in the existing responsive example.
+- Strengthen the private reference check to require real group identity before reveal geometry. The previous geometry-only check could mistake the root for a declared group. Complete source permission/state/business integration remains unfinished.
+
 ## 0.29.0 - 2026-11-06
 
 Resident source row reveal. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.

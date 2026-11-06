@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 
 for (const width of [320, 1440]) {
   for (const theme of ["light", "dark"]) {
-    test(`public resident bridge ${width}px ${theme}: nullable rows, source methods, filters, ref selection and teardown`, async ({
+    test(`public resident bridge ${width}px ${theme}: declared groups without UI opt-in, source methods, filters, ref selection and teardown`, async ({
       page,
     }, info) => {
       await page.setViewportSize({ width, height: 900 });
@@ -27,6 +27,12 @@ for (const width of [320, 1440]) {
       await expect(
         lab.getByRole("status", { name: "Source summary" }),
       ).toContainText("2 displayed rows");
+      await expect(
+        grid.getByRole("button", { name: "Expand Build", exact: true }),
+      ).toBeVisible();
+      await expect(
+        grid.getByRole("button", { name: "Expand Planning", exact: true }),
+      ).toBeVisible();
       await grid.getByRole("checkbox", { name: /select all/i }).check();
       await expect(
         lab.getByRole("status", { name: "Source summary" }),

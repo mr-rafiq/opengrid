@@ -37,7 +37,7 @@ const definitions: Ag31ColumnDefinition<EstimateLine>[] = [
         field: "phase",
         headerName: "Phase",
         rowGroup: true,
-        enableRowGroup: true,
+        enableRowGroup: false,
         hide: true,
         filter: "agSetColumnFilter",
       },
