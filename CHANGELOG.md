@@ -1,5 +1,13 @@
 # Release notes
 
+## 0.30.0 - 2026-11-06
+
+Resident source numeric focus. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
+
+- Add source `getFocusedCell`, `setFocusedCell`, `clearFocusedCell` and `onCellFocused` support using displayed numeric coordinates and original column identity. Sorting and group collapse can change the record at that coordinate, independently of native row-ID focus.
+- Separate focus from reveal. Absent virtual cells do not trigger implicit scrolling or delayed focus theft from external controls; explicitly focus again after revealing a target. Keep editors, selection, attachment retirement and ordinary keyboard navigation intact.
+- Add responsive light/dark set/clear controls and coordinate readout to the scroll lab, focused controller regressions and four public browser scenarios. Pinned source rows, complete saved-state translation and full authenticated Kalkverse acceptance remain unsupported.
+
 ## 0.29.1 - 2026-11-06
 
 Preserve declared source grouping. Created by Mohamed Rafiq. Source release; npm publication remains coordinated separately.
