@@ -33,7 +33,7 @@ function RetainedFilter<T>({
   const popup = useRef<HTMLDivElement>(null),
     [position, setPosition] = useState({ left: 8, top: 8, width: 280 });
   useLayoutEffect(() => {
-    if (!open || !popup.current) return;
+    if (!open || !popup.current || filters.isDestroyed()) return;
     const element = popup.current,
       doc = element.ownerDocument,
       win = doc.defaultView!;
@@ -156,6 +156,8 @@ function RetainedFilter<T>({
     doc.addEventListener("pointerdown", outside, true);
     doc.addEventListener("focusin", onFocus, true);
     doc.addEventListener("keydown", onKey, true);
+    if (typeof element.showPopover === "function") element.showPopover();
+    else element.removeAttribute("popover");
     place();
     void entry.filter.whenReady().then((ready) => {
       if (live && ready) {
@@ -173,13 +175,16 @@ function RetainedFilter<T>({
       doc.removeEventListener("pointerdown", outside, true);
       doc.removeEventListener("focusin", onFocus, true);
       doc.removeEventListener("keydown", onKey, true);
-      if (
-        doc.activeElement instanceof HTMLElement &&
-        element.contains(doc.activeElement)
-      )
+      const heldFocus = element.contains(doc.activeElement);
+      if (doc.activeElement instanceof HTMLElement && heldFocus)
         lastFocus.current = doc.activeElement;
+      if (
+        typeof element.hidePopover === "function" &&
+        element.matches(":popover-open")
+      )
+        element.hidePopover();
       entry.filter.detach();
-      if (element.contains(doc.activeElement)) {
+      if (heldFocus) {
         const target =
           returnTarget?.isConnected &&
           !returnTarget.matches(":disabled") &&
@@ -197,6 +202,7 @@ function RetainedFilter<T>({
   return (
     <div
       ref={popup}
+      popover="manual"
       role={open ? "dialog" : undefined}
       aria-label={open ? `Filter ${name}` : undefined}
       aria-hidden={!open}
@@ -206,6 +212,10 @@ function RetainedFilter<T>({
       style={{
         display: open ? "block" : "none",
         position: "fixed",
+        margin: 0,
+        padding: 0,
+        right: "auto",
+        bottom: "auto",
         zIndex: 1000,
         ...position,
         maxHeight: "min(320px, calc(100dvh - 16px))",

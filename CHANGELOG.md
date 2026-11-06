@@ -5,7 +5,8 @@
 Keep the resident demo usable before advanced examples. Created by Mohamed Rafiq.
 
 - Place the live resident grid and its summary directly after the primary controls. Advanced examples remain available below it, so adding an example does not push the working grid below the viewport during header-group interaction.
-- Preserve the existing phone/desktop, light/dark header-group viewport assertions and all source filter/editor behavior. This patch changes the demo layout and release metadata; the reactive-filter library implementation is unchanged.
+- Use the browser's manual popover layer for custom source filters, retaining inherited theme tokens and nonmodal focus behavior. Another grid's loading overlay can no longer intercept the filter's controls after a viewport change.
+- Preserve the existing phone/desktop header-group viewport assertions and actual popup tap/keyboard interactions in both color modes.
 
 ## 0.28.0 - 2026-11-06
 
